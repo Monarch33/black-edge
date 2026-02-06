@@ -4,9 +4,12 @@ import { useState } from "react"
 import { motion } from "framer-motion"
 import { Eye, Zap, Server, Clock, Radio, Skull, AlertTriangle, Loader2, Check, ExternalLink } from "lucide-react"
 import { loadStripe } from "@stripe/stripe-js"
+import { isStripeConfigured } from "@/lib/stripe"
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_KEY || "")
+const STRIPE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_KEY || ""
+const stripePromise = STRIPE_KEY ? loadStripe(STRIPE_KEY) : null
 const RUNNER_PRICE_ID = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_RUNNER || ""
+const IS_STRIPE_ENABLED = isStripeConfigured()
 
 interface Plan {
   id: "observer" | "runner" | "whale"
@@ -55,13 +58,17 @@ export function PricingView() {
       }
 
       // Runner: Stripe Checkout
+      if (!IS_STRIPE_ENABLED) {
+        throw new Error("⚠️ Payments are not configured yet. Please add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to enable subscriptions.")
+      }
+
       console.log("[Stripe] Starting checkout for Runner plan...")
       console.log("[Stripe] Price ID:", RUNNER_PRICE_ID)
-      console.log("[Stripe] Publishable key loaded:", !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || !!process.env.NEXT_PUBLIC_STRIPE_KEY)
+      console.log("[Stripe] Publishable key loaded:", !!STRIPE_KEY)
 
       const stripe = await stripePromise
       if (!stripe) {
-        throw new Error("Stripe failed to initialize. Check NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY in .env.local")
+        throw new Error("Stripe failed to initialize. Check your configuration.")
       }
 
       if (!RUNNER_PRICE_ID || RUNNER_PRICE_ID === "price_xxxxx_runner") {

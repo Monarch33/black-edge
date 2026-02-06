@@ -733,6 +733,8 @@ export function TerminalView() {
   const [viewMode, setViewMode] = useState<ViewMode>("table")
   const [activeCategory, setActiveCategory] = useState<Category>("ALL")
   const [selectedMarket, setSelectedMarket] = useState<QuantSignal | null>(null)
+  const [isLiveData, setIsLiveData] = useState(false)
+  const [dataSource, setDataSource] = useState<"mock" | "live" | "loading">("loading")
   const tableContainerRef = useRef<HTMLDivElement>(null)
 
   // Paywall timer
@@ -786,15 +788,31 @@ export function TerminalView() {
 
   const fetchOpportunities = useCallback(async () => {
     setIsLoading(true)
+    setDataSource("loading")
     try {
       const response = await fetch(`${API_URL}/api/opportunities`)
       if (response.ok) {
         const data = await response.json()
-        if (data.length > 0) setOpportunities(data)
+        if (data.length > 0) {
+          setOpportunities(data)
+          setIsLiveData(true)
+          setDataSource("live")
+          console.log("✅ Live Polymarket data loaded:", data.length, "opportunities")
+        } else {
+          setDataSource("mock")
+          console.warn("⚠️ Backend returned empty data, using mock")
+        }
+      } else {
+        throw new Error(`API returned ${response.status}`)
       }
     } catch (error) {
-      console.error("Failed to fetch:", error)
-    } finally { setIsLoading(false) }
+      console.error("❌ Failed to fetch live data:", error)
+      console.log("📦 Using mock data - Backend not available at:", API_URL)
+      setIsLiveData(false)
+      setDataSource("mock")
+    } finally {
+      setIsLoading(false)
+    }
   }, [])
 
   const handleExecute = async (marketId: string, outcome: "YES" | "NO", amount: number) => {
@@ -917,7 +935,26 @@ export function TerminalView() {
           <SniperModeBadge enabled={settings.sniperMode} onToggle={() => setSettings((prev) => ({ ...prev, sniperMode: !prev.sniperMode }))} />
           <PrivateRpcToggle enabled={settings.privateRpc} onToggle={() => setSettings((prev) => ({ ...prev, privateRpc: !prev.privateRpc }))} />
           <ViewModeToggle mode={viewMode} onToggle={() => setViewMode((prev) => prev === "table" ? "heatmap" : "table")} />
-          <button onClick={fetchOpportunities} disabled={isLoading} className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 text-white/40 hover:border-white/20 hover:text-white/60 text-[10px] md:text-xs font-mono tracking-wider transition-all">
+
+          {/* Data Source Indicator */}
+          <div className={`flex items-center gap-2 px-3 py-2 border text-[10px] md:text-xs font-mono tracking-wider ${
+            dataSource === "live"
+              ? "bg-green-500/10 border-green-500/50 text-green-400"
+              : dataSource === "mock"
+              ? "bg-yellow-500/10 border-yellow-500/50 text-yellow-400"
+              : "bg-white/5 border-white/10 text-white/40"
+          }`}>
+            <Radio className={`w-3 h-3 ${dataSource === "live" ? "animate-pulse" : ""}`} />
+            <span className="hidden sm:inline">
+              {dataSource === "live" ? "LIVE DATA" : dataSource === "mock" ? "MOCK DATA" : "LOADING..."}
+            </span>
+            <span className="sm:hidden">
+              {dataSource === "live" ? "LIVE" : dataSource === "mock" ? "MOCK" : "..."}
+            </span>
+            {dataSource === "live" && <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />}
+          </div>
+
+          <button onClick={fetchOpportunities} disabled={isLoading} className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 text-white/40 hover:border-white/20 hover:text-white/60 text-[10px] md:text-xs font-mono tracking-wider transition-all disabled:opacity-50">
             <RotateCcw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} /><span className="hidden sm:inline">REFRESH</span>
           </button>
         </motion.div>

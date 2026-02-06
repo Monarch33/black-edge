@@ -18,19 +18,29 @@ export function getStripe(): Promise<Stripe | null> {
     // DEBUG: Log Stripe configuration
     console.log("🔑 Stripe Configuration Debug:");
     console.log("  - Environment:", process.env.NODE_ENV);
-    console.log("  - Key Prefix:", stripeKey.substring(0, 7));
+    console.log("  - Key Prefix:", stripeKey ? stripeKey.substring(0, 7) : "NONE");
     console.log("  - Key Length:", stripeKey.length);
-    console.log("  - Mode:", stripeKey.startsWith("pk_live_") ? "LIVE" : stripeKey.startsWith("pk_test_") ? "TEST" : "INVALID");
+    console.log("  - Mode:", stripeKey.startsWith("pk_live_") ? "LIVE" : stripeKey.startsWith("pk_test_") ? "TEST" : "DISABLED");
 
     if (!stripeKey) {
-      console.error("❌ STRIPE ERROR: No publishable key found in environment");
+      console.warn("⚠️ STRIPE: No publishable key configured - payments disabled");
+      return Promise.resolve(null);
     } else if (!stripeKey.startsWith("pk_")) {
       console.error("❌ STRIPE ERROR: Invalid key format - must start with pk_live_ or pk_test_");
+      return Promise.resolve(null);
     }
 
     stripePromise = loadStripe(stripeKey);
   }
   return stripePromise;
+}
+
+/**
+ * Check if Stripe is configured
+ */
+export function isStripeConfigured(): boolean {
+  const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
+  return stripeKey.length > 0 && stripeKey.startsWith("pk_");
 }
 
 /**
