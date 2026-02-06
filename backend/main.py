@@ -22,7 +22,6 @@ import uvicorn
 
 from config import get_settings
 from api.websocket import websocket_handler, manager as ws_manager, heartbeat_task
-from routers.arbitrage import router as arbitrage_router
 from engine.polymarket import PolymarketClient
 from engine.analytics import QuantEngine, QuantSignal
 
@@ -31,12 +30,14 @@ try:
     from engine.blockchain import BlockchainPipeline, OrderFilledEvent, PositionsConvertedEvent
     from engine import ArbitrageDetector, MarketState
     from engine.risk_calculator import RiskCalculator
+    from routers.arbitrage import router as arbitrage_router
     ADVANCED_FEATURES_AVAILABLE = True
-except ImportError:
-    logger.warning("⚠️ Advanced features disabled (numpy/pandas/scipy not available)")
+except ImportError as e:
+    logger.warning("⚠️ Advanced features disabled (numpy/pandas/scipy not available)", error=str(e))
     BlockchainPipeline = None
     ArbitrageDetector = None
     RiskCalculator = None
+    arbitrage_router = None
     ADVANCED_FEATURES_AVAILABLE = False
 
 logger = structlog.get_logger()
@@ -260,8 +261,12 @@ app.add_middleware(
 # Routes
 # =============================================================================
 
-# Include routers
-app.include_router(arbitrage_router, prefix="/api/v1")
+# Include routers (only if advanced features available)
+if ADVANCED_FEATURES_AVAILABLE and arbitrage_router:
+    app.include_router(arbitrage_router, prefix="/api/v1")
+    logger.info("✅ Arbitrage router enabled")
+else:
+    logger.info("ℹ️ Arbitrage router disabled (numpy/pandas not available)")
 
 
 # Health check
