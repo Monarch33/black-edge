@@ -2,13 +2,12 @@ services:
   - type: web
     name: black-edge-backend
     runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: ./
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     plan: free
     autoDeploy: true
     healthCheckPath: /health
     region: oregon
-    env: docker
     envVars:
       - key: ENVIRONMENT
         value: production
