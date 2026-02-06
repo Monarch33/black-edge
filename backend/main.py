@@ -23,11 +23,21 @@ import uvicorn
 from config import get_settings
 from api.websocket import websocket_handler, manager as ws_manager, heartbeat_task
 from routers.arbitrage import router as arbitrage_router
-from engine.blockchain import BlockchainPipeline, OrderFilledEvent, PositionsConvertedEvent
-from engine import ArbitrageDetector, MarketState
-from engine.risk_calculator import RiskCalculator
 from engine.polymarket import PolymarketClient
 from engine.analytics import QuantEngine, QuantSignal
+
+# Optional imports (require numpy/pandas/scipy)
+try:
+    from engine.blockchain import BlockchainPipeline, OrderFilledEvent, PositionsConvertedEvent
+    from engine import ArbitrageDetector, MarketState
+    from engine.risk_calculator import RiskCalculator
+    ADVANCED_FEATURES_AVAILABLE = True
+except ImportError:
+    logger.warning("⚠️ Advanced features disabled (numpy/pandas/scipy not available)")
+    BlockchainPipeline = None
+    ArbitrageDetector = None
+    RiskCalculator = None
+    ADVANCED_FEATURES_AVAILABLE = False
 
 logger = structlog.get_logger()
 settings = get_settings()
@@ -53,19 +63,23 @@ class AppState:
         """Initialize application state on startup."""
         logger.info("Initializing application state...")
 
-        # Initialize components
-        self.blockchain_pipeline = BlockchainPipeline()
-        self.arbitrage_detector = ArbitrageDetector(
-            min_profit_threshold=settings.min_profit_threshold,
-            max_position_probability=settings.max_position_probability,
-        )
-        self.risk_calculator = RiskCalculator(
-            analysis_window=settings.risk_analysis_window,
-            min_profit_threshold=settings.min_profit_threshold,
-        )
+        # Initialize advanced components (if available)
+        if ADVANCED_FEATURES_AVAILABLE:
+            self.blockchain_pipeline = BlockchainPipeline()
+            self.arbitrage_detector = ArbitrageDetector(
+                min_profit_threshold=settings.min_profit_threshold,
+                max_position_probability=settings.max_position_probability,
+            )
+            self.risk_calculator = RiskCalculator(
+                analysis_window=settings.risk_analysis_window,
+                min_profit_threshold=settings.min_profit_threshold,
+            )
 
-        # Register event callback
-        self.blockchain_pipeline.register_callback(self._on_blockchain_event)
+            # Register event callback
+            self.blockchain_pipeline.register_callback(self._on_blockchain_event)
+            logger.info("✅ Advanced features enabled")
+        else:
+            logger.info("ℹ️ Running in minimal mode (Polymarket data only)")
 
         # Start background tasks
         self._background_tasks.append(
