@@ -263,7 +263,7 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
               {/* Logo Image with Premium Glitch Effect */}
               <div className="relative w-10 h-10 md:w-12 md:h-12">
                 <Image
-                  src="/logo.png"
+                  src="/logo.svg"
                   alt="Black Edge"
                   width={48}
                   height={48}
@@ -278,7 +278,7 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
                       transition={{ duration: 0.2, repeat: Infinity }}
                     >
                       <Image
-                        src="/logo.png"
+                        src="/logo.svg"
                         alt=""
                         width={48}
                         height={48}
@@ -292,7 +292,7 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
                       transition={{ duration: 0.2, repeat: Infinity, delay: 0.1 }}
                     >
                       <Image
-                        src="/logo.png"
+                        src="/logo.svg"
                         alt=""
                         width={48}
                         height={48}
