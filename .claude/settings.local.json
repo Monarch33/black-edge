@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "WebFetch(domain:docs.polymarket.com)",
+      "Bash(source:*)",
+      "Bash(python3 -m venv:*)",
+      "Bash(pip install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(bash -c \"source .venv/bin/activate && pip install ''uvicorn[standard]==0.27.0'' fastapi==0.109.0 web3==6.15.1 python-dotenv==1.0.1 stripe==7.12.0 aiohttp==3.9.3 httpx==0.26.0 pydantic==2.5.3 pydantic-settings==2.1.0\")",
+      "Bash(bash -c \"source .venv/bin/activate && pip install --upgrade pydantic pydantic-settings fastapi ''uvicorn[standard]'' web3 python-dotenv stripe aiohttp httpx\")",
+      "Bash(bash -c \"source .venv/bin/activate && pip install pandas websockets redis aiocache slowapi prometheus-fastapi-instrumentator ''python-jose[cryptography]'' ''passlib[bcrypt]'' structlog firebase-admin cvxpy pytest pytest-asyncio black ruff mypy\")",
+      "Bash(uvicorn:*)",
+      "Bash(PYTHONPATH=/Users/camil/CascadeProjects/windsurf-project:$PYTHONPATH:*)",
+      "Bash(python:*)",
+      "Bash(chmod:*)",
+      "Bash(curl:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
