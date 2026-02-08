@@ -32,9 +32,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request, os; urllib.request.urlopen(f'http://localhost:{os.getenv(\"PORT\", 8000)}/health')"
 
-# Copy and set permissions for start script
-COPY start.sh .
-RUN chmod +x start.sh
-
-# Run the application via start script (handles PORT variable properly)
-CMD ["./start.sh"]
+# Run uvicorn directly on port 8000 (Railway will map it automatically)
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
