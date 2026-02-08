@@ -76,19 +76,19 @@ export function Footer({ onNavigate }: FooterProps) {
             <p className="text-[10px] text-white/40 tracking-[0.2em] mb-4">RESOURCES</p>
             <ul className="space-y-2">
               <li>
-                <a href="#" className="group flex items-center gap-1 text-xs text-white/40 hover:text-white/80 transition-colors">
+                <a href="/api-docs" className="group flex items-center gap-1 text-xs text-white/40 hover:text-white/80 transition-colors">
                   API Documentation
                   <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </a>
               </li>
               <li>
-                <a href="#" className="group flex items-center gap-1 text-xs text-white/40 hover:text-white/80 transition-colors">
+                <a href="/technical-paper" className="group flex items-center gap-1 text-xs text-white/40 hover:text-white/80 transition-colors">
                   Technical Paper
                   <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </a>
               </li>
               <li>
-                <a href="#" className="flex items-center gap-2 text-xs text-white/40 hover:text-white/80 transition-colors">
+                <a href="/status" className="flex items-center gap-2 text-xs text-white/40 hover:text-white/80 transition-colors">
                   System Status
                   <span className="w-1.5 h-1.5 bg-green-500 animate-pulse" />
                 </a>
