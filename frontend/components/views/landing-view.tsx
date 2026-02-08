@@ -1,8 +1,6 @@
 "use client"
 
 import React from "react"
-import Image from "next/image"
-
 import { motion } from "framer-motion"
 import { useEffect, useState, useRef } from "react"
 import { AlertTriangle, Activity, Globe2, Lock, Send, Shield } from "lucide-react"
@@ -293,24 +291,7 @@ export function LandingView() {
       {/* Hero Section */}
       <section className="px-4 py-10 md:py-20">
         <div className="max-w-7xl mx-auto">
-          {/* Logo Section */}
           <div className="flex flex-col items-center justify-center mb-12 md:mb-20">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-              className="mb-8"
-            >
-              <Image
-                src="/logo-blackedge.png"
-                alt="Black Edge"
-                width={120}
-                height={120}
-                className="drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]"
-                priority
-              />
-            </motion.div>
-
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
