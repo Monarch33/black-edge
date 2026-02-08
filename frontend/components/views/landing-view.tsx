@@ -428,7 +428,7 @@ export function LandingView() {
               <div className="text-yellow-500 mb-2 whitespace-nowrap">{'>'} ALERT: CEO_INDICTMENT spread widening (+2.4%)</div>
               <div className="text-red-500 mb-2 whitespace-nowrap">{'>'} ARBITRAGE DETECTED: Polymarket/Kalshi delta = $0.034</div>
               <div className="text-white/40 mb-2 whitespace-nowrap">{'>'} calculating optimal position size...</div>
-              <div className="text-green-500 whitespace-nowrap">{'>'} READY TO EXECUTE: Expected profit $847.23 (12.4% ROI)</div>
+              <div className="text-green-500 whitespace-nowrap">{'>'} READY TO EXECUTE: Opportunity detected $847.23 spread (12.4% edge)</div>
               <div className="text-white mt-4 flex items-center">
                 {'>'} <span className="animate-blink ml-1">_</span>
               </div>
