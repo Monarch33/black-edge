@@ -266,8 +266,9 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
                 alt="Black Edge"
                 width={40}
                 height={40}
-                className="hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all duration-300"
+                className="hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all duration-300 bg-transparent"
                 priority
+                style={{ background: 'transparent' }}
               />
               <span className="text-white font-bold text-lg tracking-[0.15em] uppercase">
                 Black Edge
