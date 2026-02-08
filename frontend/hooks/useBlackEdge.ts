@@ -14,9 +14,9 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { ConnectionStatus } from "@/types";
 import type {
   UseBlackEdgeReturn,
-  ConnectionStatus,
   User,
   UserTier,
   ArbitrageOpportunity,
@@ -49,7 +49,7 @@ export function useBlackEdge(
   config = DEFAULT_CONFIG
 ): UseBlackEdgeReturn {
   // Connection state
-  const [status, setStatus] = useState<ConnectionStatus>("disconnected");
+  const [status, setStatus] = useState<ConnectionStatus>(ConnectionStatus.DISCONNECTED);
   const [error, setError] = useState<string>();
 
   // User state
@@ -67,7 +67,7 @@ export function useBlackEdge(
 
   // Refs
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const sequenceRef = useRef(0);
 
   // =============================================================================
@@ -79,7 +79,7 @@ export function useBlackEdge(
       return;
     }
 
-    setStatus("connecting");
+    setStatus(ConnectionStatus.CONNECTING);
     setError(undefined);
 
     // Build URL with optional token
@@ -93,12 +93,12 @@ export function useBlackEdge(
 
       ws.onopen = () => {
         console.log("[BlackEdge] Connected");
-        setStatus(firebaseToken ? "authenticated" : "connected");
+        setStatus(firebaseToken ? ConnectionStatus.AUTHENTICATED : ConnectionStatus.CONNECTED);
       };
 
       ws.onclose = (event) => {
         console.log("[BlackEdge] Disconnected", event.code, event.reason);
-        setStatus("disconnected");
+        setStatus(ConnectionStatus.DISCONNECTED);
         wsRef.current = null;
 
         // Auto-reconnect
@@ -112,7 +112,7 @@ export function useBlackEdge(
 
       ws.onerror = (event) => {
         console.error("[BlackEdge] Error", event);
-        setStatus("error");
+        setStatus(ConnectionStatus.ERROR);
         setError("WebSocket connection error");
       };
 
@@ -128,7 +128,7 @@ export function useBlackEdge(
       wsRef.current = ws;
     } catch (e) {
       console.error("[BlackEdge] Failed to connect", e);
-      setStatus("error");
+      setStatus(ConnectionStatus.ERROR);
       setError(`Connection failed: ${e}`);
     }
   }, [config.wsUrl, config.autoReconnect, config.reconnectInterval, firebaseToken]);
@@ -143,7 +143,7 @@ export function useBlackEdge(
       wsRef.current = null;
     }
 
-    setStatus("disconnected");
+    setStatus(ConnectionStatus.DISCONNECTED);
   }, []);
 
   // =============================================================================
@@ -237,7 +237,7 @@ export function useBlackEdge(
       }
 
       if (data.authenticated) {
-        setStatus("authenticated");
+        setStatus(ConnectionStatus.AUTHENTICATED);
       }
     },
     []

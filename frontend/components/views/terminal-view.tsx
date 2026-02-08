@@ -508,7 +508,7 @@ function OpportunityRow({ opp, onSelect, isPaywalled }: { opp: QuantSignal; onSe
       {/* MARKET */}
       <td className="py-3 px-3 md:px-4">
         <div className="flex items-center gap-2">
-          {opp.arbFlag && <AlertTriangle className="w-3 h-3 text-yellow-500 flex-shrink-0" title="Arbitrage detected" />}
+          {opp.arbFlag && <AlertTriangle className="w-3 h-3 text-yellow-500 flex-shrink-0" />}
           {opp.risk === "high" && !opp.arbFlag && <AlertTriangle className="w-3 h-3 text-red-500 flex-shrink-0" />}
           <div>
             <div className="flex items-center gap-1">

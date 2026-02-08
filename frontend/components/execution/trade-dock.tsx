@@ -97,7 +97,7 @@ export function TradeDock({ selectedMarket, onClose, onExecute, isPaywalled }: T
 
   // Toast notifications based on status
   useEffect(() => {
-    if (isSuccess) {
+    if (isSuccess && selectedMarket) {
       success(
         "✅ Trade Executed!",
         `${outcome} position on ${selectedMarket.market}. View in Portfolio.`
