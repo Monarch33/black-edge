@@ -291,21 +291,6 @@ export function LandingView() {
       {/* Hero Section */}
       <section className="px-4 py-10 md:py-20">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col items-center justify-center mb-12 md:mb-20">
-            <motion.button
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.9 }}
-              onClick={() => {
-                // Scroll to content below
-                window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
-              }}
-              className="px-8 py-4 bg-gradient-to-r from-red-500 to-red-700 text-white font-bold tracking-widest hover:from-red-600 hover:to-red-800 transition-all shadow-lg hover:shadow-red-500/50"
-            >
-              ENTER TERMINAL
-            </motion.button>
-          </div>
-
           <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
             {/* Left: Copy */}
             <motion.div
