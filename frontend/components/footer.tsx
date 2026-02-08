@@ -101,17 +101,17 @@ export function Footer({ onNavigate }: FooterProps) {
             <p className="text-[10px] text-white/40 tracking-[0.2em] mb-4">LEGAL</p>
             <ul className="space-y-2">
               <li>
-                <a href="#" className="text-xs text-white/40 hover:text-white/80 transition-colors">
+                <a href="/terms" className="text-xs text-white/40 hover:text-white/80 transition-colors">
                   Terms of Service
                 </a>
               </li>
               <li>
-                <a href="#" className="text-xs text-white/40 hover:text-white/80 transition-colors">
+                <a href="/privacy" className="text-xs text-white/40 hover:text-white/80 transition-colors">
                   Privacy Policy
                 </a>
               </li>
               <li>
-                <a href="#" className="text-xs text-white/40 hover:text-white/80 transition-colors">
+                <a href="/risk-disclosure" className="text-xs text-white/40 hover:text-white/80 transition-colors">
                   Risk Disclosure
                 </a>
               </li>
