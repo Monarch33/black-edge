@@ -171,62 +171,86 @@ export function useTrade() {
         }
 
         // =====================================================================
-        // STEP 4: EXECUTE TRADE
+        // STEP 4: BUILD TRANSACTION FROM BACKEND
         // =====================================================================
-        console.log(`[TRADE] Step 4: Executing trade: ${outcome} on ${marketId} for $${amountUSDC}`)
+        console.log(`[TRADE] Step 4: Building transaction from backend...`)
         setStatus("trading")
 
-        // TODO: PRODUCTION IMPLEMENTATION
-        // 1. Query Polymarket CLOB API for tokenId (conditionId + outcomeIndex)
-        // 2. Get best price from order book
-        // 3. Calculate maxCost with slippage (e.g., amountUSDC * 1.02 for 2% slippage)
-        // 4. Call CTF Exchange fillOrder() or buy() with:
-        //    - tokenId
-        //    - amount (shares to buy)
-        //    - maxCost (USDC limit with slippage protection)
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
-        // For now: Simplified demo call
-        writeTrade(
-          {
-            address: CTF_EXCHANGE_ADDRESS,
-            abi: CTF_EXCHANGE_ABI,
-            functionName: "buyTokens",
-            args: [
-              BigInt(1), // TODO: Replace with real tokenId from Polymarket API
-              amountInWei, // Investment amount in USDC
-            ],
-            value: BigInt(0), // No ETH needed for USDC trades
-            chainId: POLYGON_CHAIN_ID,
-          },
-          {
-            onSuccess: (hash) => {
-              console.log("[TRADE] ✅ Trade transaction sent:", hash)
-              setCurrentTxHash(hash)
-              setStatus("waiting_trade")
+        try {
+          // Call backend to build the transaction
+          const response = await fetch(`${API_URL}/api/build-tx`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user_address: address,
+              market_id: marketId,
+              outcome: outcome,
+              amount: amountUSDC,
+            }),
+          })
 
-              // After confirmation, set success
-              setTimeout(() => {
-                setStatus("success")
-              }, 2000)
-            },
-            onError: (err) => {
-              console.error("[TRADE] ❌ Trade failed:", err)
-              setStatus("error")
-
-              // Parse common errors
-              let errorMessage = err.message
-              if (err.message.includes("User rejected")) {
-                errorMessage = "❌ Transaction rejected by user"
-              } else if (err.message.includes("insufficient")) {
-                errorMessage = "❌ Insufficient balance or gas"
-              } else if (err.message.includes("slippage")) {
-                errorMessage = "❌ Slippage tolerance exceeded"
-              }
-
-              setError(errorMessage)
-            },
+          if (!response.ok) {
+            throw new Error(`Backend error: ${response.statusText}`)
           }
-        )
+
+          const txData = await response.json()
+
+          if (txData.error) {
+            throw new Error(txData.error)
+          }
+
+          console.log("[TRADE] ✅ Transaction built by backend:", txData)
+
+          // =====================================================================
+          // STEP 5: EXECUTE TRADE TRANSACTION
+          // =====================================================================
+          console.log(`[TRADE] Step 5: Executing trade: ${outcome} on ${marketId} for $${amountUSDC}`)
+
+          // Use sendTransaction instead of writeContract
+          // This allows us to send raw transaction data from the backend
+          const { hash } = await window.ethereum.request({
+            method: "eth_sendTransaction",
+            params: [
+              {
+                to: txData.to,
+                from: txData.from,
+                data: txData.data,
+                gas: `0x${txData.gas.toString(16)}`,
+                maxFeePerGas: `0x${txData.maxFeePerGas.toString(16)}`,
+                maxPriorityFeePerGas: `0x${txData.maxPriorityFeePerGas.toString(16)}`,
+              },
+            ],
+          })
+
+          console.log("[TRADE] ✅ Trade transaction sent:", hash)
+          setCurrentTxHash(hash as `0x${string}`)
+          setStatus("waiting_trade")
+
+          // Wait for confirmation
+          setTimeout(() => {
+            setStatus("success")
+          }, 3000)
+
+          return { status: "success", txHash: hash as `0x${string}` }
+        } catch (err: any) {
+          console.error("[TRADE] ❌ Trade failed:", err)
+          setStatus("error")
+
+          // Parse common errors
+          let errorMessage = err.message
+          if (err.message.includes("User rejected") || err.message.includes("User denied")) {
+            errorMessage = "❌ Transaction rejected by user"
+          } else if (err.message.includes("insufficient")) {
+            errorMessage = "❌ Insufficient balance or gas"
+          } else if (err.message.includes("Backend error")) {
+            errorMessage = `❌ ${err.message}`
+          }
+
+          setError(errorMessage)
+          return { status: "error", error: errorMessage }
+        }
 
         return { status: "success", txHash: currentTxHash }
       } catch (err: any) {

@@ -471,25 +471,119 @@ async def list_opportunities_public() -> list[dict]:
 
 # Build transaction endpoint - THE CORE EXECUTION ROUTE
 @app.post("/api/build-tx")
-async def build_transaction(user_address: str, opportunity_id: str = "OPP_DEFAULT") -> dict:
+async def build_transaction(
+    user_address: str,
+    market_id: str,
+    outcome: str,  # "YES" or "NO"
+    amount: float  # Amount in USDC
+) -> dict:
     """
-    Build an unsigned transaction for arbitrage execution.
+    Build an unsigned transaction for Polymarket trade execution.
 
-    The frontend calls this, receives the tx data, and asks MetaMask to sign it.
+    The frontend calls this, receives the tx data, and asks the user's wallet to sign it.
     This keeps private keys on the user's side (secure).
+
+    Args:
+        user_address: User's wallet address
+        market_id: Polymarket market condition ID
+        outcome: "YES" or "NO"
+        amount: Amount to trade in USDC
+
+    Returns:
+        Unsigned transaction dict ready for wallet signing
     """
-    from engine.blockchain import TransactionBuilder
+    from engine.polymarket_trade import PolymarketTradeBuilder
     import os
 
     try:
-        tx_builder = TransactionBuilder(os.getenv("POLYGON_RPC_URL"))
-        unsigned_tx = tx_builder.create_arbitrage_tx(
+        rpc_url = os.getenv("POLYGON_RPC_URL", "https://polygon-rpc.com")
+        trade_builder = PolymarketTradeBuilder(rpc_url)
+
+        # Convert outcome to index (0 = NO, 1 = YES)
+        outcome_index = 1 if outcome.upper() == "YES" else 0
+
+        unsigned_tx = trade_builder.build_buy_transaction(
             user_address=user_address,
-            opportunity_id=opportunity_id,
+            condition_id=market_id,
+            outcome_index=outcome_index,
+            amount_usdc=amount,
+            max_price=1.0  # Accept current market price
         )
+
+        if "error" in unsigned_tx:
+            logger.error("Failed to build transaction", error=unsigned_tx["error"])
+            return unsigned_tx
+
+        logger.info(
+            "Transaction built successfully",
+            user=user_address[:10],
+            market=market_id[:10],
+            outcome=outcome,
+            amount=amount
+        )
+
         return unsigned_tx
+
     except Exception as e:
         logger.error("Failed to build transaction", error=str(e))
+        return {"error": str(e)}
+
+
+@app.post("/api/check-approval")
+async def check_approval(user_address: str) -> dict:
+    """
+    Check if user has approved USDC for Polymarket CTF Exchange.
+
+    Args:
+        user_address: User's wallet address
+
+    Returns:
+        Approval status and amount
+    """
+    from engine.polymarket_trade import PolymarketTradeBuilder
+    import os
+
+    try:
+        rpc_url = os.getenv("POLYGON_RPC_URL", "https://polygon-rpc.com")
+        trade_builder = PolymarketTradeBuilder(rpc_url)
+
+        result = trade_builder.check_approval(user_address)
+        return result
+
+    except Exception as e:
+        logger.error("Failed to check approval", error=str(e))
+        return {"error": str(e)}
+
+
+@app.post("/api/build-approval")
+async def build_approval(user_address: str) -> dict:
+    """
+    Build USDC approval transaction for Polymarket CTF Exchange.
+
+    Args:
+        user_address: User's wallet address
+
+    Returns:
+        Unsigned approval transaction
+    """
+    from engine.polymarket_trade import PolymarketTradeBuilder
+    import os
+
+    try:
+        rpc_url = os.getenv("POLYGON_RPC_URL", "https://polygon-rpc.com")
+        trade_builder = PolymarketTradeBuilder(rpc_url)
+
+        unsigned_tx = trade_builder.build_approval_transaction(user_address)
+
+        if "error" in unsigned_tx:
+            logger.error("Failed to build approval", error=unsigned_tx["error"])
+            return unsigned_tx
+
+        logger.info("Approval transaction built", user=user_address[:10])
+        return unsigned_tx
+
+    except Exception as e:
+        logger.error("Failed to build approval", error=str(e))
         return {"error": str(e)}
 
 
