@@ -292,24 +292,6 @@ export function LandingView() {
       <section className="px-4 py-10 md:py-20">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col items-center justify-center mb-12 md:mb-20">
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.3 }}
-              className="text-4xl md:text-6xl font-bold text-white text-center mb-4 tracking-[0.3em] uppercase"
-            >
-              BLACK EDGE
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.6 }}
-              className="text-lg md:text-xl text-white/60 text-center mb-12 tracking-widest"
-            >
-              ALGORITHMIC PREDICTION TERMINAL
-            </motion.p>
-
             <motion.button
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
