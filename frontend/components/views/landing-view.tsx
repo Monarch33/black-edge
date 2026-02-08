@@ -152,18 +152,35 @@ function WaitlistForm() {
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [queuePosition, setQueuePosition] = useState(0)
   const [isGlitching, setIsGlitching] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email) return
 
     setIsGlitching(true)
+    setError(null)
 
-    setTimeout(() => {
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const response = await fetch(`${API_URL}/api/subscribe?email=${encodeURIComponent(email)}`, {
+        method: "POST",
+      })
+
+      const data = await response.json()
+
+      if (data.status === "success" || data.status === "already_registered") {
+        setQueuePosition(data.queue_position)
+        setIsSubmitted(true)
+      } else {
+        setError(data.error || "Something went wrong. Please try again.")
+      }
+    } catch (err) {
+      setError("Connection failed. Please check your internet and try again.")
+      console.error("Waitlist signup error:", err)
+    } finally {
       setIsGlitching(false)
-      setQueuePosition(Math.floor(4000 + Math.random() * 500))
-      setIsSubmitted(true)
-    }, 1500)
+    }
   }
 
   if (isSubmitted) {
@@ -260,6 +277,17 @@ function WaitlistForm() {
           />
         )}
       </form>
+
+      {/* Error message */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-mono"
+        >
+          {'>'} {error}
+        </motion.div>
+      )}
 
       {/* Warning text */}
       <p className="text-[10px] md:text-xs text-white/20 mt-4 font-mono">

@@ -24,6 +24,7 @@ from config import get_settings
 from api.websocket import websocket_handler, manager as ws_manager, heartbeat_task
 from engine.polymarket import PolymarketClient
 from engine.analytics import QuantEngine, QuantSignal
+from services.email_service import EmailService
 
 # Initialize logger and settings FIRST
 logger = structlog.get_logger()
@@ -58,6 +59,7 @@ class AppState:
         self.risk_calculator: RiskCalculator | None = None
         self.polymarket_client: PolymarketClient = PolymarketClient()
         self.quant_engine: QuantEngine = QuantEngine()
+        self.email_service: EmailService = EmailService()
         self.live_signals: list[QuantSignal] = []
         self._background_tasks: list[asyncio.Task] = []
 
@@ -585,6 +587,42 @@ async def build_approval(user_address: str) -> dict:
     except Exception as e:
         logger.error("Failed to build approval", error=str(e))
         return {"error": str(e)}
+
+
+@app.post("/api/subscribe")
+async def subscribe_to_waitlist(email: str) -> dict:
+    """
+    Add user to waitlist and send welcome email.
+
+    Args:
+        email: User's email address
+
+    Returns:
+        Success status with queue position
+    """
+    try:
+        if not email or '@' not in email:
+            return {
+                "status": "error",
+                "error": "Invalid email address"
+            }
+
+        result = await state.email_service.add_to_waitlist(email)
+        logger.info(
+            "Waitlist signup",
+            email=email,
+            position=result.get("queue_position"),
+            status=result.get("status")
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error("Waitlist signup failed", error=str(e))
+        return {
+            "status": "error",
+            "error": "Failed to process signup. Please try again."
+        }
 
 
 # WebSocket endpoint
