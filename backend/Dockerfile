@@ -32,6 +32,9 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request, os; urllib.request.urlopen(f'http://localhost:{os.getenv(\"PORT\", 8000)}/health')"
 
-# Run the application with 2 workers
-# Use shell form to allow PORT environment variable expansion (Railway compatibility)
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2
+# Copy and set permissions for start script
+COPY start.sh .
+RUN chmod +x start.sh
+
+# Run the application via start script (handles PORT variable properly)
+CMD ["./start.sh"]

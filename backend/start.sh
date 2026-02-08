@@ -1,12 +1,13 @@
 #!/bin/bash
-# Railway startup script for Black Edge Backend
+set -e
 
-# Install dependencies if not already installed
-if [ ! -d ".venv" ]; then
-    echo "Installing dependencies..."
-    pip install -r requirements.txt
-fi
+# Use PORT from Railway or default to 8000
+PORT=${PORT:-8000}
 
-# Start the FastAPI server
-echo "Starting Black Edge API server..."
-uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+echo "Starting Uvicorn on port $PORT..."
+
+# Start uvicorn with proper port
+exec uvicorn main:app \
+    --host 0.0.0.0 \
+    --port "$PORT" \
+    --workers 2
