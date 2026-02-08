@@ -258,53 +258,19 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
               onClick={() => handleNavigate("landing")}
               onMouseEnter={() => setIsHovering(true)}
               onMouseLeave={() => setIsHovering(false)}
-              className="flex items-center gap-2 md:gap-3 group relative"
+              className="flex items-center gap-3 group relative"
             >
-              {/* Logo Image with Premium Glitch Effect */}
-              <div className="relative w-10 h-10 md:w-12 md:h-12">
-                <Image
-                  src="/logo.svg"
-                  alt="Black Edge"
-                  width={48}
-                  height={48}
-                  className="object-contain relative z-10 transition-all group-hover:scale-105"
-                  priority
-                />
-                {isHovering && (
-                  <>
-                    <motion.div
-                      className="absolute inset-0"
-                      animate={{ x: [0, 2, -2, 1, 0], y: [0, -1, 1, -1, 0], opacity: [0.5, 0.3, 0.5] }}
-                      transition={{ duration: 0.2, repeat: Infinity }}
-                    >
-                      <Image
-                        src="/logo.svg"
-                        alt=""
-                        width={48}
-                        height={48}
-                        className="object-contain opacity-50 mix-blend-screen"
-                        style={{ filter: "hue-rotate(180deg)" }}
-                      />
-                    </motion.div>
-                    <motion.div
-                      className="absolute inset-0"
-                      animate={{ x: [0, -2, 2, -1, 0], y: [0, 1, -1, 1, 0], opacity: [0.3, 0.5, 0.3] }}
-                      transition={{ duration: 0.2, repeat: Infinity, delay: 0.1 }}
-                    >
-                      <Image
-                        src="/logo.svg"
-                        alt=""
-                        width={48}
-                        height={48}
-                        className="object-contain opacity-30 mix-blend-screen"
-                        style={{ filter: "hue-rotate(90deg)" }}
-                      />
-                    </motion.div>
-                  </>
-                )}
-              </div>
-              <span className={`text-xs md:text-sm tracking-[0.2em] md:tracking-[0.3em] text-white/90 transition-all ${isHovering ? "animate-glitch" : ""}`}>
-                BLACK EDGE
+              {/* Black Edge Logo */}
+              <Image
+                src="/logo-blackedge.png"
+                alt="Black Edge"
+                width={40}
+                height={40}
+                className="hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all duration-300"
+                priority
+              />
+              <span className="text-white font-bold text-lg tracking-[0.15em] uppercase">
+                Black Edge
               </span>
             </button>
 

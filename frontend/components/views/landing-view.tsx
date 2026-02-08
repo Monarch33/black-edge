@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import Image from "next/image"
 
 import { motion } from "framer-motion"
 import { useEffect, useState, useRef } from "react"
@@ -292,6 +293,56 @@ export function LandingView() {
       {/* Hero Section */}
       <section className="px-4 py-10 md:py-20">
         <div className="max-w-7xl mx-auto">
+          {/* Logo Section */}
+          <div className="flex flex-col items-center justify-center mb-12 md:mb-20">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="mb-8"
+            >
+              <Image
+                src="/logo-blackedge.png"
+                alt="Black Edge"
+                width={120}
+                height={120}
+                className="drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]"
+                priority
+              />
+            </motion.div>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 0.3 }}
+              className="text-4xl md:text-6xl font-bold text-white text-center mb-4 tracking-[0.3em] uppercase"
+            >
+              BLACK EDGE
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 0.6 }}
+              className="text-lg md:text-xl text-white/60 text-center mb-12 tracking-widest"
+            >
+              ALGORITHMIC PREDICTION TERMINAL
+            </motion.p>
+
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 0.9 }}
+              onClick={() => {
+                // Scroll to content below
+                window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
+              }}
+              className="px-8 py-4 bg-gradient-to-r from-red-500 to-red-700 text-white font-bold tracking-widest hover:from-red-600 hover:to-red-800 transition-all shadow-lg hover:shadow-red-500/50"
+            >
+              ENTER TERMINAL
+            </motion.button>
+          </div>
+
           <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-center">
             {/* Left: Copy */}
             <motion.div

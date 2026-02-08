@@ -19,7 +19,8 @@ import time
 
 import numpy as np
 from numpy.typing import NDArray
-from web3 import AsyncWeb3, WebSocketProvider, Web3
+from web3 import AsyncWeb3, Web3
+from web3.providers import AsyncHTTPProvider
 from web3.contract import AsyncContract
 from web3.types import LogReceipt, HexBytes
 import structlog

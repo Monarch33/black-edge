@@ -16,12 +16,8 @@ export const metadata: Metadata = {
     "Profit from the chaos. Markets are driven by panic, scandal, and lies. We quantify the truth.",
   generator: "Black Edge",
   icons: {
-    icon: [
-      { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)" },
-      { url: "/icon-dark-32x32.png", media: "(prefers-color-scheme: dark)" },
-      { url: "/icon.svg", type: "image/svg+xml" },
-    ],
-    apple: "/apple-icon.png",
+    icon: "/logo-blackedge.png",
+    apple: "/logo-blackedge.png",
   },
 }
 

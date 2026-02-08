@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Backend FastAPI service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: blackedge-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      # Optional: mount firebase credentials
+      - ./backend/firebase-credentials.json:/app/firebase-credentials.json:ro
+    networks:
+      - blackedge-network
+
+  # Redis cache service
+  redis:
+    image: redis:7-alpine
+    container_name: blackedge-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - blackedge-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Optional: PostgreSQL database (uncomment if needed)
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: blackedge-postgres
+  #   ports:
+  #     - "5432:5432"
+  #   environment:
+  #     - POSTGRES_DB=blackedge
+  #     - POSTGRES_USER=blackedge
+  #     - POSTGRES_PASSWORD=changeme_in_production
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - blackedge-network
+  #   restart: unless-stopped
+
+volumes:
+  redis-data:
+    driver: local
+  # postgres-data:
+  #   driver: local
+
+networks:
+  blackedge-network:
+    driver: bridge

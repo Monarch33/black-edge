@@ -25,6 +25,10 @@ from api.websocket import websocket_handler, manager as ws_manager, heartbeat_ta
 from engine.polymarket import PolymarketClient
 from engine.analytics import QuantEngine, QuantSignal
 
+# Initialize logger and settings FIRST
+logger = structlog.get_logger()
+settings = get_settings()
+
 # Optional imports (require numpy/pandas/scipy)
 try:
     from engine.blockchain import BlockchainPipeline, OrderFilledEvent, PositionsConvertedEvent
@@ -39,9 +43,6 @@ except ImportError as e:
     RiskCalculator = None
     arbitrage_router = None
     ADVANCED_FEATURES_AVAILABLE = False
-
-logger = structlog.get_logger()
-settings = get_settings()
 
 
 # =============================================================================
@@ -59,6 +60,15 @@ class AppState:
         self.quant_engine: QuantEngine = QuantEngine()
         self.live_signals: list[QuantSignal] = []
         self._background_tasks: list[asyncio.Task] = []
+
+        # V2 Quant modules (initialized in startup)
+        self.feature_engineer = None
+        self.narrative_velocity = None
+        self.whale_watchlist = None
+        self.quant_model = None
+        self.council = None
+        self.risk_manager = None
+        self.active_markets: list[str] = []  # Markets to track
 
     async def startup(self) -> None:
         """Initialize application state on startup."""
@@ -82,6 +92,26 @@ class AppState:
         else:
             logger.info("ℹ️ Running in minimal mode (Polymarket data only)")
 
+        # Initialize V2 Quant modules
+        try:
+            from quant.feature_engineer import FeatureEngineer
+            from quant.narrative_velocity import NarrativeVelocityLite
+            from quant.whale_tracker import WhaleWatchlist
+            from quant.quant_model import QuantModel
+            from quant.council.agents import TheCouncil
+            from quant.risk.manager import RiskManager
+
+            self.feature_engineer = FeatureEngineer()
+            self.narrative_velocity = NarrativeVelocityLite()
+            self.whale_watchlist = WhaleWatchlist()
+            self.quant_model = QuantModel()
+            self.council = TheCouncil()
+            self.risk_manager = RiskManager()
+
+            logger.info("✅ V2 Quant modules initialized")
+        except Exception as e:
+            logger.warning("⚠️ V2 Quant modules not available", error=str(e))
+
         # Start background tasks
         self._background_tasks.append(
             asyncio.create_task(self._blockchain_monitor_task())
@@ -91,6 +121,9 @@ class AppState:
         )
         self._background_tasks.append(
             asyncio.create_task(self._polymarket_poll_task())
+        )
+        self._background_tasks.append(
+            asyncio.create_task(self._v2_feature_update_task())
         )
 
         logger.info("Application state initialized")
@@ -211,6 +244,81 @@ class AppState:
         except Exception as e:
             logger.error("Blockchain monitor failed", error=str(e))
 
+    async def _v2_feature_update_task(self) -> None:
+        """Background task to compute V2 features every 10 seconds."""
+        if not self.feature_engineer or not self.quant_model:
+            logger.info("V2 feature update task disabled (modules not initialized)")
+            return
+
+        UPDATE_INTERVAL = 10  # seconds
+        logger.info("🚀 V2 feature update task started", interval=UPDATE_INTERVAL)
+
+        while True:
+            try:
+                # Update features for all active markets
+                if self.active_markets:
+                    from api.websocket_v2 import (
+                        broadcast_signal_update,
+                        broadcast_narrative_shift,
+                        manager as ws_manager_v2
+                    )
+                    from dataclasses import asdict
+
+                    for market_id in self.active_markets[:20]:  # Limit to 20 markets
+                        try:
+                            # Compute features
+                            features = self.feature_engineer.compute(market_id)
+
+                            if not features or not features.is_valid:
+                                continue
+
+                            # Compute narrative
+                            narrative = self.narrative_velocity.compute_signal(market_id)
+
+                            # Check whale alignment (simplified)
+                            whale_aligned = False
+
+                            # Compute signal
+                            signal_output = self.quant_model.compute_signal(
+                                features=features,
+                                narrative=narrative,
+                                whale_is_aligned=whale_aligned
+                            )
+
+                            # Broadcast signal update via WebSocket
+                            if ws_manager_v2.connection_count > 0:
+                                await broadcast_signal_update(
+                                    market_id=market_id,
+                                    signal_data=asdict(signal_output)
+                                )
+
+                            # Check for narrative shift
+                            if narrative and narrative.is_accelerating:
+                                if ws_manager_v2.connection_count > 0:
+                                    await broadcast_narrative_shift(
+                                        market_id=market_id,
+                                        narrative_data=asdict(narrative)
+                                    )
+
+                        except Exception as e:
+                            logger.error(
+                                "Failed to update features for market",
+                                market_id=market_id,
+                                error=str(e)
+                            )
+
+                    logger.debug(
+                        "V2 features updated",
+                        market_count=len(self.active_markets)
+                    )
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error("V2 feature update error", error=str(e))
+
+            await asyncio.sleep(UPDATE_INTERVAL)
+
 
 # Global state instance
 state = AppState()
@@ -267,6 +375,14 @@ if ADVANCED_FEATURES_AVAILABLE and arbitrage_router:
     logger.info("✅ Arbitrage router enabled")
 else:
     logger.info("ℹ️ Arbitrage router disabled (numpy/pandas not available)")
+
+# Include V2 router (always enabled)
+try:
+    from api.routes import router as v2_router
+    app.include_router(v2_router)
+    logger.info("✅ V2 API router enabled")
+except Exception as e:
+    logger.warning("⚠️ V2 API router disabled", error=str(e))
 
 
 # Health check
@@ -393,6 +509,24 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     {"type": "subscribe", "markets": ["market_id_1", "market_id_2"]}
     """
     await websocket_handler(websocket)
+
+
+# V2 WebSocket endpoint (multiplexed stream)
+@app.websocket("/api/v2/ws")
+async def websocket_v2_endpoint(websocket: WebSocket) -> None:
+    """
+    V2 WebSocket endpoint for multiplexed real-time streaming.
+
+    Streams:
+    - signal_update: New signal every 10 seconds
+    - whale_alert: When whale trades
+    - narrative_shift: When NVI accelerates
+    - risk_warning: When Doomer flags
+
+    Format: {"type": "signal_update", "data": {...}}
+    """
+    from api.websocket_v2 import websocket_handler_v2
+    await websocket_handler_v2(websocket)
 
 
 # =============================================================================
