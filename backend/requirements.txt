@@ -3,9 +3,9 @@ uvicorn[standard]==0.27.0
 orjson==3.9.12
 ujson==5.9.0
 httptools==0.6.1
-web3==6.15.1
+web3>=7.0.0
 eth-account>=0.13.0
-eth-abi==5.0.0
+eth-abi>=5.0.0
 numpy==1.26.3
 pandas==2.2.3
 scipy==1.12.0
