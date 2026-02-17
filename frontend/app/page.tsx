@@ -13,7 +13,7 @@ import { Crypto5MinView } from "@/components/views/crypto-5min-view"
 import { TrackRecordView } from "@/components/views/track-record-view"
 import { Footer } from "@/components/footer"
 
-type View = 'landing' | 'markets' | 'crypto5min' | 'sports' | 'pricing' | 'terminal' | 'portfolio' | 'trackrecord'
+type View = 'landing' | 'markets' | 'crypto5min' | 'sports' | 'pricing' | 'terminal' | 'portfolio' | 'trackrecord' | 'results'
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<View>('landing')
@@ -45,6 +45,7 @@ export default function Home() {
           {currentView === 'sports' && <SportsView />}
           {currentView === 'crypto5min' && <Crypto5MinView />}
           {currentView === 'trackrecord' && <TrackRecordView />}
+          {currentView === 'results' && <TrackRecordView />}
         </motion.div>
       </AnimatePresence>
 

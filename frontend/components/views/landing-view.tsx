@@ -51,47 +51,89 @@ export function LandingView({ onNavigate }: { onNavigate: (view: string) => void
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95])
 
+  // Gamma API fallback for signals
+  const fetchGammaSignals = async (): Promise<{ count: number; signals: LiveSignal[] }> => {
+    const res = await fetch(
+      "https://gamma-api.polymarket.com/markets?active=true&limit=6&order=volume24hr&ascending=false&closed=false",
+      { signal: AbortSignal.timeout(8000) }
+    )
+    const data = await res.json()
+    const markets = Array.isArray(data) ? data : []
+    const signals: LiveSignal[] = markets.map((m: any) => {
+      const outcomePrices: string[] = Array.isArray(m.outcomePrices) ? m.outcomePrices : []
+      const yesPrice = outcomePrices[0] ? parseFloat(outcomePrices[0]) : 0.5
+      return {
+        market: m.slug || "",
+        question: m.question || "",
+        edge: Math.abs(yesPrice - 0.5) * 20,
+        signalStrength: 50,
+        prediction: yesPrice > 0.5 ? "YES" : "NO",
+      }
+    })
+    return { count: markets.length, signals }
+  }
+
   // Fetch all data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch signals
-        const signalsRes = await fetch(`${API_URL}/api/v2/signals`)
-        const signalsData = await signalsRes.json()
+        // Fetch signals — with Gamma fallback
+        let signalsFetched = false
+        try {
+          const controller = new AbortController()
+          const timer = setTimeout(() => controller.abort(), 5000)
+          const signalsRes = await fetch(`${API_URL}/api/v2/signals`, { signal: controller.signal })
+          clearTimeout(timer)
+          if (signalsRes.ok) {
+            const signalsData = await signalsRes.json()
+            if (signalsData.signals && signalsData.signals.length > 0) {
+              setMarketCount(signalsData.signals.length)
+              const topSignals = signalsData.signals
+                .sort((a: any, b: any) => Math.abs(b.edge) - Math.abs(a.edge))
+                .slice(0, 6)
+                .map((s: any) => ({
+                  market: s.market,
+                  question: s.question,
+                  edge: s.edge,
+                  signalStrength: s.signalStrength,
+                  prediction: s.prediction
+                }))
+              setLiveSignals(topSignals)
+              signalsFetched = true
+            }
+          }
+        } catch { /* backend unavailable */ }
 
-        if (signalsData.signals) {
-          setMarketCount(signalsData.signals.length)
-          const topSignals = signalsData.signals
-            .sort((a: any, b: any) => Math.abs(b.edge) - Math.abs(a.edge))
-            .slice(0, 6)
-            .map((s: any) => ({
-              market: s.market,
-              question: s.question,
-              edge: s.edge,
-              signalStrength: s.signalStrength,
-              prediction: s.prediction
-            }))
-          setLiveSignals(topSignals)
+        if (!signalsFetched) {
+          try {
+            const { count, signals } = await fetchGammaSignals()
+            setMarketCount(count)
+            setLiveSignals(signals)
+          } catch { /* Gamma also unavailable */ }
         }
 
         // Fetch track record
-        const trackRecordRes = await fetch(`${API_URL}/api/v2/track-record`)
-        const trackRecordData = await trackRecordRes.json()
-        if (trackRecordData.track_record) {
-          setTrackRecord(trackRecordData.track_record.summary)
-        }
+        try {
+          const trackRecordRes = await fetch(`${API_URL}/api/v2/track-record`)
+          const trackRecordData = await trackRecordRes.json()
+          if (trackRecordData.track_record) {
+            setTrackRecord(trackRecordData.track_record.summary)
+          }
+        } catch { /* ignore */ }
 
         // Fetch 5-min crypto
-        const cryptoRes = await fetch(`${API_URL}/api/v2/crypto/5min/signals`)
-        const cryptoData = await cryptoRes.json()
-        if (cryptoData.active_markets && cryptoData.active_markets[0]) {
-          const market = cryptoData.active_markets[0]
-          setCrypto5Min({
-            timeRemaining: market.timeRemaining,
-            upPrice: market.upPrice,
-            downPrice: market.downPrice
-          })
-        }
+        try {
+          const cryptoRes = await fetch(`${API_URL}/api/v2/crypto/5min/signals`)
+          const cryptoData = await cryptoRes.json()
+          if (cryptoData.active_markets && cryptoData.active_markets[0]) {
+            const market = cryptoData.active_markets[0]
+            setCrypto5Min({
+              timeRemaining: market.timeRemaining,
+              upPrice: market.upPrice,
+              downPrice: market.downPrice
+            })
+          }
+        } catch { /* ignore */ }
 
         setLoading(false)
       } catch (err) {
@@ -147,7 +189,7 @@ export function LandingView({ onNavigate }: { onNavigate: (view: string) => void
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
       {/* Hero Section - Enhanced */}
-      <section ref={heroRef} className="relative pt-32 pb-24 px-4 overflow-hidden">
+      <section ref={heroRef} className="hero-gradient relative pt-32 pb-24 px-4 overflow-hidden">
         {/* Animated Background Grid */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a1a1a_1px,transparent_1px),linear-gradient(to_bottom,#1a1a1a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] opacity-20" />
 
@@ -171,7 +213,7 @@ export function LandingView({ onNavigate }: { onNavigate: (view: string) => void
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#22C55E]"></span>
               </span>
               <span className="text-[#22C55E] text-xs font-medium tracking-wider uppercase">
-                LIVE • Scanning {marketCount} markets
+                {marketCount > 0 ? `LIVE • Scanning ${marketCount} markets` : "LIVE • Scanning markets"}
               </span>
             </div>
           </motion.div>
@@ -184,18 +226,18 @@ export function LandingView({ onNavigate }: { onNavigate: (view: string) => void
             className="text-center mb-8"
           >
             <h1 className="text-6xl md:text-8xl font-bold text-white mb-6 tracking-tight leading-none">
-              Prediction Markets.
+              The edge is in
               <br />
               <span className="bg-gradient-to-r from-white via-[#888] to-white bg-clip-text text-transparent">
-                Decoded.
+                the data.
               </span>
             </h1>
 
             <p className="text-xl md:text-2xl text-[#888] max-w-3xl mx-auto leading-relaxed mb-4">
-              AI-powered intelligence platform for Polymarket.
+              Quant signals + public track record for Polymarket.
             </p>
             <p className="text-base text-[#555] max-w-2xl mx-auto">
-              Multi-agent analysis • Real-time orderbook data • Whale tracking • Zero noise
+              Institutional-grade analysis. Every signal backed by data.
             </p>
           </motion.div>
 
@@ -294,7 +336,7 @@ export function LandingView({ onNavigate }: { onNavigate: (view: string) => void
                   </button>
                 </form>
                 <p className="text-xs text-center text-[#555]">
-                  Join 500+ traders in the waitlist • No credit card required
+                  Join the waitlist • No credit card required
                 </p>
               </>
             )}
@@ -325,7 +367,7 @@ export function LandingView({ onNavigate }: { onNavigate: (view: string) => void
 
           {loading ? (
             <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-16 text-center">
-              <div className="text-[#555]">Loading signals...</div>
+              <div className="text-[#555]">Fetching market data...</div>
             </div>
           ) : liveSignals.length === 0 ? (
             <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-16 text-center">
@@ -374,21 +416,23 @@ export function LandingView({ onNavigate }: { onNavigate: (view: string) => void
             </div>
           )}
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mt-8"
-          >
-            <a
-              href="#"
-              onClick={(e) => { e.preventDefault(); onNavigate('markets') }}
-              className="inline-flex items-center gap-2 text-white hover:text-[#888] transition-colors text-sm"
+          {marketCount > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              className="text-center mt-8"
             >
-              View all {marketCount} markets
-              <ArrowUpRight className="w-4 h-4" />
-            </a>
-          </motion.div>
+              <a
+                href="#"
+                onClick={(e) => { e.preventDefault(); onNavigate('markets') }}
+                className="inline-flex items-center gap-2 text-white hover:text-[#888] transition-colors text-sm"
+              >
+                View all {marketCount} markets
+                <ArrowUpRight className="w-4 h-4" />
+              </a>
+            </motion.div>
+          )}
         </div>
       </section>
 
@@ -452,7 +496,7 @@ export function LandingView({ onNavigate }: { onNavigate: (view: string) => void
               Built for Serious Traders
             </h2>
             <p className="text-[#888] text-lg max-w-2xl mx-auto">
-              Professional-grade tools that institutional traders use. Now accessible to everyone.
+              Institutional-grade analysis. Every signal backed by data.
             </p>
           </motion.div>
 

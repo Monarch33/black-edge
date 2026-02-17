@@ -8,7 +8,7 @@ import { useAccount, useBalance, useDisconnect } from "wagmi"
 import { useWalletState } from "./providers"
 import Image from "next/image"
 
-type View = "landing" | "markets" | "crypto5min" | "sports" | "pricing" | "terminal" | "portfolio" | "trackrecord"
+type View = "landing" | "markets" | "crypto5min" | "sports" | "pricing" | "terminal" | "portfolio" | "trackrecord" | "results"
 
 interface NavbarProps {
   currentView: View
@@ -235,6 +235,7 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
     { label: "MARKETS", view: "markets" as View },
     { label: "5-MIN BETS", view: "crypto5min" as View },
     { label: "SPORTS", view: "sports" as View },
+    { label: "RESULTS", view: "results" as View },
     { label: "TRACK RECORD", view: "trackrecord" as View },
     { label: "PRICING", view: "pricing" as View },
   ]

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { useState, useEffect } from "react"
-import { Zap, TrendingUp, TrendingDown, Clock, Activity, DollarSign, Target } from "lucide-react"
+import { Zap, TrendingUp, TrendingDown, Clock, Activity, DollarSign, Target, ArrowUpRight } from "lucide-react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -150,6 +150,29 @@ export function Crypto5MinView() {
           </div>
         ) : (
           <>
+            {/* BEST TRADE banner */}
+            {data.signals.length > 0 && (() => {
+              const best = data.signals.reduce((a, b) => b.edge > a.edge ? b : a)
+              return (
+                <div className="mb-6 border border-white bg-white/5 p-4">
+                  <div className="text-[10px] text-white/50 font-mono mb-1">⚡ BEST TRADE NOW</div>
+                  <div className="text-lg font-mono font-bold text-white">
+                    BTC {best.direction} — {(best.marketPrice * 100).toFixed(0)}¢
+                    <span className="text-[#22C55E] ml-2">+{(best.edge * 100).toFixed(1)}% edge</span>
+                    <span className="text-white/50 ml-2 text-sm">{best.confidence.toUpperCase()} confidence</span>
+                  </div>
+                  <a
+                    href={`https://polymarket.com/event/${best.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-2 text-xs text-white/70 hover:text-white"
+                  >
+                    EXECUTE ON POLYMARKET <ArrowUpRight className="w-3 h-3" />
+                  </a>
+                </div>
+              )
+            })()}
+
             {/* Active Signals */}
             {data.signals.length > 0 && (
               <motion.div

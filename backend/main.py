@@ -1359,6 +1359,89 @@ async def subscribe_to_waitlist(email: str) -> dict:
         }
 
 
+# =============================================================================
+# Grok xAI Endpoints
+# =============================================================================
+
+@app.get("/api/grok/analyze/{condition_id}")
+async def grok_analyze(condition_id: str) -> dict:
+    """
+    Use Grok AI to analyze a specific Polymarket condition.
+
+    Returns edge_assessment, risk_factor, confidence, direction, reasoning.
+    """
+    from engine.grok_analyzer import get_analyzer
+    import os as _os
+
+    try:
+        # Find the market in cache
+        market = None
+        cached = state.polymarket_client.get_cached() if state.polymarket_client else []
+        for m in cached:
+            if m.condition_id == condition_id or m.id == condition_id:
+                market = m
+                break
+
+        if not market:
+            raise HTTPException(status_code=404, detail=f"Market {condition_id} not found in cache")
+
+        analyzer = get_analyzer()
+        result = await analyzer.analyze_market(
+            question=market.question,
+            yes_price=market.yes_price,
+            volume=market.volume_24h,
+        )
+
+        return {
+            "condition_id": condition_id,
+            "question": market.question,
+            "yes_price": market.yes_price,
+            "analysis": result,
+            "model": "grok-3-mini",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Grok analyze failed", condition_id=condition_id, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/grok/commentary")
+async def grok_commentary() -> dict:
+    """
+    Use Grok AI to generate market commentary from top signals.
+
+    Returns 2-3 sentence commentary string.
+    """
+    from engine.grok_analyzer import get_analyzer
+
+    try:
+        signals_data = []
+        for sig in state.live_signals[:5]:
+            d = sig.to_api_dict()
+            signals_data.append({
+                "question": d.get("question", ""),
+                "edge": d.get("edge", 0),
+                "direction": "YES" if d.get("kelly_edge", 0) > 0 else "NO",
+            })
+
+        analyzer = get_analyzer()
+        commentary = await analyzer.generate_commentary(signals_data)
+
+        return {
+            "commentary": commentary,
+            "signal_count": len(signals_data),
+            "model": "grok-3-mini",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error("Grok commentary failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # WebSocket endpoint
 @app.websocket("/ws/stream")
 async def websocket_endpoint(websocket: WebSocket) -> None:

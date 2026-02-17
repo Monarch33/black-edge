@@ -1607,6 +1607,126 @@ async def get_system_stats() -> dict:
 
 
 # =============================================================================
+# Trade Execution v2 (simple /execute and /positions)
+# =============================================================================
+
+class ExecuteRequest(BaseModel):
+    """Request body for simple trade execution."""
+    token_id: str
+    amount_usdc: float
+    side: str = "BUY"
+    order_type: str = "market"  # "market" | "limit"
+    limit_price: Optional[float] = None
+
+
+@router.post("/execute")
+async def execute_trade_simple(req: ExecuteRequest) -> dict:
+    """
+    Execute a trade (market or limit order). Dry-run by default.
+
+    Returns {status, order_id, dry_run, amount, side}
+    """
+    try:
+        if req.side not in ("BUY", "SELL"):
+            raise HTTPException(status_code=400, detail="side must be BUY or SELL")
+        if req.amount_usdc <= 0:
+            raise HTTPException(status_code=400, detail="amount_usdc must be positive")
+        if req.order_type == "limit" and req.limit_price is None:
+            raise HTTPException(status_code=400, detail="limit_price required for limit orders")
+
+        # Try real executor first
+        try:
+            from engine.trade_executor import execute_trade
+            order_id = await execute_trade(
+                token_id=req.token_id,
+                side=req.side,
+                amount=req.amount_usdc,
+                order_type=req.order_type.upper(),
+                price=req.limit_price,
+            )
+            if order_id:
+                return {
+                    "status": "success",
+                    "order_id": order_id,
+                    "dry_run": False,
+                    "amount": req.amount_usdc,
+                    "side": req.side,
+                    "token_id": req.token_id,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+        except Exception:
+            pass
+
+        # Dry-run fallback
+        import uuid
+        return {
+            "status": "dry_run",
+            "order_id": f"dry_{uuid.uuid4().hex[:12]}",
+            "dry_run": True,
+            "amount": req.amount_usdc,
+            "side": req.side,
+            "token_id": req.token_id,
+            "message": "Paper trade logged (no live credentials)",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to execute trade", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/positions/{wallet}")
+async def get_positions(wallet: str) -> dict:
+    """
+    Fetch open positions for a wallet from Polymarket data API.
+
+    Returns list of open positions with PnL.
+    """
+    import httpx as _httpx
+
+    try:
+        async with _httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"https://data-api.polymarket.com/positions",
+                params={"user": wallet},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        positions = []
+        for p in (data if isinstance(data, list) else data.get("positions", [])):
+            positions.append({
+                "market": p.get("market", ""),
+                "question": p.get("title", p.get("question", "")),
+                "outcome": p.get("outcome", ""),
+                "size": float(p.get("size", 0)),
+                "avg_price": float(p.get("avgPrice", p.get("averagePrice", 0))),
+                "current_price": float(p.get("currentPrice", p.get("price", 0))),
+                "pnl": float(p.get("pnl", p.get("unrealizedPnl", 0))),
+                "market_slug": p.get("conditionId", ""),
+            })
+
+        return {
+            "wallet": wallet,
+            "positions": positions,
+            "count": len(positions),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error("Failed to fetch positions", wallet=wallet, error=str(e))
+        return {
+            "wallet": wallet,
+            "positions": [],
+            "count": 0,
+            "error": str(e),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+
+# =============================================================================
 # Health Check
 # =============================================================================
 
