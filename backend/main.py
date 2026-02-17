@@ -72,6 +72,7 @@ class AppState:
         self.whale_watchlist = None
         self.quant_model = None
         self.council = None
+        self.council_ai = None   # Always CouncilAI (engine), used for background task
         self.risk_manager = None
         self.active_markets: list[str] = []  # Markets to track
 
@@ -123,14 +124,16 @@ class AppState:
             logger.info("✅ V2 Quant modules initialized")
         except Exception as e:
             logger.warning("⚠️ V2 Quant modules not available", error=str(e))
-            # Fallback: use engine.council.CouncilAI (always available)
+
+        # Always initialize the new CouncilAI (used for background analysis)
+        try:
+            from engine.council import CouncilAI
+            self.council_ai = CouncilAI()
             if self.council is None:
-                try:
-                    from engine.council import CouncilAI
-                    self.council = CouncilAI()
-                    logger.info("✅ CouncilAI (engine) initialized")
-                except Exception as ce:
-                    logger.warning("⚠️ CouncilAI not available", error=str(ce))
+                self.council = self.council_ai
+            logger.info("✅ CouncilAI (engine) initialized")
+        except Exception as ce:
+            logger.warning("⚠️ CouncilAI not available", error=str(ce))
 
         # Initialize news pipeline
         try:
@@ -995,13 +998,8 @@ class AppState:
 
     async def _council_analysis_task(self) -> None:
         """Background task: Council AI analyzes top 30 markets every 5 minutes."""
-        if not self.council:
-            logger.info("Council analysis task disabled (council not initialized)")
-            return
-
-        # Check if this is the new CouncilAI (not the old quant.council.agents.TheCouncil)
-        if not hasattr(self.council, 'analyze_batch'):
-            logger.info("Council analysis task disabled (old council API, no analyze_batch)")
+        if not self.council_ai:
+            logger.info("Council analysis task disabled (council_ai not initialized)")
             return
 
         logger.info("🧠 Council analysis task started")
@@ -1067,7 +1065,7 @@ class AppState:
                             continue
 
                     if markets_list:
-                        decisions = await self.council.analyze_batch(markets_list)
+                        decisions = await self.council_ai.analyze_batch(markets_list)
                         logger.info(f"🧠 Council analyzed {len(decisions)} markets")
             except Exception as e:
                 logger.error("Council analysis task error", error=str(e))

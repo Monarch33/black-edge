@@ -276,10 +276,11 @@ async def get_all_council_decisions() -> dict:
     """Get all active Council decisions (cached)."""
     from main import state
 
-    if not state.council or not hasattr(state.council, 'get_all_cached'):
+    council = getattr(state, 'council_ai', None) or state.council
+    if not council or not hasattr(council, 'get_all_cached'):
         return {"decisions": [], "total": 0}
 
-    all_decisions = state.council.get_all_cached()
+    all_decisions = council.get_all_cached()
     return {
         "decisions": [
             {
@@ -304,12 +305,13 @@ async def get_council_decision(market_id: str) -> dict:
     """Get Council decision for a specific market."""
     from main import state
 
-    if not state.council:
+    council = getattr(state, 'council_ai', None) or state.council
+    if not council:
         raise HTTPException(status_code=503, detail="Council not initialized")
 
     # New CouncilAI (engine.council)
-    if hasattr(state.council, 'get_cached'):
-        decision = state.council.get_cached(market_id)
+    if hasattr(council, 'get_cached'):
+        decision = council.get_cached(market_id)
         if decision:
             return {
                 "market_id": decision.market_id,
@@ -338,7 +340,7 @@ async def get_council_decision(market_id: str) -> dict:
         world_state = await state.build_real_world_state(market_id)
         if not world_state:
             raise HTTPException(status_code=404, detail=f"Market {market_id} not found")
-        decision = await state.council.convene(world_state)
+        decision = await (state.council or council).convene(world_state)
         result = asdict(decision)
         result['timestamp'] = datetime.utcnow().isoformat()
         return result
