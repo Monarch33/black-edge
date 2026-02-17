@@ -11,6 +11,7 @@ import {
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi"
 import { parseEther } from "viem"
 import { TradeDock } from "@/components/execution/trade-dock"
+import { Crypto5MinPanel } from "@/components/crypto-5min-panel"
 
 // =============================================================================
 // Types
@@ -755,6 +756,45 @@ export function TerminalView() {
     { address: "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503", label: "Binance 8", pnl: "+$12.1M", isTracking: false },
   ])
 
+  /**
+   * Convert LatencySignal (crypto 5-min) to QuantSignal (TradeDock format)
+   */
+  const convertLatencySignalToQuantSignal = (signal: any, amount: number): QuantSignal => {
+    const kellyFraction = amount / 1000 // Assume $1000 bankroll for now
+
+    return {
+      id: signal.tokenId,
+      market: signal.slug || signal.market,
+      question: signal.question || `BTC ${signal.direction} - ${signal.market}`,
+      platform: "Polymarket",
+      url: `https://polymarket.com/event/${signal.slug || signal.market}`,
+      polyOdds: signal.direction === "UP"
+        ? Math.round(signal.marketPrice * 100)
+        : Math.round((1 - signal.marketPrice) * 100),
+      trueProb: signal.trueProbability * 100,
+      edge: signal.edge * 100,
+      volume: `$${(signal.volume || 0).toLocaleString()}`,
+      volumeTotal: `$${(signal.volume || 0).toLocaleString()}`,
+      liquidity: signal.volume || 0,
+      trend: signal.btcMove > 0 ? "up" : "down",
+      risk: signal.confidence === "high" ? "low" : signal.confidence === "medium" ? "medium" : "high",
+      spread: 0.02, // 2% default spread for crypto markets
+      kellyFraction: kellyFraction,
+      volatility: Math.abs(signal.btcMove),
+      arbFlag: signal.edge > 0.08, // Flag if edge > 8%
+      arbDetail: signal.edge > 0.08 ? `Latency arbitrage detected: ${(signal.edge * 100).toFixed(1)}% edge` : "",
+      signalStrength: signal.confidence === "high" ? 0.9 : signal.confidence === "medium" ? 0.7 : 0.5,
+    }
+  }
+
+  /**
+   * Handle trade click from Crypto5MinPanel
+   */
+  const handleCrypto5MinTradeClick = (signal: any, amount: number) => {
+    const quantSignal = convertLatencySignalToQuantSignal(signal, amount)
+    setSelectedMarket(quantSignal)
+  }
+
   // Free timer countdown
   useEffect(() => {
     if (freeSecondsLeft <= 0) return
@@ -967,6 +1007,12 @@ export function TerminalView() {
             opportunitiesByCategory={opportunitiesByCategory}
           />
         </motion.div>
+
+        {/* Crypto 5-Min Scanner - Floating badge when no signal, full panel when signal detected */}
+        <Crypto5MinPanel
+          onTradeClick={handleCrypto5MinTradeClick}
+          userBalance={1000} // TODO: Get from wallet hook
+        />
 
         {/* Main Grid */}
         <div className="grid lg:grid-cols-[1fr_350px] gap-4">

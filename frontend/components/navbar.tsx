@@ -8,7 +8,7 @@ import { useAccount, useBalance, useDisconnect } from "wagmi"
 import { useWalletState } from "./providers"
 import Image from "next/image"
 
-type View = "landing" | "methodology" | "pricing" | "terminal" | "portfolio"
+type View = "landing" | "markets" | "crypto5min" | "sports" | "pricing" | "terminal" | "portfolio"
 
 interface NavbarProps {
   currentView: View
@@ -71,25 +71,24 @@ function WalletButton() {
                 return (
                   <button
                     onClick={openConnectModal}
-                    className="relative flex items-center gap-2 px-4 py-2 border border-white/10 text-white/50 hover:border-red-500/50 hover:text-white/80 text-xs tracking-wider transition-all group min-h-[44px] bg-[#020408]"
+                    className="relative flex items-center gap-2 px-4 py-2 border border-[#1A1A1A] text-[#888] hover:border-white/30 hover:text-white text-xs tracking-wider transition-all min-h-[44px] bg-black"
                   >
                     {isConnecting ? (
                       <>
                         <motion.div
                           animate={{ rotate: 360 }}
                           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="w-3 h-3 border border-red-500 border-t-transparent rounded-full"
+                          className="w-3 h-3 border border-white border-t-transparent rounded-full"
                         />
                         <span className="hidden sm:inline">CONNECTING...</span>
                       </>
                     ) : (
                       <>
-                        <div className="w-2 h-2 rounded-full bg-red-500/50 group-hover:bg-red-500 transition-colors" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
                         <span className="hidden sm:inline">CONNECT WALLET</span>
                         <span className="sm:hidden">CONNECT</span>
                       </>
                     )}
-                    <span className="absolute inset-0 shadow-[0_0_20px_rgba(220,38,38,0.2)] opacity-0 group-hover:opacity-100 transition-opacity" />
                   </button>
                 )
               }
@@ -98,9 +97,9 @@ function WalletButton() {
                 return (
                   <button
                     onClick={openChainModal}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-500 text-xs tracking-wider min-h-[44px]"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#EF4444]/10 border border-[#EF4444]/30 text-[#EF4444] text-xs tracking-wider min-h-[44px]"
                   >
-                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-pulse" />
                     WRONG NETWORK
                   </button>
                 )
@@ -110,11 +109,11 @@ function WalletButton() {
                 <div className="relative">
                   <button
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#020408] border border-green-500/30 text-white/80 text-xs tracking-wider min-h-[44px] hover:border-green-500/50 transition-all"
+                    className="flex items-center gap-2 px-3 py-2 bg-black border border-[#22C55E]/30 text-white text-xs tracking-wider min-h-[44px] hover:border-[#22C55E]/50 transition-all"
                   >
                     <button
                       onClick={(e) => { e.stopPropagation(); openChainModal() }}
-                      className="flex items-center gap-1 px-2 py-1 bg-white/5 hover:bg-white/10 transition-colors"
+                      className="flex items-center gap-1 px-2 py-1 bg-[#0A0A0A] hover:bg-[#1A1A1A] transition-colors"
                     >
                       {chain.hasIcon && (
                         <div
@@ -128,13 +127,13 @@ function WalletButton() {
                       )}
                     </button>
                     <div className="flex flex-col items-start">
-                      <span className="text-green-500 font-mono">{account.displayName}</span>
-                      <span className="text-[10px] text-white/40">
+                      <span className="text-[#22C55E] font-mono text-sm">{account.displayName}</span>
+                      <span className="text-[10px] text-[#555]">
                         {account.displayBalance ? account.displayBalance : "Loading..."}
                       </span>
                     </div>
-                    <ChevronDown className={`w-3 h-3 text-white/40 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <ChevronDown className={`w-3 h-3 text-[#888] transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
                   </button>
 
                   <AnimatePresence>
@@ -144,18 +143,18 @@ function WalletButton() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute top-full right-0 mt-2 w-64 bg-[#020408] border border-white/10 shadow-xl z-50"
+                        className="absolute top-full right-0 mt-2 w-64 bg-[#0A0A0A] border border-[#1A1A1A] shadow-xl z-50"
                       >
-                        <div className="px-4 py-3 border-b border-white/5">
+                        <div className="px-4 py-3 border-b border-[#1A1A1A]">
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-white/40 tracking-widest">CONNECTED WALLET</span>
-                            <span className="flex items-center gap-1 text-[10px] text-green-500">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                            <span className="text-[10px] text-[#555] tracking-widest">CONNECTED WALLET</span>
+                            <span className="flex items-center gap-1 text-[10px] text-[#22C55E]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
                               LIVE
                             </span>
                           </div>
                         </div>
-                        <div className="px-4 py-3 border-b border-white/5">
+                        <div className="px-4 py-3 border-b border-[#1A1A1A]">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-sm text-white font-mono">{truncateAddress(account.address)}</span>
                             <div className="flex items-center gap-2">
@@ -233,8 +232,10 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
 
   const baseNavItems = [
     { label: "HOME", view: "landing" as View },
-    { label: "THE BLACK BOX", view: "methodology" as View },
-    { label: "ACCESS", view: "pricing" as View },
+    { label: "MARKETS", view: "markets" as View },
+    { label: "5-MIN BETS", view: "crypto5min" as View },
+    { label: "SPORTS", view: "sports" as View },
+    { label: "PRICING", view: "pricing" as View },
   ]
 
   const connectedNavItems = isConnected ? [
@@ -251,26 +252,24 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 px-3 md:px-4 py-3 md:py-4">
+      <nav className="fixed top-0 left-0 right-0 z-50">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between px-4 md:px-6 py-3 bg-[#020408]/90 border border-white/[0.06] backdrop-blur-md">
+          <div className="flex items-center justify-between px-6 py-4 bg-black border-b border-[#1A1A1A]">
             <button
               onClick={() => handleNavigate("landing")}
-              onMouseEnter={() => setIsHovering(true)}
-              onMouseLeave={() => setIsHovering(false)}
               className="flex items-center gap-3 group relative"
             >
               {/* Black Edge Logo */}
               <Image
                 src="/logo-blackedge.png"
                 alt="Black Edge"
-                width={40}
-                height={40}
-                className="hover:drop-shadow-[0_0_12px_rgba(255,255,255,0.5)] transition-all duration-300"
+                width={32}
+                height={32}
+                className="transition-opacity hover:opacity-80"
                 priority
               />
-              <span className="text-white font-bold text-lg tracking-[0.15em] uppercase">
-                Black Edge
+              <span className="text-white font-semibold text-base tracking-[0.15em]">
+                BLACK EDGE
               </span>
             </button>
 
@@ -279,38 +278,33 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
                 <button
                   key={item.view}
                   onClick={() => handleNavigate(item.view)}
-                  className={`text-xs tracking-widest transition-all duration-300 relative group ${
-                    currentView === item.view ? "text-red-500" : "text-white/50 hover:text-white/90"
+                  className={`text-xs tracking-widest transition-all relative pb-1 ${
+                    currentView === item.view ? "text-white" : "text-[#888] hover:text-white"
                   }`}
                 >
                   {item.label}
                   {currentView === item.view && (
                     <motion.div
                       layoutId="nav-indicator"
-                      className="absolute -bottom-1 left-0 right-0 h-px bg-red-500"
+                      className="absolute -bottom-0 left-0 right-0 h-[2px] bg-white"
                       transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                     />
                   )}
-                  <span className="absolute -bottom-1 left-0 right-0 h-px bg-white/20 scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
                 </button>
               ))}
             </div>
 
-            <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => handleNavigate("terminal")}
-                className={`relative flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 text-[10px] md:text-xs tracking-wider transition-all group min-h-[44px] ${
+                className={`flex items-center gap-2 px-4 py-2 text-xs tracking-wider transition-all min-h-[44px] ${
                   currentView === "terminal"
-                    ? "bg-red-500 text-white border border-red-500"
-                    : "bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 hover:border-red-500/50"
+                    ? "bg-white text-black"
+                    : "bg-transparent border border-[#1A1A1A] text-[#888] hover:border-white/30 hover:text-white"
                 }`}
               >
                 <Zap className="w-3 h-3" />
-                <span className="hidden sm:inline">LAUNCH TERMINAL</span>
-                <span className="sm:hidden">TERMINAL</span>
-                {currentView !== "terminal" && (
-                  <span className="absolute inset-0 shadow-[0_0_20px_rgba(220,38,38,0.3)] opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
+                <span className="hidden sm:inline">TERMINAL</span>
               </button>
               <div className="hidden md:block">
                 <WalletButton />
@@ -341,18 +335,18 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed top-0 right-0 bottom-0 w-full max-w-sm bg-[#020408]/95 border-l border-white/[0.06] backdrop-blur-md z-[70] md:hidden"
+              className="fixed top-0 right-0 bottom-0 w-full max-w-sm bg-black border-l border-[#1A1A1A] z-[70] md:hidden"
             >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-                <span className="text-xs text-white/50 tracking-widest">NAVIGATION</span>
+              <div className="flex items-center justify-between px-6 py-4 border-b border-[#1A1A1A]">
+                <span className="text-xs text-[#555] tracking-widest">NAVIGATION</span>
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center w-11 h-11 border border-white/10 text-white/50"
+                  className="flex items-center justify-center w-11 h-11 border border-[#1A1A1A] text-[#888] hover:text-white hover:border-white/30 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-2">
                 {navItems.map((item, i) => (
                   <motion.button
                     key={item.view}
@@ -360,10 +354,10 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.1 + i * 0.05 }}
                     onClick={() => handleNavigate(item.view)}
-                    className={`block w-full text-left text-2xl font-bold tracking-wider py-4 border-b transition-colors min-h-[60px] ${
+                    className={`block w-full text-left text-lg font-semibold tracking-wider py-4 border-b transition-colors ${
                       currentView === item.view
-                        ? "text-red-500 border-red-500/30"
-                        : "text-white/70 border-white/5 hover:text-white"
+                        ? "text-white border-white/30"
+                        : "text-[#888] border-[#1A1A1A] hover:text-white"
                     }`}
                   >
                     {item.label}
@@ -374,16 +368,16 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.25 }}
                   onClick={() => handleNavigate("terminal")}
-                  className={`block w-full text-left text-2xl font-bold tracking-wider py-4 border-b transition-colors min-h-[60px] ${
+                  className={`block w-full text-left text-lg font-semibold tracking-wider py-4 border-b transition-colors ${
                     currentView === "terminal"
-                      ? "text-red-500 border-red-500/30"
-                      : "text-white/70 border-white/5 hover:text-white"
+                      ? "text-white border-white/30"
+                      : "text-[#888] border-[#1A1A1A] hover:text-white"
                   }`}
                 >
                   TERMINAL
                 </motion.button>
               </div>
-              <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-white/[0.06]">
+              <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-[#1A1A1A]">
                 <WalletButton />
               </div>
             </motion.div>
