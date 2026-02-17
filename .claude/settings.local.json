@@ -28,7 +28,16 @@
       "Bash(node:*)",
       "Bash(docker:*)",
       "Bash(git --version:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(tee:*)",
+      "Bash(identify:*)",
+      "WebFetch(domain:black-edge-h7vv3vmet-finas-projects-31356a2e.vercel.app)",
+      "Bash(pip3 install:*)",
+      "Bash(tail -30 __NEW_LINE_866e76d5cc544e52__ echo \"\" echo \"════════════════════════════════════════════════════════════════\" echo \"📊 DERNIERS LOGS \\(100 lignes\\)\" echo \"════════════════════════════════════════════════════════════════\" tail -100 /tmp/backend_logs.txt)",
+      "Bash(ps:*)",
+      "Bash(git rm:*)"
     ]
   }
 }
