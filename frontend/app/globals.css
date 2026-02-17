@@ -16,13 +16,13 @@
   --secondary-foreground: #E2E8F0;
   --muted: rgba(255, 255, 255, 0.03);
   --muted-foreground: #64748B;
-  --accent: #DC2626;
-  --accent-foreground: #E2E8F0;
+  --accent: #FFFFFF;
+  --accent-foreground: #020408;
   --destructive: #DC2626;
   --destructive-foreground: #E2E8F0;
   --border: rgba(255, 255, 255, 0.06);
   --input: rgba(255, 255, 255, 0.03);
-  --ring: #DC2626;
+  --ring: #FFFFFF;
   --chart-1: #22C55E;
   --chart-2: #DC2626;
   --chart-3: #EAB308;
@@ -31,12 +31,12 @@
   --radius: 0.25rem;
   --sidebar: #020408;
   --sidebar-foreground: #E2E8F0;
-  --sidebar-primary: #DC2626;
-  --sidebar-primary-foreground: #E2E8F0;
+  --sidebar-primary: #FFFFFF;
+  --sidebar-primary-foreground: #020408;
   --sidebar-accent: rgba(255, 255, 255, 0.03);
   --sidebar-accent-foreground: #E2E8F0;
   --sidebar-border: rgba(255, 255, 255, 0.06);
-  --sidebar-ring: #DC2626;
+  --sidebar-ring: #FFFFFF;
 }
 
 @theme inline {
@@ -146,8 +146,8 @@
 }
 
 @keyframes redact-pulse {
-  0%, 100% { background-color: rgba(220, 38, 38, 0.3); }
-  50% { background-color: rgba(220, 38, 38, 0.5); }
+  0%, 100% { background-color: rgba(255, 255, 255, 0.1); }
+  50% { background-color: rgba(255, 255, 255, 0.2); }
 }
 
 .animate-blink {
@@ -193,7 +193,7 @@
 
 /* Redacted text effect */
 .redacted {
-  background: linear-gradient(90deg, #DC2626 0%, #991B1B 100%);
+  background: linear-gradient(90deg, #1A1A1A 0%, #0A0A0A 100%);
   color: transparent;
   filter: blur(4px);
   user-select: none;
@@ -216,5 +216,5 @@
 
 /* CRT glow effect */
 .crt-glow {
-  text-shadow: 0 0 10px rgba(220, 38, 38, 0.5), 0 0 20px rgba(220, 38, 38, 0.3);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(255, 255, 255, 0.1);
 }

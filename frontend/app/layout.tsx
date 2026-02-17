@@ -1,19 +1,26 @@
 import React from "react"
 import type { Metadata } from "next"
-import { JetBrains_Mono } from "next/font/google"
+import { Inter, JetBrains_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Providers } from "@/components/providers"
 import "./globals.css"
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+})
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 })
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
-  title: "BLACK EDGE | Uncensored Arbitrage Intelligence",
+  title: "Black Edge | Prediction Market Intelligence",
   description:
-    "Profit from the chaos. Markets are driven by panic, scandal, and lies. We quantify the truth.",
+    "AI-powered signals for Polymarket. Multi-agent analysis. Real-time data. Zero noise.",
   generator: "Black Edge",
   icons: {
     icon: "/logo-blackedge.png",
@@ -26,7 +33,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${jetbrainsMono.variable} font-mono antialiased`}>
+      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <Providers>
           {children}
         </Providers>

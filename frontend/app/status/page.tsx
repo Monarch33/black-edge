@@ -11,6 +11,8 @@ interface ServiceStatus {
   message?: string
 }
 
+export const dynamic = 'force-dynamic'
+
 export default function SystemStatus() {
   const [backendStatus, setBackendStatus] = useState<ServiceStatus>({
     name: 'Backend API',
