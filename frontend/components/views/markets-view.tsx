@@ -2,30 +2,31 @@
 
 import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
-import { Search, TrendingUp, Activity, Filter, ArrowUpRight, Eye, Zap } from "lucide-react"
+import { Search, ArrowUpRight, TrendingUp } from "lucide-react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
-interface Market {
+interface PolyMarket {
   id: string
-  market: string
   question: string
-  edge: number
-  signalStrength: number
-  prediction: string
-  polyOdds: number
-  platform: string
-  category?: string
-  volume?: number
-  trueProb?: number
-  url?: string
+  image: string
+  icon: string
+  slug: string
+  url: string
+  yes_price: number
+  no_price: number
+  volume_24h: number
+  volume_total: number
+  liquidity: number
+  end_date: string
+  outcomes: string[]
 }
 
 type Category = "all" | "crypto" | "politics" | "sports" | "economy" | "tech"
-type SortBy = "edge" | "volume" | "signal"
+type SortBy = "volume" | "liquidity" | "price"
 
 const CATEGORIES: { key: Category; label: string; emoji: string }[] = [
-  { key: "all", label: "All Markets", emoji: "🌐" },
+  { key: "all", label: "All", emoji: "🌐" },
   { key: "crypto", label: "Crypto", emoji: "₿" },
   { key: "politics", label: "Politics", emoji: "🏛️" },
   { key: "sports", label: "Sports", emoji: "⚽" },
@@ -33,384 +34,247 @@ const CATEGORIES: { key: Category; label: string; emoji: string }[] = [
   { key: "tech", label: "Tech", emoji: "💻" },
 ]
 
-export function MarketsView() {
-  const [markets, setMarkets] = useState<Market[]>([])
-  const [filteredMarkets, setFilteredMarkets] = useState<Market[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedCategory, setSelectedCategory] = useState<Category>("all")
-  const [searchQuery, setSearchQuery] = useState("")
-  const [displayCount, setDisplayCount] = useState(20)
-  const [sortBy, setSortBy] = useState<SortBy>("edge")
-  const [showFilters, setShowFilters] = useState(false)
+function detectCategory(question: string): Category {
+  const q = question.toLowerCase()
+  if (q.includes("btc") || q.includes("bitcoin") || q.includes("eth") || q.includes("ethereum") || q.includes("crypto") || q.includes("solana") || q.includes("token") || q.includes("coin") || q.includes("defi") || q.includes("blockchain")) return "crypto"
+  if (q.includes("trump") || q.includes("biden") || q.includes("election") || q.includes("senate") || q.includes("congress") || q.includes("president") || q.includes("democrat") || q.includes("republican") || q.includes("vote") || q.includes("tariff") || q.includes("white house") || q.includes("russia") || q.includes("ukraine") || q.includes("china") || q.includes("nato") || q.includes("fed rate") || q.includes("geopolit")) return "politics"
+  if (q.includes("nfl") || q.includes("nba") || q.includes("mlb") || q.includes("super bowl") || q.includes("champions league") || q.includes("premier league") || q.includes("soccer") || q.includes("tennis") || q.includes("f1") || q.includes("formula") || q.includes("golf") || q.includes("fifa") || q.includes("world cup") || q.includes("nhl") || q.includes("ufc") || q.includes("boxing") || q.includes("wimbledon") || q.includes("us open") || q.includes("la liga") || q.includes("serie a") || q.includes("bundesliga")) return "sports"
+  if (q.includes("interest rate") || q.includes("inflation") || q.includes("gdp") || q.includes("recession") || q.includes("fed ") || q.includes("dow jones") || q.includes("s&p") || q.includes("nasdaq") || q.includes("oil price") || q.includes("gold price")) return "economy"
+  if (q.includes("ai") || q.includes("openai") || q.includes("apple") || q.includes("google") || q.includes("nvidia") || q.includes("meta") || q.includes("microsoft") || q.includes("chatgpt") || q.includes("gpt") || q.includes("tesla") || q.includes("spacex") || q.includes("amazon")) return "tech"
+  return "crypto"
+}
 
-  // Fetch markets
+function formatVolume(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`
+  return `$${v.toFixed(0)}`
+}
+
+export function MarketsView() {
+  const [markets, setMarkets] = useState<PolyMarket[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState<Category>("all")
+  const [sortBy, setSortBy] = useState<SortBy>("volume")
+  const [displayCount, setDisplayCount] = useState(20)
+
   useEffect(() => {
     const fetchMarkets = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/v2/signals`)
+        const res = await fetch(`${API_URL}/api/markets`)
         const data = await res.json()
-
-        if (data.signals) {
-          const marketsData = data.signals.map((s: any) => ({
-            id: s.id,
-            market: s.market,
-            question: s.question,
-            edge: s.edge,
-            signalStrength: s.signalStrength,
-            prediction: s.prediction,
-            polyOdds: s.polyOdds,
-            platform: s.platform,
-            category: detectCategory(s.question),
-            volume: s.volume || 0,
-            trueProb: s.trueProb || 0,
-            url: s.url || '',
-          }))
-          setMarkets(marketsData)
-          setFilteredMarkets(marketsData)
-        }
-
+        setMarkets(data.markets || [])
         setLoading(false)
       } catch (err) {
         console.error("Failed to fetch markets:", err)
         setLoading(false)
       }
     }
-
     fetchMarkets()
-    const interval = setInterval(fetchMarkets, 30000) // Refresh every 30s
+    const interval = setInterval(fetchMarkets, 60000)
     return () => clearInterval(interval)
   }, [])
 
-  // Detect category from question text
-  const detectCategory = (question: string): string => {
-    const q = question.toLowerCase()
-    if (
-      q.includes("btc") ||
-      q.includes("bitcoin") ||
-      q.includes("eth") ||
-      q.includes("ethereum") ||
-      q.includes("crypto")
-    )
-      return "crypto"
-    if (
-      q.includes("trump") ||
-      q.includes("biden") ||
-      q.includes("election") ||
-      q.includes("senate") ||
-      q.includes("congress") ||
-      q.includes("president")
-    )
-      return "politics"
-    if (
-      q.includes("nfl") ||
-      q.includes("nba") ||
-      q.includes("mlb") ||
-      q.includes("super bowl") ||
-      q.includes("sport")
-    )
-      return "sports"
-    if (
-      q.includes("fed") ||
-      q.includes("interest rate") ||
-      q.includes("inflation") ||
-      q.includes("gdp") ||
-      q.includes("economy")
-    )
-      return "economy"
-    if (
-      q.includes("ai") ||
-      q.includes("tech") ||
-      q.includes("apple") ||
-      q.includes("google") ||
-      q.includes("nvidia")
-    )
-      return "tech"
-    return "other"
-  }
-
-  // Apply filters and sorting
-  useEffect(() => {
-    let filtered = markets
-
-    // Category filter
-    if (selectedCategory !== "all") {
-      filtered = filtered.filter((m) => m.category === selectedCategory)
-    }
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter((m) => m.question.toLowerCase().includes(query))
-    }
-
-    // Sort
-    filtered = [...filtered].sort((a, b) => {
-      if (sortBy === "edge") return Math.abs(b.edge) - Math.abs(a.edge)
-      if (sortBy === "volume") return (b.volume || 0) - (a.volume || 0)
-      if (sortBy === "signal") return b.signalStrength - a.signalStrength
+  const filtered = markets
+    .filter(m => {
+      if (selectedCategory !== "all" && detectCategory(m.question) !== selectedCategory) return false
+      if (searchQuery.trim()) return m.question.toLowerCase().includes(searchQuery.toLowerCase())
+      return true
+    })
+    .sort((a, b) => {
+      if (sortBy === "volume") return b.volume_24h - a.volume_24h
+      if (sortBy === "liquidity") return b.liquidity - a.liquidity
+      if (sortBy === "price") return b.yes_price - a.yes_price
       return 0
     })
 
-    setFilteredMarkets(filtered)
-    setDisplayCount(20) // Reset display count when filters change
-  }, [markets, selectedCategory, searchQuery, sortBy])
+  const visible = filtered.slice(0, displayCount)
+  const hasMore = filtered.length > displayCount
 
-  const getSignalLabel = (strength: number): string => {
-    if (strength >= 70) return "Strong"
-    if (strength >= 50) return "Medium"
-    return "Weak"
-  }
-
-  const getSignalColor = (strength: number): string => {
-    if (strength >= 70) return "text-[#22C55E]"
-    if (strength >= 50) return "text-[#F59E0B]"
-    return "text-[#888]"
-  }
-
-  const visibleMarkets = filteredMarkets.slice(0, displayCount)
-  const hasMore = filteredMarkets.length > displayCount
-
-  // Calculate stats
-  const highEdgeCount = markets.filter((m) => Math.abs(m.edge) > 5).length
-  const avgEdge = markets.length > 0
-    ? markets.reduce((sum, m) => sum + Math.abs(m.edge), 0) / markets.length
-    : 0
+  const categoryCounts = CATEGORIES.reduce((acc, cat) => {
+    acc[cat.key] = cat.key === "all" ? markets.length : markets.filter(m => detectCategory(m.question) === cat.key).length
+    return acc
+  }, {} as Record<string, number>)
 
   return (
     <div className="min-h-screen bg-black text-white pt-20 md:pt-24 px-4 pb-16">
       <div className="max-w-7xl mx-auto">
+
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="flex items-center gap-2 mb-3">
-                <Activity className="w-5 h-5 text-[#22C55E]" />
-                <span className="text-xs text-[#888] uppercase tracking-wider">
-                  Live Markets
-                </span>
-              </div>
-              <h1 className="text-3xl md:text-5xl font-bold text-white mb-3">
-                All Signals
-              </h1>
-              <p className="text-sm text-[#888]">
-                {loading ? "Loading..." : `${filteredMarkets.length} active opportunities`}
-              </p>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-[#0A0A0A] border border-[#1A1A1A] px-6 py-4">
-                <div className="text-xs text-[#888] uppercase tracking-wider mb-1">
-                  High Edge
-                </div>
-                <div className="text-2xl font-bold text-[#22C55E] font-mono">
-                  {highEdgeCount}
-                </div>
-              </div>
-              <div className="bg-[#0A0A0A] border border-[#1A1A1A] px-6 py-4">
-                <div className="text-xs text-[#888] uppercase tracking-wider mb-1">
-                  Avg Edge
-                </div>
-                <div className="text-2xl font-bold text-white font-mono">
-                  {avgEdge.toFixed(1)}%
-                </div>
-              </div>
-            </div>
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-white/40" />
+            <span className="text-xs text-white/40 uppercase tracking-wider">Live from Polymarket</span>
           </div>
+          <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">
+            All Markets
+          </h1>
+          <p className="text-sm text-white/40">
+            {loading ? "Loading..." : `${filtered.length} active markets`}
+          </p>
+        </div>
 
-          {/* Search and Filters Bar */}
-          <div className="flex flex-col md:flex-row gap-3 mb-6">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#555]" />
-              <input
-                type="text"
-                placeholder="Search markets..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-[#0A0A0A] border border-[#1A1A1A] text-white placeholder:text-[#555] focus:outline-none focus:border-white/30 transition-colors text-sm"
-              />
-            </div>
-
-            {/* Sort Dropdown */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-4 py-3 text-xs tracking-wider transition-colors ${
-                  showFilters
-                    ? "bg-white text-black"
-                    : "bg-[#0A0A0A] border border-[#1A1A1A] text-[#888] hover:border-white/30 hover:text-white"
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline">FILTERS</span>
-              </button>
-
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortBy)}
-                className="px-4 py-3 bg-[#0A0A0A] border border-[#1A1A1A] text-white focus:outline-none focus:border-white/30 transition-colors text-xs tracking-wider appearance-none cursor-pointer"
-              >
-                <option value="edge">SORT: EDGE ↓</option>
-                <option value="signal">SORT: SIGNAL ↓</option>
-                <option value="volume">SORT: VOLUME ↓</option>
-              </select>
-            </div>
+        {/* Search + Sort */}
+        <div className="flex flex-col md:flex-row gap-3 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+            <input
+              type="text"
+              placeholder="Search markets..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-white/30 transition-colors text-sm"
+            />
           </div>
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as SortBy)}
+            className="px-4 py-3 bg-white/5 border border-white/10 text-white focus:outline-none text-xs tracking-wider appearance-none cursor-pointer"
+          >
+            <option value="volume">SORT: VOLUME 24H</option>
+            <option value="liquidity">SORT: LIQUIDITY</option>
+            <option value="price">SORT: YES PRICE</option>
+          </select>
+        </div>
 
-          {/* Category Pills */}
-          {showFilters && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex gap-2 overflow-x-auto pb-2 mb-4"
+        {/* Category Pills */}
+        <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat.key}
+              onClick={() => { setSelectedCategory(cat.key); setDisplayCount(20) }}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs whitespace-nowrap transition-colors border ${
+                selectedCategory === cat.key
+                  ? "bg-white text-black border-white"
+                  : "bg-transparent text-white/50 border-white/10 hover:border-white/30 hover:text-white"
+              }`}
             >
-              {CATEGORIES.map((cat) => {
-                const count = markets.filter((m) => m.category === cat.key || cat.key === "all").length
-                return (
-                  <button
-                    key={cat.key}
-                    onClick={() => setSelectedCategory(cat.key)}
-                    className={`flex items-center gap-2 px-4 py-2 text-xs font-medium whitespace-nowrap transition-colors ${
-                      selectedCategory === cat.key
-                        ? "bg-white text-black"
-                        : "bg-[#0A0A0A] text-[#888] border border-[#1A1A1A] hover:border-white/30 hover:text-white"
-                    }`}
-                  >
-                    <span>{cat.emoji}</span>
-                    <span>{cat.label}</span>
-                    <span className="text-[10px] opacity-50">
-                      ({cat.key === "all" ? markets.length : count})
-                    </span>
-                  </button>
-                )
-              })}
-            </motion.div>
-          )}
-        </motion.div>
+              <span>{cat.emoji}</span>
+              <span>{cat.label}</span>
+              <span className="opacity-40 text-[10px]">({categoryCounts[cat.key] || 0})</span>
+            </button>
+          ))}
+        </div>
 
-        {/* Markets Grid */}
+        {/* Grid */}
         {loading ? (
-          <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-16 text-center">
-            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-            <div className="text-[#555]">Loading markets...</div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-white/5 border border-white/10 overflow-hidden">
+                <div className="h-36 bg-white/5 animate-pulse" />
+                <div className="p-4 space-y-3">
+                  <div className="h-4 bg-white/10 rounded animate-pulse" />
+                  <div className="h-4 bg-white/10 rounded w-3/4 animate-pulse" />
+                  <div className="grid grid-cols-2 gap-2 mt-4">
+                    <div className="h-14 bg-white/10 rounded animate-pulse" />
+                    <div className="h-14 bg-white/10 rounded animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        ) : filteredMarkets.length === 0 ? (
-          <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-16 text-center">
-            <div className="text-[#555]">
-              {searchQuery ? "No markets match your search" : "No markets in this category"}
-            </div>
+        ) : filtered.length === 0 ? (
+          <div className="border border-white/10 p-16 text-center text-white/30 text-sm">
+            No markets found
           </div>
         ) : (
           <>
-            {/* Grid View */}
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-              {visibleMarkets.map((market, idx) => (
-                <motion.div
-                  key={market.id}
+              {visible.map((market, idx) => (
+                <motion.a
+                  key={market.id || idx}
+                  href={market.url || "https://polymarket.com"}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.02 }}
-                  className="bg-[#0A0A0A] border border-[#1A1A1A] hover:border-white/30 transition-all group cursor-pointer overflow-hidden"
+                  transition={{ delay: Math.min(idx * 0.02, 0.5) }}
+                  className="bg-[#0A0A0A] border border-white/10 hover:border-white/30 transition-all group overflow-hidden block"
                 >
-                  {/* Header */}
-                  <div className="p-5 border-b border-[#1A1A1A]">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        {market.category && (
-                          <span className="text-[10px] text-[#888] uppercase tracking-wider">
-                            {CATEGORIES.find(c => c.key === market.category)?.emoji} {market.category}
-                          </span>
-                        )}
+                  {/* Market Image */}
+                  <div className="relative h-36 bg-gradient-to-br from-white/5 to-black overflow-hidden">
+                    {market.image ? (
+                      <img
+                        src={market.image}
+                        alt=""
+                        className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none"
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-5xl opacity-10">
+                          {CATEGORIES.find(c => c.key === detectCategory(market.question))?.emoji}
+                        </span>
                       </div>
-                      <div className={`text-xs font-mono font-bold ${
-                        market.edge > 0 ? "text-[#22C55E]" : "text-[#EF4444]"
-                      }`}>
-                        {market.edge > 0 ? "+" : ""}{market.edge.toFixed(1)}%
+                    )}
+                    {/* Volume badge */}
+                    {market.volume_24h > 0 && (
+                      <div className="absolute top-2 right-2 bg-black/80 backdrop-blur-sm text-white/60 text-[10px] font-mono px-2 py-1 border border-white/10">
+                        {formatVolume(market.volume_24h)} 24h
                       </div>
+                    )}
+                    {/* Category badge */}
+                    <div className="absolute top-2 left-2 bg-black/80 backdrop-blur-sm text-white/50 text-[10px] uppercase tracking-wider px-2 py-1 border border-white/10">
+                      {CATEGORIES.find(c => c.key === detectCategory(market.question))?.emoji}{" "}
+                      {detectCategory(market.question)}
                     </div>
-                    <h3 className="text-sm text-white line-clamp-2 group-hover:text-white transition-colors mb-3">
+                  </div>
+
+                  {/* Card body */}
+                  <div className="p-4">
+                    <p className="text-sm text-white line-clamp-2 mb-4 leading-snug group-hover:text-white/90 min-h-[2.5rem]">
                       {market.question}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium ${
-                        market.prediction === "YES"
-                          ? "bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20"
-                          : "bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20"
-                      }`}>
-                        {market.prediction}
-                      </span>
-                    </div>
-                  </div>
+                    </p>
 
-                  {/* Stats */}
-                  <div className="p-5 grid grid-cols-3 gap-4">
-                    <div>
-                      <div className="text-[10px] text-[#555] uppercase tracking-wider mb-1">
-                        Price
+                    {/* YES / NO prices — main Polymarket-style feature */}
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="flex flex-col items-center py-3 bg-[#22C55E]/10 border border-[#22C55E]/30 hover:bg-[#22C55E]/20 transition-colors">
+                        <span className="text-[10px] text-[#22C55E]/60 font-mono mb-1 uppercase">
+                          {market.outcomes[0] || "Yes"}
+                        </span>
+                        <span className="text-xl font-bold text-[#22C55E] font-mono leading-none">
+                          {(market.yes_price * 100).toFixed(0)}¢
+                        </span>
                       </div>
-                      <div className="text-sm font-mono text-white">
-                        {market.polyOdds}¢
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-[#555] uppercase tracking-wider mb-1">
-                        Signal
-                      </div>
-                      <div className={`text-sm font-mono ${getSignalColor(market.signalStrength)}`}>
-                        {getSignalLabel(market.signalStrength)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[10px] text-[#555] uppercase tracking-wider mb-1">
-                        Edge
-                      </div>
-                      <div className="text-sm font-mono text-white">
-                        {Math.abs(market.edge).toFixed(1)}%
+                      <div className="flex flex-col items-center py-3 bg-[#EF4444]/10 border border-[#EF4444]/30 hover:bg-[#EF4444]/20 transition-colors">
+                        <span className="text-[10px] text-[#EF4444]/60 font-mono mb-1 uppercase">
+                          {market.outcomes[1] || "No"}
+                        </span>
+                        <span className="text-xl font-bold text-[#EF4444] font-mono leading-none">
+                          {(market.no_price * 100).toFixed(0)}¢
+                        </span>
                       </div>
                     </div>
-                  </div>
 
-                  {/* CTA */}
-                  <div className="p-5 pt-0">
-                    <a
-                      href={market.url || `https://polymarket.com`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full flex items-center justify-center gap-2 py-2 bg-white/5 border border-white/10 text-white hover:bg-white hover:text-black transition-all text-xs"
-                    >
-                      View on Polymarket
-                      <ArrowUpRight className="w-3 h-3" />
-                    </a>
+                    {/* Footer row */}
+                    <div className="flex items-center justify-between text-[10px] text-white/25 font-mono pt-2 border-t border-white/5">
+                      <span>Vol: {formatVolume(market.volume_total)}</span>
+                      <div className="flex items-center gap-1 text-white/40 group-hover:text-white/70 transition-colors">
+                        <span>Polymarket</span>
+                        <ArrowUpRight className="w-3 h-3" />
+                      </div>
+                    </div>
                   </div>
-                </motion.div>
+                </motion.a>
               ))}
             </div>
 
-            {/* Load More */}
             {hasMore && (
-              <div className="text-center">
+              <div className="text-center mb-4">
                 <button
-                  onClick={() => setDisplayCount((prev) => prev + 20)}
-                  className="px-8 py-3 bg-[#0A0A0A] border border-[#1A1A1A] text-white hover:bg-white hover:text-black transition-all text-sm flex items-center gap-2 mx-auto"
+                  onClick={() => setDisplayCount(prev => prev + 20)}
+                  className="px-8 py-3 bg-white/5 border border-white/10 text-white hover:bg-white hover:text-black transition-all text-sm"
                 >
-                  Load More
-                  <span className="text-xs text-[#555]">
-                    ({filteredMarkets.length - displayCount} remaining)
-                  </span>
+                  Load more{" "}
+                  <span className="text-white/40 text-xs">({filtered.length - displayCount} remaining)</span>
                 </button>
               </div>
             )}
 
-            {/* Footer info */}
-            <div className="mt-6 text-center text-xs text-[#555]">
-              Showing {visibleMarkets.length} of {filteredMarkets.length} markets •
-              Updated every 30 seconds
+            <div className="text-center text-xs text-white/20 mt-2">
+              Showing {visible.length} of {filtered.length} markets • Updated live from Polymarket
             </div>
           </>
         )}

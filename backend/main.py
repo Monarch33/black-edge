@@ -1193,6 +1193,78 @@ async def build_transaction(request: BuildTxRequest) -> dict:
         return {"error": str(e)}
 
 
+@app.get("/api/markets")
+async def get_polymarket_markets():
+    """
+    Fetch all active markets directly from Polymarket Gamma API, including images.
+    Returns 100 markets sorted by 24h volume.
+    """
+    import httpx
+    import json as json_lib
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                "https://gamma-api.polymarket.com/markets",
+                params={
+                    "limit": 100,
+                    "active": "true",
+                    "closed": "false",
+                    "archived": "false",
+                    "order": "volume24hr",
+                    "ascending": "false",
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        markets = []
+        for m in data:
+            if m.get("closed") or not m.get("active", True):
+                continue
+
+            outcome_prices = m.get("outcomePrices", [])
+            yes_price = 0.5
+            no_price = 0.5
+            if outcome_prices and len(outcome_prices) >= 2:
+                try:
+                    yes_price = float(outcome_prices[0])
+                    no_price = float(outcome_prices[1])
+                except (ValueError, TypeError):
+                    pass
+
+            outcomes = m.get("outcomes", ["Yes", "No"])
+            if isinstance(outcomes, str):
+                try:
+                    outcomes = json_lib.loads(outcomes)
+                except Exception:
+                    outcomes = ["Yes", "No"]
+
+            slug = m.get("slug", "")
+            markets.append({
+                "id": m.get("conditionId", m.get("id", "")),
+                "question": m.get("question", ""),
+                "image": m.get("image", ""),
+                "icon": m.get("icon", ""),
+                "slug": slug,
+                "url": f"https://polymarket.com/event/{slug}",
+                "yes_price": yes_price,
+                "no_price": no_price,
+                "volume_24h": float(m.get("volume24hr", 0) or 0),
+                "volume_total": float(m.get("volumeNum", 0) or 0),
+                "liquidity": float(m.get("liquidityNum", 0) or 0),
+                "end_date": m.get("endDate", ""),
+                "outcomes": (outcomes[:2] if len(outcomes) >= 2 else ["Yes", "No"]),
+            })
+
+        logger.info("Served Polymarket markets", count=len(markets))
+        return {"markets": markets, "count": len(markets)}
+
+    except Exception as e:
+        logger.error("Failed to fetch Polymarket markets", error=str(e))
+        return {"markets": [], "count": 0, "error": str(e)}
+
+
 @app.post("/api/check-approval")
 async def check_approval(user_address: str) -> dict:
     """
