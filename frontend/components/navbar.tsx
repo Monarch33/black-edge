@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Zap, Menu, X, ChevronDown, Copy, ExternalLink, Power } from "lucide-react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { useAccount, useBalance, useDisconnect } from "wagmi"
+import { POLYGON_CHAIN_ID, USDC_ADDRESS } from "@/lib/constants"
 import { useWalletState } from "./providers"
 import Image from "next/image"
 
@@ -18,6 +19,11 @@ interface NavbarProps {
 function WalletButton() {
   const { address, isConnected, isConnecting } = useAccount()
   const { data: balance } = useBalance({ address })
+  const { data: usdcBalance } = useBalance({
+    address,
+    chainId: POLYGON_CHAIN_ID,
+    token: USDC_ADDRESS,
+  })
   const { disconnect } = useDisconnect()
   const { addWallet, connectedWallets } = useWalletState()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -129,7 +135,9 @@ function WalletButton() {
                     <div className="flex flex-col items-start">
                       <span className="text-[#22C55E] font-mono text-sm">{account.displayName}</span>
                       <span className="text-[10px] text-[#555]">
-                        {account.displayBalance ? account.displayBalance : "Loading..."}
+                        {usdcBalance
+                          ? `${parseFloat(usdcBalance.formatted).toFixed(2)} USDC`
+                          : account.displayBalance || "Loading..."}
                       </span>
                     </div>
                     <ChevronDown className={`w-3 h-3 text-[#888] transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
@@ -172,7 +180,14 @@ function WalletButton() {
                               </a>
                             </div>
                           </div>
-                          <div className="text-lg text-white font-mono">{account.displayBalance}</div>
+                          <div className="text-lg text-white font-mono">
+                            {usdcBalance
+                              ? `${parseFloat(usdcBalance.formatted).toFixed(2)} USDC`
+                              : account.displayBalance}
+                          </div>
+                          {usdcBalance && (
+                            <div className="text-[10px] text-[#555] mt-0.5">on Polygon</div>
+                          )}
                         </div>
                         {connectedWallets.length > 1 && (
                           <div className="px-4 py-3 border-b border-white/5">

@@ -101,6 +101,8 @@ export function usePolymarkets(options?: { limit?: number; category?: string }) 
             const prices = parseJsonField(m.outcomePrices).map(Number)
             const outs = parseJsonField(m.outcomes) as string[]
             const slug = String(m.slug || '')
+            // Use eventSlug for the URL (event slug, not market slug)
+            const eventSlug = String(m.eventSlug || slug || '')
             return {
               conditionId: String(m.conditionId || m.id || ''),
               question: String(m.question || ''),
@@ -116,7 +118,7 @@ export function usePolymarkets(options?: { limit?: number; category?: string }) 
               endDate: String(m.endDate || ''),
               category: categorize(String(m.question || '')),
               description: String(m.description || ''),
-              url: slug ? `https://polymarket.com/event/${slug}` : '',
+              url: eventSlug ? `https://polymarket.com/event/${eventSlug}` : '',
               edge: null,
               signalStrength: null,
             }

@@ -2,6 +2,55 @@
 import { ArrowUpRight } from "lucide-react"
 import type { PolyMarket } from '@/hooks/use-polymarket'
 
+export interface CouncilDecision {
+  signal: 'BUY' | 'SELL' | 'HOLD' | 'AVOID'
+  edge: number
+  confidence: number
+  consensus_pct: number
+  doomer_veto: boolean
+  summary: string
+}
+
+function CouncilBadge({ decision }: { decision: CouncilDecision }) {
+  const colors: Record<string, string> = {
+    BUY:   'text-[#22C55E] border-[#22C55E]/30 bg-[#22C55E]/5',
+    SELL:  'text-[#EF4444] border-[#EF4444]/30 bg-[#EF4444]/5',
+    HOLD:  'text-white/60 border-white/20 bg-white/5',
+    AVOID: 'text-[#F59E0B] border-[#F59E0B]/30 bg-[#F59E0B]/5',
+  }
+  const cls = colors[decision.signal] ?? colors['HOLD']
+  return (
+    <div className={`mt-2 px-3 py-2 border text-[10px] font-mono ${cls}`}>
+      <div className="flex items-center justify-between mb-0.5">
+        <span className="tracking-wider">⚡ COUNCIL: {decision.signal}</span>
+        {decision.doomer_veto && <span className="text-[#F59E0B]">VETO</span>}
+      </div>
+      <div className="flex items-center gap-3 text-white/40">
+        {decision.edge > 0 && <span>+{(decision.edge * 100).toFixed(1)}% edge</span>}
+        <span>{Math.round(decision.consensus_pct)}% consensus</span>
+        <span>{Math.round(decision.confidence * 100)}% conf</span>
+      </div>
+    </div>
+  )
+}
+
+function PredictionBadge({ yesPrice }: { yesPrice: number }) {
+  const pct = Math.round(yesPrice * 100)
+  let label = ''
+  let color = ''
+  if (pct >= 85) { label = 'VERY LIKELY'; color = 'text-[#22C55E]' }
+  else if (pct >= 65) { label = 'LIKELY'; color = 'text-[#22C55E]/70' }
+  else if (pct >= 45) { label = 'TOSS-UP'; color = 'text-white/50' }
+  else if (pct >= 25) { label = 'UNLIKELY'; color = 'text-[#EF4444]/70' }
+  else { label = 'VERY UNLIKELY'; color = 'text-[#EF4444]' }
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <span className={`text-[9px] font-mono tracking-wider ${color}`}>{label}</span>
+      <span className="text-[9px] font-mono text-white/40">{pct}%</span>
+    </div>
+  )
+}
+
 function formatVolume(v: number): string {
   if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`
   if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`
@@ -17,7 +66,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
   other: '🌐',
 }
 
-export function MarketCard({ market }: { market: PolyMarket }) {
+export function MarketCard({ market, councilDecision }: { market: PolyMarket; councilDecision?: CouncilDecision }) {
   const yesPct = Math.round(market.yesPrice * 100)
   const noPct = Math.round(market.noPrice * 100)
   const total = yesPct + noPct
@@ -90,8 +139,14 @@ export function MarketCard({ market }: { market: PolyMarket }) {
           </div>
         </div>
 
+        {/* Prediction badge */}
+        <PredictionBadge yesPrice={market.yesPrice} />
+
+        {/* Council AI decision */}
+        {councilDecision && <CouncilBadge decision={councilDecision} />}
+
         {/* Footer */}
-        <div className="flex items-center justify-between text-[10px] text-white/25 font-mono pt-2 border-t border-white/5">
+        <div className="flex items-center justify-between text-[10px] text-white/25 font-mono pt-2 border-t border-white/5 mt-2">
           <span>Vol: {formatVolume(market.volume)}</span>
           {market.edge !== null && market.edge > 0 && (
             <span className="text-[#22C55E]">+{market.edge.toFixed(1)}% edge</span>

@@ -271,38 +271,77 @@ async def get_portfolio_risk() -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/council")
+async def get_all_council_decisions() -> dict:
+    """Get all active Council decisions (cached)."""
+    from main import state
+
+    if not state.council or not hasattr(state.council, 'get_all_cached'):
+        return {"decisions": [], "total": 0}
+
+    all_decisions = state.council.get_all_cached()
+    return {
+        "decisions": [
+            {
+                "market_id": d.market_id,
+                "question": d.market_question,
+                "signal": d.final_signal,
+                "edge": d.edge,
+                "confidence": d.final_confidence,
+                "consensus_pct": d.consensus_pct,
+                "doomer_veto": d.doomer_veto,
+                "summary": d.summary,
+            }
+            for d in all_decisions.values()
+        ],
+        "total": len(all_decisions),
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+
 @router.get("/council/{market_id}")
 async def get_council_decision(market_id: str) -> dict:
-    """
-    Force a Council vote for a market and return the decision.
-
-    Returns:
-        CouncilDecision with votes from all agents (Sniper, Narrative, WhaleHunter, Doomer, Judge).
-    """
+    """Get Council decision for a specific market."""
     from main import state
 
     if not state.council:
-        raise HTTPException(status_code=503, detail="TheCouncil not initialized")
+        raise HTTPException(status_code=503, detail="Council not initialized")
 
+    # New CouncilAI (engine.council)
+    if hasattr(state.council, 'get_cached'):
+        decision = state.council.get_cached(market_id)
+        if decision:
+            return {
+                "market_id": decision.market_id,
+                "question": decision.market_question,
+                "signal": decision.final_signal,
+                "edge": decision.edge,
+                "confidence": decision.final_confidence,
+                "consensus_pct": decision.consensus_pct,
+                "doomer_veto": decision.doomer_veto,
+                "summary": decision.summary,
+                "votes": [
+                    {
+                        "agent": v.agent_name,
+                        "signal": v.signal,
+                        "confidence": v.confidence,
+                        "reasoning": v.reasoning,
+                    }
+                    for v in decision.agent_votes
+                ],
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        return {"market_id": market_id, "signal": None, "message": "Not analyzed yet"}
+
+    # Legacy quant.council.agents.TheCouncil
     try:
-        # Build real WorldState from live data
         world_state = await state.build_real_world_state(market_id)
-
         if not world_state:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Market {market_id} not found"
-            )
-
-        # Execute Council vote
+            raise HTTPException(status_code=404, detail=f"Market {market_id} not found")
         decision = await state.council.convene(world_state)
-
-        # Convert to dict
         result = asdict(decision)
         result['timestamp'] = datetime.utcnow().isoformat()
-
         return result
-
     except Exception as e:
         logger.error("Failed to get council decision", market_id=market_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,10 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Search } from "lucide-react"
 import { usePolymarkets, categorize } from "@/hooks/use-polymarket"
-import { MarketCard } from "@/components/market-card"
+import { MarketCard, type CouncilDecision } from "@/components/market-card"
+
+const BACKEND_API = process.env.NEXT_PUBLIC_API_URL || ''
 
 type Category = "all" | "crypto" | "politics" | "sports" | "economy" | "other"
 type SortBy = "volume" | "liquidity" | "price"
@@ -24,6 +26,26 @@ export function MarketsView() {
   const [selectedCategory, setSelectedCategory] = useState<Category>("all")
   const [sortBy, setSortBy]                 = useState<SortBy>("volume")
   const [displayCount, setDisplayCount]     = useState(24)
+  const [councilMap, setCouncilMap]         = useState<Record<string, CouncilDecision>>({})
+
+  useEffect(() => {
+    if (!BACKEND_API) return
+    const fetchCouncil = async () => {
+      try {
+        const res = await fetch(`${BACKEND_API}/api/v2/council`)
+        if (!res.ok) return
+        const data = await res.json()
+        const map: Record<string, CouncilDecision> = {}
+        for (const d of (data.decisions || [])) {
+          map[d.market_id] = d
+        }
+        setCouncilMap(map)
+      } catch { /* backend offline — skip */ }
+    }
+    fetchCouncil()
+    const interval = setInterval(fetchCouncil, 60_000)
+    return () => clearInterval(interval)
+  }, [])
 
   const filtered = allMarkets
     .filter(m => {
@@ -129,7 +151,7 @@ export function MarketsView() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(idx * 0.02, 0.4) }}
                 >
-                  <MarketCard market={market} />
+                  <MarketCard market={market} councilDecision={councilMap[market.conditionId]} />
                 </motion.div>
               ))}
             </div>

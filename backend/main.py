@@ -123,6 +123,14 @@ class AppState:
             logger.info("✅ V2 Quant modules initialized")
         except Exception as e:
             logger.warning("⚠️ V2 Quant modules not available", error=str(e))
+            # Fallback: use engine.council.CouncilAI (always available)
+            if self.council is None:
+                try:
+                    from engine.council import CouncilAI
+                    self.council = CouncilAI()
+                    logger.info("✅ CouncilAI (engine) initialized")
+                except Exception as ce:
+                    logger.warning("⚠️ CouncilAI not available", error=str(ce))
 
         # Initialize news pipeline
         try:
@@ -177,6 +185,9 @@ class AppState:
         )
         self._background_tasks.append(
             asyncio.create_task(self._orderbook_update_task())
+        )
+        self._background_tasks.append(
+            asyncio.create_task(self._council_analysis_task())
         )
 
         logger.info("Application state initialized")
@@ -980,6 +991,64 @@ class AppState:
             on_chain=on_chain,
             portfolio=portfolio,
         )
+
+
+    async def _council_analysis_task(self) -> None:
+        """Background task: Council AI analyzes top 30 markets every 5 minutes."""
+        if not self.council:
+            logger.info("Council analysis task disabled (council not initialized)")
+            return
+
+        # Check if this is the new CouncilAI (not the old quant.council.agents.TheCouncil)
+        if not hasattr(self.council, 'analyze_batch'):
+            logger.info("Council analysis task disabled (old council API, no analyze_batch)")
+            return
+
+        logger.info("🧠 Council analysis task started")
+
+        while True:
+            try:
+                # Get cached markets from polymarket client
+                cached = self.polymarket_client.get_cached()
+                if cached:
+                    # Sort by volume, take top 30
+                    top = sorted(
+                        cached,
+                        key=lambda m: float(getattr(m, 'volume', 0) or 0),
+                        reverse=True
+                    )[:30]
+
+                    markets_list = []
+                    for m in top:
+                        try:
+                            raw_prices = getattr(m, 'outcomePrices', '[]') or '[]'
+                            if isinstance(raw_prices, str):
+                                import json
+                                prices = [float(p) for p in json.loads(raw_prices)]
+                            elif isinstance(raw_prices, list):
+                                prices = [float(p) for p in raw_prices]
+                            else:
+                                prices = []
+                            markets_list.append({
+                                "conditionId": getattr(m, 'conditionId', '') or getattr(m, 'id', ''),
+                                "id": getattr(m, 'id', ''),
+                                "question": getattr(m, 'question', ''),
+                                "yesPrice": prices[0] if prices else 0.5,
+                                "noPrice": prices[1] if len(prices) > 1 else 0.5,
+                                "volume": float(getattr(m, 'volume', 0) or 0),
+                                "volume24hr": float(getattr(m, 'volume24hr', 0) or 0),
+                                "liquidity": float(getattr(m, 'liquidity', 0) or 0),
+                            })
+                        except Exception:
+                            continue
+
+                    if markets_list:
+                        decisions = await self.council.analyze_batch(markets_list)
+                        logger.info(f"🧠 Council analyzed {len(decisions)} markets")
+            except Exception as e:
+                logger.error("Council analysis task error", error=str(e))
+
+            await asyncio.sleep(300)  # Every 5 minutes
 
 
 # Global state instance
