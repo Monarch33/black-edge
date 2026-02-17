@@ -9,14 +9,24 @@ import asyncio
 import json
 import time
 from dataclasses import dataclass, field
+from typing import Callable, Awaitable
 
 import httpx
 import structlog
+
+try:
+    import websockets
+    WEBSOCKETS_AVAILABLE = True
+except ImportError:
+    WEBSOCKETS_AVAILABLE = False
+    logger = structlog.get_logger()
+    logger.warning("websockets library not available, real-time price feeds disabled")
 
 logger = structlog.get_logger()
 
 CLOB_BASE = "https://clob.polymarket.com"
 GAMMA_BASE = "https://gamma-api.polymarket.com"
+WS_BASE = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
 
 
 # =============================================================================
@@ -106,10 +116,10 @@ class PolymarketMarket:
 
 class PolymarketClient:
     """
-    Async client for Polymarket CLOB + Gamma APIs.
+    Async client for Polymarket CLOB + Gamma APIs with WebSocket support.
 
-    Uses the Gamma API for market metadata (question, volume, slug)
-    and the CLOB API for real-time prices.
+    Uses the Gamma API for market metadata (question, volume, slug),
+    the CLOB API for real-time prices, and WebSocket for live price feeds.
     """
 
     def __init__(self) -> None:
@@ -117,6 +127,13 @@ class PolymarketClient:
         self._last_request_time: float = 0.0
         self._cache: list[PolymarketMarket] = []
         self._cache_time: float = 0.0
+
+        # WebSocket state
+        self._ws_connection = None
+        self._ws_task: asyncio.Task | None = None
+        self._subscribed_markets: set[str] = set()
+        self._price_callbacks: list[Callable[[str, dict], Awaitable[None]]] = []
+        self._ws_enabled = WEBSOCKETS_AVAILABLE
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -136,6 +153,23 @@ class PolymarketClient:
         self._last_request_time = time.monotonic()
 
     async def close(self) -> None:
+        # Close WebSocket connection
+        if self._ws_task:
+            self._ws_task.cancel()
+            try:
+                await self._ws_task
+            except asyncio.CancelledError:
+                pass
+            self._ws_task = None
+
+        if self._ws_connection:
+            try:
+                await self._ws_connection.close()
+            except Exception:
+                pass
+            self._ws_connection = None
+
+        # Close HTTP client
         if self._client and not self._client.is_closed:
             await self._client.aclose()
             self._client = None
@@ -392,6 +426,44 @@ class PolymarketClient:
         """Return cached markets without making an API call."""
         return self._cache
 
+    async def get_live_prices(self, token_ids: list[str]) -> dict[str, float]:
+        """
+        Get live prices for multiple tokens from CLOB.
+        Returns {token_id: price} dict.
+        """
+        if not token_ids:
+            return {}
+
+        return await self._fetch_clob_prices_batch(token_ids)
+
+    def get_market_by_id(self, market_id: str) -> PolymarketMarket | None:
+        """Get a specific market from cache by ID."""
+        for market in self._cache:
+            if market.id == market_id or market.condition_id == market_id:
+                return market
+        return None
+
+    def get_market_stats(self) -> dict:
+        """Get statistics about cached markets."""
+        if not self._cache:
+            return {
+                "total_markets": 0,
+                "total_volume_24h": 0.0,
+                "total_liquidity": 0.0,
+                "avg_spread": 0.0,
+                "cache_age_seconds": 0.0,
+            }
+
+        return {
+            "total_markets": len(self._cache),
+            "total_volume_24h": sum(m.volume_24h for m in self._cache),
+            "total_liquidity": sum(m.liquidity for m in self._cache),
+            "avg_spread": sum(m.spread for m in self._cache) / len(self._cache) if self._cache else 0.0,
+            "cache_age_seconds": time.monotonic() - self._cache_time if self._cache_time else 0.0,
+            "ws_subscriptions": len(self._subscribed_markets),
+            "ws_connected": self._ws_connection is not None,
+        }
+
     async def fetch_orderbook(self, token_id: str) -> dict | None:
         """
         Fetch L2 orderbook for a specific token from the CLOB.
@@ -428,3 +500,205 @@ class PolymarketClient:
         except Exception as e:
             logger.warning("CLOB orderbook fetch failed", token_id=token_id, error=str(e))
             return None
+
+    # -------------------------------------------------------------------------
+    # WebSocket - Real-time price feeds
+    # -------------------------------------------------------------------------
+
+    def register_price_callback(self, callback: Callable[[str, dict], Awaitable[None]]) -> None:
+        """
+        Register a callback for real-time price updates.
+
+        Args:
+            callback: Async function that receives (token_id: str, price_data: dict)
+        """
+        if callback not in self._price_callbacks:
+            self._price_callbacks.append(callback)
+            logger.info("Price callback registered", total_callbacks=len(self._price_callbacks))
+
+    def unregister_price_callback(self, callback: Callable[[str, dict], Awaitable[None]]) -> None:
+        """Unregister a price update callback."""
+        if callback in self._price_callbacks:
+            self._price_callbacks.remove(callback)
+
+    async def start_websocket(self, market_ids: list[str] | None = None) -> bool:
+        """
+        Start WebSocket connection to Polymarket CLOB for real-time price feeds.
+
+        Args:
+            market_ids: Optional list of market IDs to subscribe to initially
+
+        Returns:
+            True if connection started successfully, False otherwise
+        """
+        if not self._ws_enabled:
+            logger.warning("WebSocket not available (websockets library not installed)")
+            return False
+
+        if self._ws_task and not self._ws_task.done():
+            logger.info("WebSocket already running")
+            return True
+
+        logger.info("Starting Polymarket WebSocket connection")
+        self._ws_task = asyncio.create_task(self._ws_loop())
+
+        # Subscribe to initial markets if provided
+        if market_ids:
+            await asyncio.sleep(1)  # Give connection time to establish
+            for market_id in market_ids:
+                await self.subscribe_market(market_id)
+
+        return True
+
+    async def subscribe_market(self, market_id: str) -> bool:
+        """
+        Subscribe to real-time price updates for a specific market.
+
+        Args:
+            market_id: Market condition_id to subscribe to
+
+        Returns:
+            True if subscription successful, False otherwise
+        """
+        if not self._ws_connection or not self._ws_enabled:
+            return False
+
+        try:
+            subscribe_msg = {
+                "type": "subscribe",
+                "market_id": market_id,
+            }
+            await self._ws_connection.send(json.dumps(subscribe_msg))
+            self._subscribed_markets.add(market_id)
+            logger.info("Subscribed to market", market_id=market_id)
+            return True
+        except Exception as e:
+            logger.error("Failed to subscribe to market", market_id=market_id, error=str(e))
+            return False
+
+    async def unsubscribe_market(self, market_id: str) -> bool:
+        """Unsubscribe from a market's price updates."""
+        if not self._ws_connection or not self._ws_enabled:
+            return False
+
+        try:
+            unsubscribe_msg = {
+                "type": "unsubscribe",
+                "market_id": market_id,
+            }
+            await self._ws_connection.send(json.dumps(unsubscribe_msg))
+            self._subscribed_markets.discard(market_id)
+            logger.info("Unsubscribed from market", market_id=market_id)
+            return True
+        except Exception as e:
+            logger.error("Failed to unsubscribe from market", market_id=market_id, error=str(e))
+            return False
+
+    async def _ws_loop(self) -> None:
+        """
+        Main WebSocket loop - maintains connection and processes price updates.
+        Automatically reconnects on disconnection.
+        """
+        if not self._ws_enabled:
+            return
+
+        import websockets
+
+        reconnect_delay = 1.0
+        max_reconnect_delay = 60.0
+
+        while True:
+            try:
+                logger.info("Connecting to Polymarket WebSocket", url=WS_BASE)
+
+                async with websockets.connect(
+                    WS_BASE,
+                    ping_interval=20,
+                    ping_timeout=10,
+                    close_timeout=5,
+                ) as ws:
+                    self._ws_connection = ws
+                    reconnect_delay = 1.0  # Reset delay on successful connection
+                    logger.info("✅ Polymarket WebSocket connected")
+
+                    # Resubscribe to all markets after reconnection
+                    for market_id in list(self._subscribed_markets):
+                        try:
+                            subscribe_msg = {"type": "subscribe", "market_id": market_id}
+                            await ws.send(json.dumps(subscribe_msg))
+                        except Exception as e:
+                            logger.warning("Failed to resubscribe", market_id=market_id, error=str(e))
+
+                    # Message handling loop
+                    async for message in ws:
+                        try:
+                            data = json.loads(message)
+                            await self._handle_ws_message(data)
+                        except json.JSONDecodeError:
+                            logger.warning("Invalid JSON from WebSocket", message=message[:100])
+                        except Exception as e:
+                            logger.error("Error processing WebSocket message", error=str(e))
+
+            except asyncio.CancelledError:
+                logger.info("WebSocket loop cancelled")
+                break
+            except Exception as e:
+                logger.error(
+                    "WebSocket connection error, reconnecting...",
+                    error=str(e),
+                    retry_in=reconnect_delay,
+                )
+                await asyncio.sleep(reconnect_delay)
+                reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
+            finally:
+                self._ws_connection = None
+
+    async def _handle_ws_message(self, data: dict) -> None:
+        """Process a WebSocket message from Polymarket."""
+        msg_type = data.get("type")
+
+        if msg_type == "price_update":
+            # Price update format: {"type": "price_update", "token_id": "0x...", "price": 0.65, ...}
+            token_id = data.get("token_id")
+            if token_id:
+                # Update cache if this token belongs to a cached market
+                for market in self._cache:
+                    for token in market.tokens:
+                        if token.token_id == token_id:
+                            old_price = token.price
+                            token.price = float(data.get("price", token.price))
+
+                            # Update market yes/no prices
+                            if token.outcome.lower() == "yes":
+                                market.yes_price = token.price
+                            else:
+                                market.no_price = token.price
+
+                            # Recalculate spread
+                            market.spread = abs(market.yes_price - (1.0 - market.no_price))
+
+                            logger.debug(
+                                "Price updated via WebSocket",
+                                market=market.question[:50],
+                                token_id=token_id[:10],
+                                old_price=f"{old_price:.3f}",
+                                new_price=f"{token.price:.3f}",
+                            )
+
+                # Call registered callbacks
+                for callback in self._price_callbacks:
+                    try:
+                        await callback(token_id, data)
+                    except Exception as e:
+                        logger.error("Price callback error", error=str(e))
+
+        elif msg_type == "market_update":
+            # Full market state update
+            market_id = data.get("market_id")
+            logger.debug("Market update received", market_id=market_id)
+
+        elif msg_type == "error":
+            logger.warning("WebSocket error message", error=data.get("message", "unknown"))
+
+        else:
+            logger.debug("Unknown WebSocket message type", type=msg_type)

@@ -1,0 +1,24 @@
+# Black Edge - Robots.txt
+# https://blackedge.ai/robots.txt
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /_next/
+
+# Sitemaps
+Sitemap: https://blackedge.ai/sitemap.xml
+
+# Crawl-delay for polite bots
+Crawl-delay: 1
+
+# Popular search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /

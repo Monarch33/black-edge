@@ -143,6 +143,14 @@ class AppState:
         except Exception as e:
             logger.warning("⚠️ 5-min crypto scanner not available", error=str(e))
 
+        # Start Polymarket WebSocket for real-time price feeds (Phase 2)
+        try:
+            logger.info("Starting Polymarket WebSocket...")
+            # Start WebSocket in background (non-blocking)
+            asyncio.create_task(self._start_polymarket_websocket())
+        except Exception as e:
+            logger.warning("Failed to start Polymarket WebSocket", error=str(e))
+
         # Start background tasks
         self._background_tasks.append(
             asyncio.create_task(self._blockchain_monitor_task())
@@ -161,6 +169,12 @@ class AppState:
         )
         self._background_tasks.append(
             asyncio.create_task(self._crypto_5min_scan_task())
+        )
+        self._background_tasks.append(
+            asyncio.create_task(self._paper_trading_auto_resolve_task())
+        )
+        self._background_tasks.append(
+            asyncio.create_task(self._orderbook_update_task())
         )
 
         logger.info("Application state initialized")
@@ -213,6 +227,237 @@ class AppState:
                     block=event.block_number,
                 )
 
+    async def _start_polymarket_websocket(self) -> None:
+        """
+        Start Polymarket WebSocket for real-time price feeds (Phase 2).
+        Enhanced in Phase 5 to ingest price ticks into FeatureEngineer.
+        Waits for initial markets to be fetched, then subscribes to top markets.
+        """
+        # Wait for initial market fetch
+        await asyncio.sleep(5)
+
+        try:
+            markets = self.polymarket_client.get_cached()
+            if not markets:
+                logger.warning("No cached markets available, skipping WebSocket initialization")
+                return
+
+            # Register price callback for FeatureEngineer ingestion (Phase 5)
+            if self.feature_engineer:
+                self.polymarket_client.register_price_callback(self._on_price_update)
+                logger.info("✅ Registered price callback for FeatureEngineer")
+
+            # Subscribe to top 10 markets by volume
+            top_markets = markets[:10]
+            market_ids = [m.condition_id for m in top_markets if m.condition_id]
+
+            if market_ids:
+                logger.info(f"Starting WebSocket with {len(market_ids)} market subscriptions")
+                await self.polymarket_client.start_websocket(market_ids=market_ids)
+                logger.info("✅ Polymarket WebSocket started successfully")
+            else:
+                logger.warning("No valid market IDs found for WebSocket subscription")
+
+        except Exception as e:
+            logger.error("Failed to initialize Polymarket WebSocket", error=str(e))
+
+    def build_world_state(self, market_id: str) -> Optional:
+        """
+        Build a complete WorldState for a market (Phase 5).
+
+        Aggregates data from FeatureEngineer, NarrativeVelocity, and other sources
+        into a single WorldState object for Council decision-making.
+
+        Args:
+            market_id: Market to build state for
+
+        Returns:
+            WorldState object or None if insufficient data
+        """
+        try:
+            if not self.feature_engineer or not self.narrative_velocity:
+                return None
+
+            # Get market data
+            market = self.polymarket_client.get_market_by_id(market_id)
+            if not market:
+                return None
+
+            # Compute features
+            features = self.feature_engineer.compute(market_id)
+            if not features or not features.is_valid:
+                return None
+
+            # Get narrative signal
+            narrative = self.narrative_velocity.compute_signal(market_id)
+
+            # Build WorldState components
+            from quant.council.agents import (
+                WorldState, MarketMicrostructure, NarrativeState,
+                OnChainState, PortfolioState
+            )
+            import time
+
+            micro = MarketMicrostructure(
+                order_book_imbalance=features.order_book_imbalance,
+                volume_z_score=features.volume_z_score,
+                momentum_1h=features.momentum_1h,
+                momentum_4h=0.0,  # Not computed yet
+                momentum_24h=0.0,  # Not computed yet
+                spread_bps=features.spread_bps,
+                liquidity_depth_usd=market.liquidity,
+                price_reversion_score=0.0,  # Not computed yet
+            )
+
+            narrative_state = NarrativeState(
+                sentiment_score=features.sentiment_score,
+                nvi_score=narrative.get("nvi_score", 0.0) if narrative else 0.0,
+                novelty_index=narrative.get("novelty", 0.0) if narrative else 0.0,
+                credibility_factor=narrative.get("credibility", 0.5) if narrative else 0.5,
+                sarcasm_probability=0.0,  # Not computed yet
+                tweet_volume_z=0.0,  # Not computed yet
+                narrative_coherence=narrative.get("coherence", 0.5) if narrative else 0.5,
+            )
+
+            on_chain = OnChainState(
+                smart_money_flow=0.0,  # Placeholder
+                whale_concentration=0.0,  # Placeholder
+                retail_flow=0.0,  # Placeholder
+                cross_platform_spread=0.0,  # Placeholder
+                gas_congestion_pct=0.0,  # Placeholder
+            )
+
+            portfolio = PortfolioState(
+                current_drawdown=0.0,  # Placeholder
+                correlated_exposure=0.0,  # Placeholder
+                leverage=0.0,  # Placeholder
+                sharpe_ratio=0.0,  # Placeholder
+                win_rate=0.5,  # Placeholder
+            )
+
+            world_state = WorldState(
+                market_id=market_id,
+                timestamp_ms=int(time.time() * 1000),
+                mid_price=features.mid_price,
+                micro=micro,
+                narrative=narrative_state,
+                on_chain=on_chain,
+                portfolio=portfolio,
+            )
+
+            return world_state
+
+        except Exception as e:
+            logger.error("Failed to build WorldState", market_id=market_id, error=str(e))
+            return None
+
+    async def _on_price_update(self, token_id: str, price_data: dict) -> None:
+        """
+        WebSocket price update callback for real-time tick ingestion (Phase 5).
+
+        Args:
+            token_id: Token ID that was updated
+            price_data: Price update data from WebSocket
+        """
+        try:
+            # Find the market this token belongs to
+            markets = self.polymarket_client.get_cached()
+            market = None
+            for m in markets:
+                if any(t.token_id == token_id for t in m.tokens):
+                    market = m
+                    break
+
+            if not market or not self.feature_engineer:
+                return
+
+            # Create a MarketTick and ingest it
+            from quant.config import MarketTick
+            import time
+
+            tick = MarketTick(
+                market_id=market.id,
+                timestamp_ms=int(time.time() * 1000),
+                mid_price=float(price_data.get("price", market.yes_price)),
+                volume_1h_usd=market.volume_24h / 24.0,  # Approximate 1h volume
+            )
+
+            self.feature_engineer.ingest_tick(tick)
+
+            logger.debug(
+                "Price tick ingested",
+                market_id=market.id[:12],
+                price=tick.mid_price,
+            )
+
+        except Exception as e:
+            logger.error("Failed to ingest price tick", token_id=token_id[:12], error=str(e))
+
+    async def _auto_log_paper_trades(self, signals, markets) -> None:
+        """
+        Auto-log high-confidence signals as paper trades (Phase 3).
+
+        Criteria for auto-logging:
+        - Signal strength >= 70
+        - Edge >= 3%
+        - Not already logged (handled by database UNIQUE constraint)
+        """
+        from engine.paper_trading_logger import log_prediction
+
+        for signal in signals:
+            # Only log high-confidence signals
+            if signal.signal_strength < 70 or signal.edge < 3.0:
+                continue
+
+            try:
+                # Find the corresponding market for more details
+                market = next((m for m in markets if m.id == signal.id or m.question == signal.question), None)
+
+                if not market:
+                    continue
+
+                # Determine prediction based on edge and price
+                # If yes_price is low and edge is positive, predict YES
+                # If no_price is low and edge is positive, predict NO
+                prediction = "YES" if market.yes_price < 0.5 else "NO"
+                entry_price = market.yes_price if prediction == "YES" else market.no_price
+
+                # Calculate Kelly fraction (simplified)
+                bankroll = 1000.0  # Assume $1000 bankroll
+                kelly_fraction = min(signal.edge / 100.0, 0.25)  # Cap at 25% Kelly
+                recommended_amount = bankroll * kelly_fraction
+
+                # Map risk level
+                risk_level = "low" if signal.edge > 10 else "medium" if signal.edge > 5 else "high"
+
+                # Log the prediction
+                trade_id = log_prediction(
+                    market_id=market.condition_id or market.id,
+                    market_question=market.question,
+                    prediction=prediction,
+                    confidence=signal.signal_strength / 100.0,
+                    edge=signal.edge / 100.0,
+                    entry_price=entry_price,
+                    council_votes={},  # Will be populated if Council integration is added
+                    signal_strength=signal.signal_strength,
+                    recommended_amount=recommended_amount,
+                    kelly_fraction=kelly_fraction,
+                    risk_level=risk_level,
+                    platform="polymarket",
+                )
+
+                if trade_id > 0:
+                    logger.info(
+                        "📝 Auto-logged paper trade",
+                        trade_id=trade_id,
+                        market=market.question[:50],
+                        prediction=prediction,
+                        edge=f"{signal.edge:.1f}%",
+                    )
+
+            except Exception as e:
+                logger.error("Failed to auto-log paper trade", error=str(e), signal=signal.market)
+
     async def _polymarket_poll_task(self) -> None:
         """Background task to poll Polymarket and run quant analysis."""
         POLL_INTERVAL = 30  # seconds between full refreshes (respect rate limits)
@@ -249,6 +494,9 @@ class AppState:
 
                     # Update active markets list for V2 pipeline
                     self.active_markets = [m.id for m in markets[:20]]
+
+                    # Auto-log high-confidence paper trades (Phase 3)
+                    await self._auto_log_paper_trades(signals, markets)
 
                     logger.info(
                         "📊 Polymarket signals refreshed",
@@ -441,6 +689,104 @@ class AppState:
                 logger.error("5-min scan error", error=str(e))
 
             await asyncio.sleep(SCAN_INTERVAL)
+
+    async def _paper_trading_auto_resolve_task(self) -> None:
+        """
+        Background task to auto-resolve paper trading predictions (Phase 3).
+        Checks every hour for closed markets and resolves predictions.
+        """
+        from engine.paper_trading_logger import auto_resolve_predictions
+
+        RESOLVE_INTERVAL = 3600  # 1 hour
+        logger.info("📊 Paper trading auto-resolve task started", interval=f"{RESOLVE_INTERVAL/60:.0f}min")
+
+        # Wait for initial market data
+        await asyncio.sleep(60)
+
+        while True:
+            try:
+                resolved_count = await auto_resolve_predictions(self.polymarket_client)
+
+                if resolved_count > 0:
+                    logger.info(f"✅ Auto-resolved {resolved_count} paper trades")
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error("Paper trading auto-resolve error", error=str(e))
+
+            await asyncio.sleep(RESOLVE_INTERVAL)
+
+    async def _orderbook_update_task(self) -> None:
+        """
+        Background task to update orderbooks for top markets (Phase 5).
+        Fetches L2 orderbook data every 30 seconds for feature engineering.
+        """
+        if not self.feature_engineer:
+            logger.info("Orderbook update task disabled (FeatureEngineer not initialized)")
+            return
+
+        UPDATE_INTERVAL = 30  # seconds
+        logger.info("📚 Orderbook update task started", interval=f"{UPDATE_INTERVAL}s")
+
+        # Wait for initial market data
+        await asyncio.sleep(15)
+
+        while True:
+            try:
+                markets = self.polymarket_client.get_cached()
+                if not markets:
+                    await asyncio.sleep(UPDATE_INTERVAL)
+                    continue
+
+                # Update orderbooks for top 15 markets
+                from quant.config import OrderBookSnapshot, OrderBookLevel
+                import time
+
+                updated_count = 0
+                for market in markets[:15]:
+                    if not market.tokens:
+                        continue
+
+                    try:
+                        # Fetch orderbook for first token (YES side)
+                        token_id = market.tokens[0].token_id
+                        book_data = await self.polymarket_client.fetch_orderbook(token_id)
+
+                        if book_data:
+                            orderbook = OrderBookSnapshot(
+                                market_id=market.id,
+                                timestamp_ms=int(time.time() * 1000),
+                                bids=[
+                                    OrderBookLevel(
+                                        price=b["price"],
+                                        size=b["size"]
+                                    )
+                                    for b in book_data.get("bids", [])[:20]
+                                ],
+                                asks=[
+                                    OrderBookLevel(
+                                        price=a["price"],
+                                        size=a["size"]
+                                    )
+                                    for a in book_data.get("asks", [])[:20]
+                                ],
+                            )
+                            self.feature_engineer.ingest_orderbook(orderbook)
+                            updated_count += 1
+
+                    except Exception as e:
+                        logger.debug("Orderbook fetch failed", market_id=market.id[:12], error=str(e))
+
+                if updated_count > 0:
+                    logger.info(f"📚 Updated {updated_count} orderbooks")
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error("Orderbook update error", error=str(e))
+
+            await asyncio.sleep(UPDATE_INTERVAL)
 
     async def _v2_feature_update_task(self) -> None:
         """Background task to compute V2 features every 10 seconds."""

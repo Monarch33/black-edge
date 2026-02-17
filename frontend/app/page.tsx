@@ -10,9 +10,10 @@ import { TerminalView } from "@/components/views/terminal-view"
 import { PortfolioView } from "@/components/views/portfolio-view"
 import { SportsView } from "@/components/views/sports-view"
 import { Crypto5MinView } from "@/components/views/crypto-5min-view"
+import { TrackRecordView } from "@/components/views/track-record-view"
 import { Footer } from "@/components/footer"
 
-type View = 'landing' | 'markets' | 'crypto5min' | 'sports' | 'pricing' | 'terminal' | 'portfolio'
+type View = 'landing' | 'markets' | 'crypto5min' | 'sports' | 'pricing' | 'terminal' | 'portfolio' | 'trackrecord'
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<View>('landing')
@@ -43,6 +44,7 @@ export default function Home() {
           {currentView === 'portfolio' && <PortfolioView />}
           {currentView === 'sports' && <SportsView />}
           {currentView === 'crypto5min' && <Crypto5MinView />}
+          {currentView === 'trackrecord' && <TrackRecordView />}
         </motion.div>
       </AnimatePresence>
 

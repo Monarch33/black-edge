@@ -446,11 +446,14 @@ def get_unresolved_predictions() -> List[Dict]:
 # AUTO-RESOLUTION (TODO: Implement with Polymarket API)
 # =============================================================================
 
-async def auto_resolve_predictions():
+async def auto_resolve_predictions(polymarket_client):
     """
     Check unresolved predictions and resolve them via Polymarket API.
 
     This should be called periodically (e.g., every hour).
+
+    Args:
+        polymarket_client: PolymarketClient instance for fetching market data
     """
     unresolved = get_unresolved_predictions()
 
@@ -459,23 +462,72 @@ async def auto_resolve_predictions():
 
     logger.info(f"🔍 Checking {len(unresolved)} unresolved predictions")
 
-    # TODO: For each unresolved prediction:
-    # 1. Check if market is resolved via Polymarket API
-    # 2. If resolved, get outcome and call resolve_prediction()
-
-    # Placeholder for now
+    resolved_count = 0
     for trade in unresolved:
         # Skip if too recent (< 1 hour old)
         if time.time() - trade["timestamp"] < 3600:
             continue
 
-        # TODO: Check Polymarket API for resolution
-        # market_data = await polymarket_client.get_market(trade["market_id"])
-        # if market_data["closed"]:
-        #     outcome = "YES" if market_data["outcome"] == "Yes" else "NO"
-        #     resolve_prediction(trade["id"], outcome, exit_price=...)
+        try:
+            # Check if market exists in cache or fetch fresh data
+            market = polymarket_client.get_market_by_id(trade["market_id"])
 
-        pass
+            if not market:
+                # Try fetching fresh data
+                markets = await polymarket_client.fetch_markets(max_markets=100)
+                market = next((m for m in markets if m.id == trade["market_id"] or m.condition_id == trade["market_id"]), None)
+
+            if not market:
+                logger.debug("Market not found in cache", market_id=trade["market_id"])
+                continue
+
+            # Check if market is closed (resolved)
+            if not market.active:
+                # Market is closed, try to determine outcome
+                # The side with higher final price (close to 1.0) is the winner
+                if market.yes_price > 0.9:
+                    outcome = "YES"
+                    exit_price = market.yes_price
+                elif market.no_price > 0.9:
+                    outcome = "NO"
+                    exit_price = market.no_price
+                else:
+                    # Unclear resolution, skip for now
+                    logger.warning(
+                        "Market closed but unclear outcome",
+                        market_id=trade["market_id"],
+                        yes_price=market.yes_price,
+                        no_price=market.no_price,
+                    )
+                    continue
+
+                # Resolve the prediction
+                success = resolve_prediction(
+                    trade_id=trade["id"],
+                    actual_outcome=outcome,
+                    exit_price=exit_price,
+                )
+
+                if success:
+                    resolved_count += 1
+                    logger.info(
+                        "✅ Auto-resolved prediction",
+                        trade_id=trade["id"],
+                        market=trade["market_question"][:50],
+                        outcome=outcome,
+                    )
+
+        except Exception as e:
+            logger.error(
+                "Failed to auto-resolve prediction",
+                trade_id=trade["id"],
+                error=str(e),
+            )
+
+    if resolved_count > 0:
+        logger.info(f"📊 Auto-resolved {resolved_count} predictions")
+
+    return resolved_count
 
 
 # =============================================================================

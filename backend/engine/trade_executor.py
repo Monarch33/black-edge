@@ -35,6 +35,9 @@ CLOB_API_URL = "https://clob.polymarket.com"
 # Chain ID (137 = Polygon mainnet, 80002 = Polygon Amoy testnet)
 CHAIN_ID = POLYGON
 
+# DRY_RUN mode - Phase 6: If True, all trades are simulated (default: True)
+DRY_RUN = os.getenv("POLYMARKET_DRY_RUN", "true").lower() == "true"
+
 # Safety limits
 MAX_TRADE_SIZE_USDC = 1000.0  # Don't allow trades > $1K without override
 MIN_TRADE_SIZE_USDC = 5.0     # Don't place orders < $5 (dust)
@@ -58,25 +61,29 @@ class TradeExecutor:
         self,
         private_key: Optional[str] = None,
         chain_id: int = CHAIN_ID,
-        test_mode: bool = False
+        test_mode: Optional[bool] = None
     ):
         """
-        Initialize trade executor.
+        Initialize trade executor (Phase 6).
 
         Args:
             private_key: Ethereum private key (without 0x prefix)
             chain_id: 137 for mainnet, 80002 for testnet
             test_mode: If True, logs trades but doesn't execute
+                      If None (default), uses DRY_RUN env variable
         """
         self.private_key = private_key or PRIVATE_KEY
         self.chain_id = chain_id
-        self.test_mode = test_mode
+        self.test_mode = test_mode if test_mode is not None else DRY_RUN
         self.client: Optional[ClobClient] = None
         self.address: Optional[str] = None
         self.initialized = False
 
-        if not self.private_key:
-            logger.warning("⚠️ No private key configured. Trades will fail.")
+        if not self.private_key and not self.test_mode:
+            logger.warning("⚠️ No private key configured. Real trades will fail.")
+
+        if self.test_mode:
+            logger.info("🧪 DRY_RUN mode enabled - all trades will be simulated")
 
     async def initialize(self):
         """
@@ -319,6 +326,142 @@ class TradeExecutor:
             logger.error("❌ Limit order failed", error=str(e))
             return None
 
+    async def market_sell(
+        self,
+        token_id: str,
+        amount_shares: float,
+        max_slippage: float = 0.02,  # 2%
+    ) -> Optional[str]:
+        """
+        Execute a market sell order (immediate fill).
+
+        Args:
+            token_id: CLOB token ID (0x...)
+            amount_shares: Amount in shares to sell
+            max_slippage: Maximum price slippage (default 2%)
+
+        Returns:
+            Order ID if successful, None if failed
+        """
+        if not self.client or not self.initialized:
+            raise RuntimeError("Executor not initialized. Call initialize() first.")
+
+        # Safety check
+        if amount_shares <= 0:
+            logger.error("❌ Invalid sell amount", amount=amount_shares)
+            return None
+
+        if self.test_mode:
+            logger.info(
+                "🧪 TEST MODE: Would execute market sell",
+                token_id=token_id[:10] + "...",
+                amount_shares=amount_shares,
+            )
+            return "test_sell_" + str(int(time.time()))
+
+        try:
+            logger.info("⏳ Executing market sell...", token_id=token_id[:10] + "...", shares=amount_shares)
+
+            # Create market sell order
+            order_args = OrderArgs(
+                token_id=token_id,
+                price=0.01,  # Market sells use low price (will match best bid)
+                size=amount_shares,
+                side="SELL",
+                feeRateBps="0",
+            )
+
+            # Place order
+            signed_order = self.client.create_order(order_args)
+            resp = self.client.post_order(signed_order, OrderType.FOK)  # Fill-or-Kill
+
+            order_id = resp.get("orderID")
+
+            if order_id:
+                logger.info("✅ Market sell executed", order_id=order_id, shares=amount_shares)
+                return order_id
+            else:
+                logger.error("❌ Market sell failed - no order ID", response=resp)
+                return None
+
+        except Exception as e:
+            logger.error("❌ Market sell execution failed", error=str(e), token_id=token_id)
+            return None
+
+    async def limit_sell(
+        self,
+        token_id: str,
+        amount_shares: float,
+        price: float,
+        expiration_seconds: int = 300,  # 5 minutes
+    ) -> Optional[str]:
+        """
+        Place a limit sell order.
+
+        Args:
+            token_id: CLOB token ID
+            amount_shares: Amount in shares
+            price: Limit price (0-1)
+            expiration_seconds: Order expiration (default 5 min)
+
+        Returns:
+            Order ID if successful
+        """
+        if not self.client or not self.initialized:
+            raise RuntimeError("Executor not initialized. Call initialize() first.")
+
+        # Safety checks
+        if amount_shares <= 0:
+            logger.error("❌ Invalid sell amount", amount=amount_shares)
+            return None
+
+        if price <= 0 or price >= 1:
+            logger.error("❌ Invalid price", price=price)
+            return None
+
+        if self.test_mode:
+            logger.info(
+                "🧪 TEST MODE: Would place limit sell",
+                token_id=token_id[:10] + "...",
+                amount_shares=amount_shares,
+                price=price,
+            )
+            return "test_limit_sell_" + str(int(time.time()))
+
+        try:
+            logger.info(
+                "⏳ Placing limit sell...",
+                token_id=token_id[:10] + "...",
+                shares=amount_shares,
+                price=price,
+            )
+
+            # Create limit sell order
+            order_args = OrderArgs(
+                token_id=token_id,
+                price=price,
+                size=amount_shares,
+                side="SELL",
+                feeRateBps="0",
+                expiration=int(time.time() + expiration_seconds),
+            )
+
+            signed_order = self.client.create_order(order_args)
+            resp = self.client.post_order(signed_order, OrderType.GTC)  # Good-Till-Cancel
+
+            order_id = resp.get("orderID")
+
+            if order_id:
+                logger.info("✅ Limit sell order placed", order_id=order_id)
+                return order_id
+            else:
+                logger.error("❌ Limit sell order failed", response=resp)
+                return None
+
+        except Exception as e:
+            logger.error("❌ Limit sell order failed", error=str(e))
+            return None
+
     async def cancel_order(self, order_id: str) -> bool:
         """
         Cancel an open order.
@@ -406,23 +549,23 @@ async def execute_trade(
     amount: float,
     order_type: Literal["MARKET", "LIMIT"] = "MARKET",
     price: Optional[float] = None,
-    test_mode: bool = False,
+    test_mode: Optional[bool] = None,
 ) -> Optional[str]:
     """
-    Execute a trade (convenience wrapper).
+    Execute a trade (convenience wrapper) - Phase 6 complete.
 
     Args:
         token_id: CLOB token ID
         side: "BUY" or "SELL"
-        amount: Amount in USDC
+        amount: Amount in USDC (BUY) or shares (SELL)
         order_type: "MARKET" or "LIMIT"
         price: Limit price (required if order_type=LIMIT)
-        test_mode: If True, simulates trade
+        test_mode: If True, simulates trade. If None, uses DRY_RUN env variable.
 
     Returns:
         Order ID if successful
     """
-    executor = await get_executor(test_mode=test_mode)
+    executor = await get_executor(test_mode=test_mode if test_mode is not None else DRY_RUN)
 
     if side == "BUY":
         if order_type == "MARKET":
@@ -431,9 +574,12 @@ async def execute_trade(
             if price is None:
                 raise ValueError("Price required for limit orders")
             return await executor.limit_buy(token_id, amount, price)
-    else:
-        # TODO: Implement SELL side
-        logger.error("❌ SELL not yet implemented")
-        return None
+    elif side == "SELL":
+        if order_type == "MARKET":
+            return await executor.market_sell(token_id, amount)
+        elif order_type == "LIMIT":
+            if price is None:
+                raise ValueError("Price required for limit orders")
+            return await executor.limit_sell(token_id, amount, price)
 
     return None

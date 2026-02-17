@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
-import { Search } from "lucide-react"
+import { Search, TrendingUp, Activity, Filter, ArrowUpRight, Eye, Zap } from "lucide-react"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -16,17 +16,20 @@ interface Market {
   polyOdds: number
   platform: string
   category?: string
+  volume?: number
+  trueProb?: number
 }
 
 type Category = "all" | "crypto" | "politics" | "sports" | "economy" | "tech"
+type SortBy = "edge" | "volume" | "signal"
 
-const CATEGORIES: { key: Category; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "crypto", label: "Crypto" },
-  { key: "politics", label: "Politics" },
-  { key: "sports", label: "Sports" },
-  { key: "economy", label: "Economy" },
-  { key: "tech", label: "Tech" },
+const CATEGORIES: { key: Category; label: string; emoji: string }[] = [
+  { key: "all", label: "All Markets", emoji: "🌐" },
+  { key: "crypto", label: "Crypto", emoji: "₿" },
+  { key: "politics", label: "Politics", emoji: "🏛️" },
+  { key: "sports", label: "Sports", emoji: "⚽" },
+  { key: "economy", label: "Economy", emoji: "📈" },
+  { key: "tech", label: "Tech", emoji: "💻" },
 ]
 
 export function MarketsView() {
@@ -36,6 +39,8 @@ export function MarketsView() {
   const [selectedCategory, setSelectedCategory] = useState<Category>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [displayCount, setDisplayCount] = useState(20)
+  const [sortBy, setSortBy] = useState<SortBy>("edge")
+  const [showFilters, setShowFilters] = useState(false)
 
   // Fetch markets
   useEffect(() => {
@@ -55,6 +60,8 @@ export function MarketsView() {
             polyOdds: s.polyOdds,
             platform: s.platform,
             category: detectCategory(s.question),
+            volume: s.volume || 0,
+            trueProb: s.trueProb || 0,
           }))
           setMarkets(marketsData)
           setFilteredMarkets(marketsData)
@@ -119,7 +126,7 @@ export function MarketsView() {
     return "other"
   }
 
-  // Apply filters
+  // Apply filters and sorting
   useEffect(() => {
     let filtered = markets
 
@@ -134,9 +141,17 @@ export function MarketsView() {
       filtered = filtered.filter((m) => m.question.toLowerCase().includes(query))
     }
 
+    // Sort
+    filtered = [...filtered].sort((a, b) => {
+      if (sortBy === "edge") return Math.abs(b.edge) - Math.abs(a.edge)
+      if (sortBy === "volume") return (b.volume || 0) - (a.volume || 0)
+      if (sortBy === "signal") return b.signalStrength - a.signalStrength
+      return 0
+    })
+
     setFilteredMarkets(filtered)
     setDisplayCount(20) // Reset display count when filters change
-  }, [markets, selectedCategory, searchQuery])
+  }, [markets, selectedCategory, searchQuery, sortBy])
 
   const getSignalLabel = (strength: number): string => {
     if (strength >= 70) return "Strong"
@@ -144,14 +159,20 @@ export function MarketsView() {
     return "Weak"
   }
 
-  const getSignalDot = (strength: number): string => {
-    if (strength >= 70) return "●"
-    if (strength >= 50) return "◐"
-    return "○"
+  const getSignalColor = (strength: number): string => {
+    if (strength >= 70) return "text-[#22C55E]"
+    if (strength >= 50) return "text-[#F59E0B]"
+    return "text-[#888]"
   }
 
   const visibleMarkets = filteredMarkets.slice(0, displayCount)
   const hasMore = filteredMarkets.length > displayCount
+
+  // Calculate stats
+  const highEdgeCount = markets.filter((m) => Math.abs(m.edge) > 5).length
+  const avgEdge = markets.length > 0
+    ? markets.reduce((sum, m) => sum + Math.abs(m.edge), 0) / markets.length
+    : 0
 
   return (
     <div className="min-h-screen bg-black text-white pt-20 md:pt-24 px-4 pb-16">
@@ -162,139 +183,227 @@ export function MarketsView() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-semibold text-white mb-2">Markets</h1>
+          <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <div className="flex items-center gap-2 mb-3">
+                <Activity className="w-5 h-5 text-[#22C55E]" />
+                <span className="text-xs text-[#888] uppercase tracking-wider">
+                  Live Markets
+                </span>
+              </div>
+              <h1 className="text-3xl md:text-5xl font-bold text-white mb-3">
+                All Signals
+              </h1>
               <p className="text-sm text-[#888]">
-                {loading ? "Loading..." : `${filteredMarkets.length} markets available`}
+                {loading ? "Loading..." : `${filteredMarkets.length} active opportunities`}
               </p>
             </div>
 
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#0A0A0A] border border-[#1A1A1A] px-6 py-4">
+                <div className="text-xs text-[#888] uppercase tracking-wider mb-1">
+                  High Edge
+                </div>
+                <div className="text-2xl font-bold text-[#22C55E] font-mono">
+                  {highEdgeCount}
+                </div>
+              </div>
+              <div className="bg-[#0A0A0A] border border-[#1A1A1A] px-6 py-4">
+                <div className="text-xs text-[#888] uppercase tracking-wider mb-1">
+                  Avg Edge
+                </div>
+                <div className="text-2xl font-bold text-white font-mono">
+                  {avgEdge.toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search and Filters Bar */}
+          <div className="flex flex-col md:flex-row gap-3 mb-6">
             {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#555]" />
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#555]" />
               <input
                 type="text"
                 placeholder="Search markets..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-[#0A0A0A] border border-[#1A1A1A] text-white placeholder:text-[#555] focus:outline-none focus:border-white/30 transition-colors text-sm w-64"
+                className="w-full pl-12 pr-4 py-3 bg-[#0A0A0A] border border-[#1A1A1A] text-white placeholder:text-[#555] focus:outline-none focus:border-white/30 transition-colors text-sm"
               />
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`flex items-center gap-2 px-4 py-3 text-xs tracking-wider transition-colors ${
+                  showFilters
+                    ? "bg-white text-black"
+                    : "bg-[#0A0A0A] border border-[#1A1A1A] text-[#888] hover:border-white/30 hover:text-white"
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">FILTERS</span>
+              </button>
+
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortBy)}
+                className="px-4 py-3 bg-[#0A0A0A] border border-[#1A1A1A] text-white focus:outline-none focus:border-white/30 transition-colors text-xs tracking-wider appearance-none cursor-pointer"
+              >
+                <option value="edge">SORT: EDGE ↓</option>
+                <option value="signal">SORT: SIGNAL ↓</option>
+                <option value="volume">SORT: VOLUME ↓</option>
+              </select>
             </div>
           </div>
 
           {/* Category Pills */}
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.key}
-                onClick={() => setSelectedCategory(cat.key)}
-                className={`px-4 py-2 text-xs font-medium whitespace-nowrap transition-colors ${
-                  selectedCategory === cat.key
-                    ? "bg-[#1A1A1A] text-white border border-[#2A2A2A]"
-                    : "bg-transparent text-[#888] border border-[#1A1A1A] hover:border-[#2A2A2A] hover:text-white"
-                }`}
-              >
-                {cat.label}
-                {cat.key !== "all" && (
-                  <span className="ml-2 text-[10px] text-[#555]">
-                    ({markets.filter((m) => m.category === cat.key).length})
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+          {showFilters && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex gap-2 overflow-x-auto pb-2 mb-4"
+            >
+              {CATEGORIES.map((cat) => {
+                const count = markets.filter((m) => m.category === cat.key || cat.key === "all").length
+                return (
+                  <button
+                    key={cat.key}
+                    onClick={() => setSelectedCategory(cat.key)}
+                    className={`flex items-center gap-2 px-4 py-2 text-xs font-medium whitespace-nowrap transition-colors ${
+                      selectedCategory === cat.key
+                        ? "bg-white text-black"
+                        : "bg-[#0A0A0A] text-[#888] border border-[#1A1A1A] hover:border-white/30 hover:text-white"
+                    }`}
+                  >
+                    <span>{cat.emoji}</span>
+                    <span>{cat.label}</span>
+                    <span className="text-[10px] opacity-50">
+                      ({cat.key === "all" ? markets.length : count})
+                    </span>
+                  </button>
+                )
+              })}
+            </motion.div>
+          )}
         </motion.div>
 
-        {/* Markets Table */}
+        {/* Markets Grid */}
         {loading ? (
-          <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-12 text-center">
+          <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-16 text-center">
+            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
             <div className="text-[#555]">Loading markets...</div>
           </div>
         ) : filteredMarkets.length === 0 ? (
-          <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-12 text-center">
+          <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-16 text-center">
             <div className="text-[#555]">
               {searchQuery ? "No markets match your search" : "No markets in this category"}
             </div>
           </div>
         ) : (
           <>
-            <div className="bg-[#0A0A0A] border border-[#1A1A1A] overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[#1A1A1A]">
-                    <th className="text-left py-4 px-6 text-xs text-[#888] font-medium tracking-wider">
-                      MARKET
-                    </th>
-                    <th className="text-left py-4 px-6 text-xs text-[#888] font-medium tracking-wider hidden md:table-cell">
-                      CATEGORY
-                    </th>
-                    <th className="text-right py-4 px-6 text-xs text-[#888] font-medium tracking-wider">
-                      PRICE
-                    </th>
-                    <th className="text-right py-4 px-6 text-xs text-[#888] font-medium tracking-wider">
-                      EDGE
-                    </th>
-                    <th className="text-right py-4 px-6 text-xs text-[#888] font-medium tracking-wider hidden lg:table-cell">
-                      SIGNAL
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleMarkets.map((market, idx) => (
-                    <motion.tr
-                      key={market.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: idx * 0.02 }}
-                      className={`border-b border-[#1A1A1A] last:border-0 hover:bg-[#0A0A0A] transition-all group cursor-pointer ${
-                        idx % 2 === 1 ? "bg-[#0A0A0A]/50" : ""
-                      }`}
-                    >
-                      <td className="py-4 px-6 text-sm text-white group-hover:border-l-2 group-hover:border-white transition-all">
-                        <div className="line-clamp-2">{market.question}</div>
-                      </td>
-                      <td className="py-4 px-6 text-xs text-[#888] uppercase hidden md:table-cell">
-                        {market.category}
-                      </td>
-                      <td className="py-4 px-6 text-sm text-right font-mono text-white">
+            {/* Grid View */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+              {visibleMarkets.map((market, idx) => (
+                <motion.div
+                  key={market.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.02 }}
+                  className="bg-[#0A0A0A] border border-[#1A1A1A] hover:border-white/30 transition-all group cursor-pointer overflow-hidden"
+                >
+                  {/* Header */}
+                  <div className="p-5 border-b border-[#1A1A1A]">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        {market.category && (
+                          <span className="text-[10px] text-[#888] uppercase tracking-wider">
+                            {CATEGORIES.find(c => c.key === market.category)?.emoji} {market.category}
+                          </span>
+                        )}
+                      </div>
+                      <div className={`text-xs font-mono font-bold ${
+                        market.edge > 0 ? "text-[#22C55E]" : "text-[#EF4444]"
+                      }`}>
+                        {market.edge > 0 ? "+" : ""}{market.edge.toFixed(1)}%
+                      </div>
+                    </div>
+                    <h3 className="text-sm text-white line-clamp-2 group-hover:text-white transition-colors mb-3">
+                      {market.question}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium ${
+                        market.prediction === "YES"
+                          ? "bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20"
+                          : "bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20"
+                      }`}>
+                        {market.prediction}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="p-5 grid grid-cols-3 gap-4">
+                    <div>
+                      <div className="text-[10px] text-[#555] uppercase tracking-wider mb-1">
+                        Price
+                      </div>
+                      <div className="text-sm font-mono text-white">
                         {market.polyOdds}¢
-                      </td>
-                      <td
-                        className={`py-4 px-6 text-sm text-right font-mono font-bold ${
-                          market.edge > 0 ? "text-[#22C55E]" : "text-[#EF4444]"
-                        }`}
-                      >
-                        {market.edge > 0 ? "+" : ""}
-                        {market.edge.toFixed(1)}%
-                      </td>
-                      <td className="py-4 px-6 text-sm text-right hidden lg:table-cell">
-                        <span className="inline-flex items-center gap-2">
-                          <span className="text-white">{getSignalDot(market.signalStrength)}</span>
-                          <span className="text-[#888]">{getSignalLabel(market.signalStrength)}</span>
-                        </span>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#555] uppercase tracking-wider mb-1">
+                        Signal
+                      </div>
+                      <div className={`text-sm font-mono ${getSignalColor(market.signalStrength)}`}>
+                        {getSignalLabel(market.signalStrength)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-[#555] uppercase tracking-wider mb-1">
+                        Edge
+                      </div>
+                      <div className="text-sm font-mono text-white">
+                        {Math.abs(market.edge).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CTA */}
+                  <div className="p-5 pt-0">
+                    <button className="w-full flex items-center justify-center gap-2 py-2 bg-white/5 border border-white/10 text-white hover:bg-white hover:text-black transition-all text-xs">
+                      View Details
+                      <ArrowUpRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
             </div>
 
             {/* Load More */}
             {hasMore && (
-              <div className="mt-6 text-center">
+              <div className="text-center">
                 <button
                   onClick={() => setDisplayCount((prev) => prev + 20)}
-                  className="px-6 py-3 bg-[#0A0A0A] border border-[#1A1A1A] text-white hover:bg-[#1A1A1A] hover:border-white/30 transition-colors text-sm"
+                  className="px-8 py-3 bg-[#0A0A0A] border border-[#1A1A1A] text-white hover:bg-white hover:text-black transition-all text-sm flex items-center gap-2 mx-auto"
                 >
-                  Load More ({filteredMarkets.length - displayCount} remaining)
+                  Load More
+                  <span className="text-xs text-[#555]">
+                    ({filteredMarkets.length - displayCount} remaining)
+                  </span>
                 </button>
               </div>
             )}
 
             {/* Footer info */}
             <div className="mt-6 text-center text-xs text-[#555]">
-              Showing {visibleMarkets.length} of {filteredMarkets.length} markets
+              Showing {visibleMarkets.length} of {filteredMarkets.length} markets •
+              Updated every 30 seconds
             </div>
           </>
         )}
