@@ -1,5 +1,6 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { useEffect, useState, useRef } from "react"
 import {
@@ -7,6 +8,8 @@ import {
   Zap, Clock, Target, Award, CheckCircle, Eye, Activity,
   Sparkles, ArrowUpRight, Cpu, Database, GitBranch
 } from "lucide-react"
+
+const HeroScene = dynamic(() => import("@/components/hero-scene"), { ssr: false })
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -157,6 +160,11 @@ export function LandingView({ onNavigate }: { onNavigate: (view: string) => void
     <div className="min-h-screen bg-black text-white overflow-hidden">
       {/* Hero Section - Enhanced */}
       <section ref={heroRef} className="hero-gradient relative pt-32 pb-24 px-4 overflow-hidden">
+        {/* 3D Particle Background */}
+        <div className="absolute inset-0 pointer-events-none">
+          <HeroScene />
+        </div>
+
         {/* Animated Background Grid */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a1a1a_1px,transparent_1px),linear-gradient(to_bottom,#1a1a1a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] opacity-20" />
 

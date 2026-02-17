@@ -233,10 +233,7 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
   const baseNavItems = [
     { label: "HOME", view: "landing" as View },
     { label: "MARKETS", view: "markets" as View },
-    { label: "5-MIN BETS", view: "crypto5min" as View },
     { label: "SPORTS", view: "sports" as View },
-    { label: "RESULTS", view: "results" as View },
-    { label: "TRACK RECORD", view: "trackrecord" as View },
     { label: "PRICING", view: "pricing" as View },
   ]
 
@@ -354,19 +351,6 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
                     {item.label}
                   </motion.button>
                 ))}
-                <motion.button
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.25 }}
-                  onClick={() => handleNavigate("terminal")}
-                  className={`block w-full text-left text-lg font-semibold tracking-wider py-4 border-b transition-colors ${
-                    currentView === "terminal"
-                      ? "text-white border-white/30"
-                      : "text-[#888] border-[#1A1A1A] hover:text-white"
-                  }`}
-                >
-                  TERMINAL
-                </motion.button>
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-[#1A1A1A]">
                 <WalletButton />
