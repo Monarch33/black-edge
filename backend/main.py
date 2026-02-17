@@ -1028,9 +1028,12 @@ class AppState:
                         logger.warning("Council: Gamma API fallback failed", error=str(fetch_err))
 
                 if cached:
-                    # Sort by volume, take top 30 (support both dicts and objects)
+                    # Sort by volume, take top 30 (support both dicts and PolymarketMarket objects)
                     def _vol(m):
-                        v = m.get('volume24hr', 0) if isinstance(m, dict) else getattr(m, 'volume24hr', 0)
+                        if isinstance(m, dict):
+                            v = m.get('volume24hr', m.get('volume_24h', 0))
+                        else:
+                            v = getattr(m, 'volume_24h', 0) or getattr(m, 'volume24hr', 0)
                         return float(v or 0)
                     top = sorted(cached, key=_vol, reverse=True)[:30]
 
@@ -1043,22 +1046,28 @@ class AppState:
                                     return m.get(key, default)
                                 return getattr(m, key, default)
 
-                            raw_prices = _get('outcomePrices', '[]') or '[]'
-                            if isinstance(raw_prices, str):
-                                import json as _j
-                                prices = [float(p) for p in _j.loads(raw_prices)]
-                            elif isinstance(raw_prices, list):
-                                prices = [float(p) for p in raw_prices]
-                            else:
-                                prices = []
+                            # Try yes_price directly (PolymarketMarket objects) or parse outcomePrices (dicts)
+                            yes_p = _get('yes_price', _get('yesPrice', None))
+                            no_p = _get('no_price', _get('noPrice', None))
+                            if yes_p is None:
+                                raw_prices = _get('outcomePrices', '[]') or '[]'
+                                if isinstance(raw_prices, str):
+                                    import json as _j
+                                    price_list = [float(p) for p in _j.loads(raw_prices)]
+                                elif isinstance(raw_prices, list):
+                                    price_list = [float(p) for p in raw_prices]
+                                else:
+                                    price_list = []
+                                yes_p = price_list[0] if price_list else 0.5
+                                no_p = price_list[1] if len(price_list) > 1 else 0.5
                             markets_list.append({
-                                "conditionId": _get('conditionId') or _get('id'),
+                                "conditionId": _get('condition_id') or _get('conditionId') or _get('id'),
                                 "id": _get('id'),
                                 "question": _get('question'),
-                                "yesPrice": prices[0] if prices else 0.5,
-                                "noPrice": prices[1] if len(prices) > 1 else 0.5,
-                                "volume": float(_get('volume', 0) or 0),
-                                "volume24hr": float(_get('volume24hr', 0) or 0),
+                                "yesPrice": float(yes_p or 0.5),
+                                "noPrice": float(no_p or 0.5),
+                                "volume": float(_get('volume_total', _get('volume', 0)) or 0),
+                                "volume24hr": float(_get('volume_24h', _get('volume24hr', 0)) or 0),
                                 "liquidity": float(_get('liquidity', 0) or 0),
                             })
                         except Exception:
