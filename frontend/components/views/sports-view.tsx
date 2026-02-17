@@ -28,6 +28,7 @@ interface SportsMatch {
   prediction: "YES" | "NO"
   confidence: number
   trending: boolean
+  url: string
 }
 
 export function SportsView() {
@@ -42,28 +43,38 @@ export function SportsView() {
         const res = await fetch(`${API_URL}/api/v2/signals`)
         const data = await res.json()
 
+        const SPORT_KEYWORDS = [
+          "NFL", "NBA", "UFC", "MLB", "SOCCER", "SUPER BOWL", "CHAMPIONSHIP", "PLAYOFF",
+          "LAKERS", "WARRIORS", "CELTICS", "BULLS", "HEAT", "KNICKS",
+          "MANCHESTER", "ARSENAL", "CHELSEA", "TOTTENHAM", "LIVERPOOL",
+          "REAL MADRID", "BARCELONA", "PSG", "PREMIER LEAGUE", "LA LIGA",
+          "CHAMPIONS LEAGUE", "EUROPA", "SERIE A", "BUNDESLIGA", "MLS",
+          "TENNIS", "WIMBLEDON", "US OPEN", "FRENCH OPEN",
+          "F1", "FORMULA", "NASCAR", "RUGBY", "CRICKET", "GOLF", "PGA", "MASTERS"
+        ]
+
         const sports = data.signals
           .filter((s: any) => {
             const m = s.market.toUpperCase()
-            return m.includes("NFL") || m.includes("NBA") || m.includes("UFC") ||
-                   m.includes("MLB") || m.includes("SOCCER") || m.includes("SUPER BOWL") ||
-                   m.includes("CHAMPIONSHIP") || m.includes("PLAYOFF")
+            const q = s.question.toUpperCase()
+            return SPORT_KEYWORDS.some(kw => m.includes(kw) || q.includes(kw))
           })
           .map((s: any) => {
             const m = s.market.toUpperCase()
-            let sport = "other"
+            const q = s.question.toUpperCase()
+            let sport = "soccer"
             let emoji = ""
 
             if (m.includes("NFL") || m.includes("SUPER BOWL")) {
               sport = "nfl"
-            } else if (m.includes("NBA") || m.includes("LAKERS") || m.includes("WARRIORS")) {
+            } else if (m.includes("NBA") || m.includes("LAKERS") || m.includes("WARRIORS") || m.includes("CELTICS") || m.includes("BULLS") || m.includes("HEAT") || m.includes("KNICKS")) {
               sport = "nba"
             } else if (m.includes("UFC") || m.includes("FIGHT")) {
               sport = "ufc"
-            } else if (m.includes("SOCCER") || m.includes("PREMIER")) {
-              sport = "soccer"
             } else if (m.includes("MLB") || m.includes("BASEBALL")) {
               sport = "mlb"
+            } else if (m.includes("SOCCER") || m.includes("PREMIER") || m.includes("MANCHESTER") || m.includes("ARSENAL") || m.includes("CHELSEA") || m.includes("TOTTENHAM") || m.includes("LIVERPOOL") || m.includes("REAL MADRID") || m.includes("BARCELONA") || m.includes("PSG") || m.includes("LA LIGA") || m.includes("CHAMPIONS LEAGUE") || m.includes("EUROPA") || m.includes("SERIE A") || m.includes("BUNDESLIGA") || m.includes("MLS") || q.includes("PREMIER LEAGUE") || q.includes("CHAMPIONS LEAGUE")) {
+              sport = "soccer"
             }
 
             // Extract matchup (simplified)
@@ -84,7 +95,8 @@ export function SportsView() {
               volume: s.volume,
               prediction: s.prediction,
               confidence: s.trueProb,
-              trending: parseFloat(s.edge) > 8
+              trending: parseFloat(s.edge) > 8,
+              url: s.url || ''
             }
           })
 
@@ -285,13 +297,14 @@ export function SportsView() {
                     </div>
 
                     {/* CTA */}
-                    <button className={`w-full py-3 font-mono text-xs tracking-wider transition-all ${
-                      match.prediction === "YES"
-                        ? "bg-[#22C55E] hover:bg-[#22C55E]/90 text-black"
-                        : "bg-[#EF4444] hover:bg-[#EF4444]/90 text-black"
-                    }`}>
-                      EXECUTE {match.prediction}
-                    </button>
+                    <a
+                      href={match.url || 'https://polymarket.com'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`w-full py-3 font-mono text-xs tracking-wider transition-all text-center block ${match.prediction === "YES" ? "bg-[#22C55E] hover:bg-[#22C55E]/90 text-black" : "bg-[#EF4444] hover:bg-[#EF4444]/90 text-black"}`}
+                    >
+                      TRADE {match.prediction} ON POLYMARKET
+                    </a>
                   </div>
                 </motion.div>
               ))}

@@ -18,6 +18,7 @@ interface Market {
   category?: string
   volume?: number
   trueProb?: number
+  url?: string
 }
 
 type Category = "all" | "crypto" | "politics" | "sports" | "economy" | "tech"
@@ -62,6 +63,7 @@ export function MarketsView() {
             category: detectCategory(s.question),
             volume: s.volume || 0,
             trueProb: s.trueProb || 0,
+            url: s.url || '',
           }))
           setMarkets(marketsData)
           setFilteredMarkets(marketsData)
@@ -376,10 +378,15 @@ export function MarketsView() {
 
                   {/* CTA */}
                   <div className="p-5 pt-0">
-                    <button className="w-full flex items-center justify-center gap-2 py-2 bg-white/5 border border-white/10 text-white hover:bg-white hover:text-black transition-all text-xs">
-                      View Details
+                    <a
+                      href={market.url || `https://polymarket.com`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-2 bg-white/5 border border-white/10 text-white hover:bg-white hover:text-black transition-all text-xs"
+                    >
+                      View on Polymarket
                       <ArrowUpRight className="w-3 h-3" />
-                    </button>
+                    </a>
                   </div>
                 </motion.div>
               ))}

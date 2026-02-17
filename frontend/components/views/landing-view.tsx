@@ -32,7 +32,7 @@ interface Crypto5MinMarket {
   downPrice: number
 }
 
-export function LandingView() {
+export function LandingView({ onNavigate }: { onNavigate: (view: string) => void }) {
   const [email, setEmail] = useState("")
   const [waitlistStatus, setWaitlistStatus] = useState<"idle" | "submitting" | "success">("idle")
   const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null)
@@ -382,7 +382,7 @@ export function LandingView() {
           >
             <a
               href="#"
-              onClick={(e) => { e.preventDefault(); /* Navigate to markets */ }}
+              onClick={(e) => { e.preventDefault(); onNavigate('markets') }}
               className="inline-flex items-center gap-2 text-white hover:text-[#888] transition-colors text-sm"
             >
               View all {marketCount} markets
@@ -428,7 +428,7 @@ export function LandingView() {
               </div>
 
               <button
-                onClick={() => { /* Navigate to crypto5min view */ }}
+                onClick={() => onNavigate('crypto5min')}
                 className="w-full flex items-center justify-center gap-2 py-4 bg-white text-black hover:bg-white/90 transition-colors text-base font-semibold"
               >
                 View Live Analysis

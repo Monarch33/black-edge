@@ -37,7 +37,7 @@ export default function Home() {
           transition={{ duration: 0.2 }}
           className="relative"
         >
-          {currentView === 'landing' && <LandingView />}
+          {currentView === 'landing' && <LandingView onNavigate={handleNavigate} />}
           {currentView === 'markets' && <MarketsView />}
           {currentView === 'pricing' && <PricingView />}
           {currentView === 'terminal' && <TerminalView />}

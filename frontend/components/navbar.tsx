@@ -296,17 +296,6 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => handleNavigate("terminal")}
-                className={`flex items-center gap-2 px-4 py-2 text-xs tracking-wider transition-all min-h-[44px] ${
-                  currentView === "terminal"
-                    ? "bg-white text-black"
-                    : "bg-transparent border border-[#1A1A1A] text-[#888] hover:border-white/30 hover:text-white"
-                }`}
-              >
-                <Zap className="w-3 h-3" />
-                <span className="hidden sm:inline">TERMINAL</span>
-              </button>
               <div className="hidden md:block">
                 <WalletButton />
               </div>

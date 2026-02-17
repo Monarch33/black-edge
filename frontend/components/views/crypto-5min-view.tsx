@@ -236,13 +236,18 @@ export function Crypto5MinView() {
                       </div>
 
                       {/* Execute Button */}
-                      <button className={`w-full py-3 font-mono text-xs tracking-wider font-bold transition-all ${
-                        signal.direction === "UP"
-                          ? "bg-green-500 hover:bg-green-400 text-black"
-                          : "bg-red-500 hover:bg-red-400 text-black"
-                      }`}>
+                      <a
+                        href={`https://polymarket.com/event/${signal.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`w-full py-3 font-mono text-xs tracking-wider font-bold transition-all text-center block ${
+                          signal.direction === "UP"
+                            ? "bg-green-500 hover:bg-green-400 text-black"
+                            : "bg-red-500 hover:bg-red-400 text-black"
+                        }`}
+                      >
                         EXECUTE {signal.direction}
-                      </button>
+                      </a>
                     </motion.div>
                   ))}
                 </div>
@@ -309,9 +314,19 @@ export function Crypto5MinView() {
                       </div>
 
                       {/* Volume */}
-                      <div className="text-[9px] text-white/40 font-mono text-center">
+                      <div className="text-[9px] text-white/40 font-mono text-center mb-3">
                         VOLUME: ${market.volume.toLocaleString()}
                       </div>
+
+                      {/* Trade Button */}
+                      <a
+                        href={`https://polymarket.com/event/${market.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-2 font-mono text-[10px] tracking-wider bg-white/10 hover:bg-white/20 text-white transition-all text-center block border border-white/10"
+                      >
+                        TRADE ON POLYMARKET
+                      </a>
                     </motion.div>
                   )
                 })}

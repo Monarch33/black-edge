@@ -17,6 +17,7 @@ from datetime import datetime
 from typing import Optional, Any
 
 from fastapi import FastAPI, WebSocket
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import structlog
@@ -1130,14 +1131,16 @@ async def list_opportunities_public() -> list[dict]:
     ]
 
 
+class BuildTxRequest(BaseModel):
+    user_address: str
+    market_id: str
+    outcome: str
+    amount: float
+
+
 # Build transaction endpoint - THE CORE EXECUTION ROUTE
 @app.post("/api/build-tx")
-async def build_transaction(
-    user_address: str,
-    market_id: str,
-    outcome: str,  # "YES" or "NO"
-    amount: float  # Amount in USDC
-) -> dict:
+async def build_transaction(request: BuildTxRequest) -> dict:
     """
     Build an unsigned transaction for Polymarket trade execution.
 
@@ -1161,13 +1164,13 @@ async def build_transaction(
         trade_builder = PolymarketTradeBuilder(rpc_url)
 
         # Convert outcome to index (0 = NO, 1 = YES)
-        outcome_index = 1 if outcome.upper() == "YES" else 0
+        outcome_index = 1 if request.outcome.upper() == "YES" else 0
 
         unsigned_tx = trade_builder.build_buy_transaction(
-            user_address=user_address,
-            condition_id=market_id,
+            user_address=request.user_address,
+            condition_id=request.market_id,
             outcome_index=outcome_index,
-            amount_usdc=amount,
+            amount_usdc=request.amount,
             max_price=1.0  # Accept current market price
         )
 
@@ -1177,10 +1180,10 @@ async def build_transaction(
 
         logger.info(
             "Transaction built successfully",
-            user=user_address[:10],
-            market=market_id[:10],
-            outcome=outcome,
-            amount=amount
+            user=request.user_address[:10],
+            market=request.market_id[:10],
+            outcome=request.outcome,
+            amount=request.amount
         )
 
         return unsigned_tx

@@ -209,11 +209,9 @@ export function TradeDock({ selectedMarket, onClose, onExecute, isPaywalled }: T
                   <label className="block text-[10px] text-white/30 font-mono tracking-wider">
                     AMOUNT (USDC)
                   </label>
-                  {userBalance > 0 && (
-                    <span className="text-[10px] text-white/40 font-mono">
-                      Balance: ${userBalance.toFixed(2)}
-                    </span>
-                  )}
+                  <span className="text-[10px] text-white/40 font-mono">
+                    Balance: ${userBalance.toFixed(2)} USDC on Polygon
+                  </span>
                 </div>
                 <div className="relative">
                   <input

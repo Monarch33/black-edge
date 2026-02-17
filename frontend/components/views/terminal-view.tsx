@@ -5,7 +5,7 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import {
   Activity, Wifi, Clock, Zap, AlertTriangle, TrendingUp, TrendingDown,
   Play, ChevronRight, Shield, Eye, Crosshair, Copy, Check, Radio,
-  Loader2, RotateCcw, Lock, BarChart3, Grid3X3, Skull,
+  Loader2, RotateCcw, Lock, BarChart3, Grid3X3, X,
   ExternalLink, Volume2, VolumeX,
 } from "lucide-react"
 import { useAccount, useSendTransaction, useWaitForTransactionReceipt } from "wagmi"
@@ -314,8 +314,8 @@ function TerminalLogs() {
           {log.text}
         </motion.div>
       ))}
-      {isLoading && <div className="text-white/30">&gt; Loading...</div>}
-      <div className="flex items-center text-white/30">&gt; <span className="animate-blink ml-1">_</span></div>
+      {isLoading && <div className="text-white/30">Loading signals...</div>}
+      <div className="flex items-center gap-1 text-white/20"><div className="w-1 h-3 bg-white/30 animate-pulse" /></div>
     </div>
   )
 }
@@ -641,8 +641,8 @@ function PanicDock({ isPaywalled, onPanicSell, executedTrades, totalProfit }: {
               : "bg-white/20 text-white border border-white/50 hover:bg-white/30 active:bg-white/40"
           }`}
         >
-          {isPaywalled ? <Lock className="w-3 h-3" /> : <Skull className="w-3 h-3" />}
-          PANIC SELL ALL
+          {isPaywalled ? <Lock className="w-3 h-3" /> : <X className="w-3 h-3" />}
+          CLOSE ALL POSITIONS
         </button>
       </div>
     </div>
@@ -715,7 +715,7 @@ export function TerminalView() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash })
 
   const [latency, setLatency] = useState(12)
-  const [status, setStatus] = useState("HUNTING")
+  const [status, setStatus] = useState("SCANNING")
   const [executedTrades, setExecutedTrades] = useState(0)
   const [totalProfit, setTotalProfit] = useState(0)
   const [showScrollHint, setShowScrollHint] = useState(true)
@@ -875,7 +875,7 @@ export function TerminalView() {
       setExecutedTrades((prev) => prev + 1)
       setTotalProfit((prev) => prev + opp.edge * amount + Math.random() * 50)
       setStatus("EXECUTED")
-      setTimeout(() => setStatus("HUNTING"), 2000)
+      setTimeout(() => setStatus("SCANNING"), 2000)
     } catch (error) {
       console.error("Execution failed:", error)
       throw error
@@ -883,8 +883,8 @@ export function TerminalView() {
   }
 
   const handlePanicSell = () => {
-    setStatus("PANIC SELL")
-    setTimeout(() => setStatus("HUNTING"), 3000)
+    setStatus("CLOSING")
+    setTimeout(() => setStatus("SCANNING"), 3000)
   }
 
   const addWhaleWallet = (address: string, label: string) => { setWhaleWallets((prev) => [...prev, { address, label, pnl: "$0", isTracking: true }]) }
@@ -945,7 +945,7 @@ export function TerminalView() {
                 <span className={`text-[10px] md:text-xs font-mono tracking-wider ${isConnected ? "text-green-500" : "text-red-500"}`}>{isConnected ? "CONNECTED" : "DISCONNECTED"}</span>
               </div>
               <div className="flex items-center gap-2"><Wifi className="w-3 h-3 text-white/40" /><span className="text-[10px] md:text-xs text-white/40 font-mono"><span className="text-green-500">{latency}ms</span></span></div>
-              <div className="flex items-center gap-2"><Activity className="w-3 h-3 text-white/40" /><span className={`text-[10px] md:text-xs font-mono tracking-wider ${status === "HUNTING" ? "text-white" : status === "PANIC SELL" ? "text-white animate-pulse" : "text-green-500"}`}>{status}</span></div>
+              <div className="flex items-center gap-2"><Activity className="w-3 h-3 text-white/40" /><span className={`text-[10px] md:text-xs font-mono tracking-wider ${status === "SCANNING" ? "text-white" : status === "CLOSING" ? "text-white animate-pulse" : "text-green-500"}`}>{status}</span></div>
             </div>
             <div className="flex items-center gap-4 md:gap-6">
               <FreeTimerBadge secondsLeft={freeSecondsLeft} />
@@ -1006,7 +1006,7 @@ export function TerminalView() {
             <div className="flex items-center justify-between px-3 md:px-4 py-3 border-b border-white/10 bg-white/[0.02]">
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-white" />
-                <span className="text-xs md:text-sm text-white font-mono tracking-wider">THE FEED</span>
+                <span className="text-xs md:text-sm text-white font-mono tracking-wider">Signal Feed</span>
                 {arbCount > 0 && <span className="px-1.5 py-0.5 text-[10px] bg-white/20 text-white font-mono">{arbCount} ARB</span>}
               </div>
               <div className="flex items-center gap-2">

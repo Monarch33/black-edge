@@ -4,7 +4,7 @@
  * WITH SAFETY CHECKS (balance, allowance, slippage)
  */
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useBalance } from "wagmi"
 import { parseUnits, formatUnits, Address } from "viem"
 import {
@@ -60,6 +60,13 @@ export function useTrade() {
     args: address ? [address] : undefined,
     chainId: POLYGON_CHAIN_ID,
   })
+
+  // Auto-update balance when it changes
+  useEffect(() => {
+    if (balance !== undefined) {
+      setUserBalance(parseFloat(formatUnits(balance as bigint, 6)))
+    }
+  }, [balance])
 
   // Check USDC allowance
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
