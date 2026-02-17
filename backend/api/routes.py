@@ -267,56 +267,14 @@ async def get_council_decision(market_id: str) -> dict:
         raise HTTPException(status_code=503, detail="TheCouncil not initialized")
 
     try:
-        # Build WorldState for this market
-        # NOTE: In production, this should fetch real data
-        # For now, use mock data for testing
+        # Build real WorldState from live data
+        world_state = await state.build_real_world_state(market_id)
 
-        from quant.council.agents import (
-            WorldState, MarketMicrostructure, NarrativeState,
-            OnChainState, PortfolioState
-        )
-
-        # Mock WorldState (replace with real data in production)
-        world_state = WorldState(
-            market_id=market_id,
-            timestamp_ms=int(datetime.utcnow().timestamp() * 1000),
-            mid_price=0.50,
-            micro=MarketMicrostructure(
-                order_book_imbalance=0.15,
-                volume_z_score=1.5,
-                momentum_1h=0.05,
-                momentum_4h=0.08,
-                momentum_24h=0.12,
-                spread_bps=400,
-                liquidity_depth_usd=50000.0,
-                price_reversion_score=0.3
-            ),
-            narrative=NarrativeState(
-                sentiment_score=0.3,
-                nvi_score=0.5,
-                novelty_index=0.7,
-                credibility_factor=0.8,
-                sarcasm_probability=0.1,
-                tweet_volume_z=1.2,
-                narrative_coherence=0.75
-            ),
-            on_chain=OnChainState(
-                smart_money_flow=0.2,
-                whale_concentration=0.35,
-                retail_flow=-0.1,
-                cross_platform_spread=0.02,
-                gas_congestion_pct=0.45
-            ),
-            portfolio=PortfolioState(
-                current_drawdown=0.05,
-                correlated_exposure=0.25,
-                leverage=0.30,
-                sharpe_ratio=1.8,
-                win_rate=0.65,
-                time_to_resolution_hours=72.0,
-                implied_volatility=0.25
+        if not world_state:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Market {market_id} not found"
             )
-        )
 
         # Execute Council vote
         decision = await state.council.convene(world_state)
@@ -399,6 +357,141 @@ async def ingest_headline(request: HeadlineRequest) -> dict:
 # Health Check
 # =============================================================================
 
+@router.get("/crypto/5min/signals")
+async def get_5min_signals() -> dict:
+    """
+    Get current 5-minute BTC latency arbitrage signals.
+
+    Returns:
+        Active markets and any detected arbitrage signals
+    """
+    from main import state
+    import time
+
+    if not state.crypto_5min_scanner:
+        raise HTTPException(status_code=503, detail="5-min scanner not initialized")
+
+    try:
+        markets = state.crypto_5min_scanner._active_markets
+        signals = await state.crypto_5min_scanner.scan_for_signals()
+
+        return {
+            "active_markets": [
+                {
+                    "slug": m.slug,
+                    "question": m.question,
+                    "interval": m.interval_minutes,
+                    "upPrice": round(m.up_price, 3),
+                    "downPrice": round(m.down_price, 3),
+                    "timeRemaining": round(m.time_remaining_seconds),
+                    "volume": round(m.volume, 2),
+                }
+                for m in markets
+            ],
+            "signals": [
+                {
+                    "market": s.market_slug,
+                    "slug": s.market_slug,
+                    "question": s.question,
+                    "direction": s.direction,
+                    "btcMove": round(s.binance_move_pct, 3),
+                    "marketPrice": round(s.polymarket_up_price, 3),
+                    "trueProbability": round(s.estimated_true_prob, 3),
+                    "edge": round(s.edge, 3),
+                    "confidence": s.confidence,
+                    "timeRemaining": round(s.time_remaining_seconds),
+                    "recommendedSide": s.recommended_side,
+                    "tokenId": s.recommended_token_id,
+                    "volume": round(s.volume, 2),
+                }
+                for s in signals
+            ],
+            "btcPrice": round(state.crypto_5min_scanner._btc_price, 2),
+            "timestamp": time.time(),
+        }
+
+    except Exception as e:
+        logger.error("Failed to get 5min signals", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/signals")
+async def get_all_signals() -> dict:
+    """
+    Get all active trading signals across all markets.
+
+    Returns enriched signals with predictions for YES/NO, edge analysis,
+    volume data, and confidence metrics. Used by Sports and general views.
+    """
+    from main import state
+    import time
+
+    try:
+        # Get live signals from state
+        signals = []
+
+        for signal in state.live_signals:
+            api_dict = signal.to_api_dict()
+
+            # Add prediction field (YES if positive edge, NO otherwise)
+            api_dict["prediction"] = "YES" if signal.kelly_edge > 0 else "NO"
+
+            signals.append(api_dict)
+
+        logger.debug("✅ Serving REAL Polymarket data", signal_count=len(signals))
+
+        return {
+            "status": "success",
+            "signals": signals,
+            "count": len(signals),
+            "timestamp": time.time(),
+        }
+
+    except Exception as e:
+        logger.error("Failed to get signals", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/track-record")
+async def get_track_record() -> dict:
+    """
+    Public track record endpoint.
+
+    Returns performance statistics from paper trading logger:
+    - Total predictions made
+    - Win rate (%)
+    - Average edge predicted vs realized
+    - Total P&L (paper)
+    - Confidence breakdown
+    - Recent predictions (last 10)
+    """
+    try:
+        from engine.paper_trading_logger import get_track_record
+
+        stats = get_track_record()
+
+        return {
+            "status": "success",
+            "track_record": {
+                "summary": {
+                    "total_predictions": stats["total_predictions"],
+                    "total_resolved": stats["total_resolved"],
+                    "win_rate": round(stats["win_rate"] * 100, 1),  # Convert to %
+                    "avg_edge_predicted": round(stats["avg_edge_predicted"] * 100, 1),
+                    "avg_edge_realized": round(stats["avg_edge_realized"] * 100, 1),
+                    "total_pnl": round(stats["total_pnl"], 2),
+                },
+                "by_confidence": stats["confidence_breakdown"],
+                "recent_predictions": stats["recent_predictions"],
+            },
+            "timestamp": time.time(),
+        }
+
+    except Exception as e:
+        logger.error("Failed to get track record", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/health")
 async def health_check() -> dict:
     """V2 health check with component status."""
@@ -411,6 +504,8 @@ async def health_check() -> dict:
         'quant_model': state.quant_model is not None,
         'council': state.council is not None,
         'risk_manager': state.risk_manager is not None,
+        'crypto_5min_scanner': state.crypto_5min_scanner is not None,
+        'news_collector': state.news_collector is not None,
     }
 
     all_healthy = all(components.values())

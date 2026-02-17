@@ -11,6 +11,7 @@ It combines:
 """
 
 import asyncio
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -72,6 +73,13 @@ class AppState:
         self.risk_manager = None
         self.active_markets: list[str] = []  # Markets to track
 
+        # News pipeline modules (initialized in startup)
+        self.news_collector = None
+        self.market_matcher = None
+
+        # Crypto 5-min scanner (initialized in startup)
+        self.crypto_5min_scanner = None
+
     async def startup(self) -> None:
         """Initialize application state on startup."""
         logger.info("Initializing application state...")
@@ -114,6 +122,27 @@ class AppState:
         except Exception as e:
             logger.warning("⚠️ V2 Quant modules not available", error=str(e))
 
+        # Initialize news pipeline
+        try:
+            import os
+            from engine.news_collector import NewsCollector
+            from engine.market_matcher import MarketMatcher
+
+            cryptopanic_token = os.environ.get("CRYPTOPANIC_TOKEN", "")
+            self.news_collector = NewsCollector(cryptopanic_token=cryptopanic_token)
+            self.market_matcher = MarketMatcher()
+            logger.info("✅ News pipeline initialized")
+        except Exception as e:
+            logger.warning("⚠️ News pipeline not available", error=str(e))
+
+        # Initialize 5-min crypto scanner
+        try:
+            from engine.crypto_5min_scanner import Crypto5MinScanner
+            self.crypto_5min_scanner = Crypto5MinScanner()
+            logger.info("✅ 5-min crypto scanner initialized")
+        except Exception as e:
+            logger.warning("⚠️ 5-min crypto scanner not available", error=str(e))
+
         # Start background tasks
         self._background_tasks.append(
             asyncio.create_task(self._blockchain_monitor_task())
@@ -126,6 +155,12 @@ class AppState:
         )
         self._background_tasks.append(
             asyncio.create_task(self._v2_feature_update_task())
+        )
+        self._background_tasks.append(
+            asyncio.create_task(self._news_ingestion_task())
+        )
+        self._background_tasks.append(
+            asyncio.create_task(self._crypto_5min_scan_task())
         )
 
         logger.info("Application state initialized")
@@ -148,6 +183,14 @@ class AppState:
 
         # Cleanup Polymarket HTTP client
         await self.polymarket_client.close()
+
+        # Cleanup news collector
+        if self.news_collector:
+            await self.news_collector.close()
+
+        # Cleanup crypto scanner
+        if self.crypto_5min_scanner:
+            await self.crypto_5min_scanner.close()
 
         logger.info("Application shutdown complete")
 
@@ -203,6 +246,10 @@ class AppState:
                 if markets:
                     signals = self.quant_engine.analyze(markets)
                     self.live_signals = signals
+
+                    # Update active markets list for V2 pipeline
+                    self.active_markets = [m.id for m in markets[:20]]
+
                     logger.info(
                         "📊 Polymarket signals refreshed",
                         market_count=len(markets),
@@ -246,6 +293,155 @@ class AppState:
         except Exception as e:
             logger.error("Blockchain monitor failed", error=str(e))
 
+    async def _news_ingestion_task(self) -> None:
+        """
+        Background task that collects news every 2 minutes and injects
+        them into FeatureEngineer and NarrativeVelocityLite.
+
+        THIS IS THE MISSING BRIDGE between external data and the model.
+        """
+        if not self.news_collector or not self.feature_engineer or not self.narrative_velocity:
+            logger.info("News ingestion task disabled (modules not initialized)")
+            return
+
+        NEWS_INTERVAL = 120  # seconds (2 minutes)
+        logger.info("🚀 News ingestion task started", interval=NEWS_INTERVAL)
+
+        # Wait for initial Polymarket data to be available
+        await asyncio.sleep(10)
+
+        while True:
+            try:
+                # Get current active market questions for targeted search
+                market_questions = []
+                cached_markets = self.polymarket_client.get_cached()
+
+                if cached_markets:
+                    market_questions = [m.question for m in cached_markets[:15]]
+
+                    # Update the market matcher with current markets
+                    self.market_matcher.update_markets(cached_markets)
+
+                # Collect news from all sources
+                news_items = await self.news_collector.collect_all(
+                    market_questions=market_questions
+                )
+
+                if not news_items:
+                    logger.debug("No new news items collected")
+                    await asyncio.sleep(NEWS_INTERVAL)
+                    continue
+
+                # For each headline, find matching markets and inject
+                injected_count = 0
+                matched_count = 0
+
+                for item in news_items:
+                    # Match headline to markets
+                    matches = self.market_matcher.match_headline(item.title)
+
+                    if matches:
+                        matched_count += 1
+                        for match in matches[:3]:  # Max 3 markets per headline
+                            try:
+                                # Inject into FeatureEngineer (sentiment analysis)
+                                self.feature_engineer.ingest_headline(
+                                    headline=item.title,
+                                    timestamp_ms=item.published_ms,
+                                    market_id=match.market_id,
+                                )
+
+                                # Inject into NarrativeVelocityLite (keyword tracking)
+                                self.narrative_velocity.ingest(
+                                    text=item.title,
+                                    market_id=match.market_id,
+                                    timestamp_ms=item.published_ms,
+                                )
+
+                                injected_count += 1
+                            except Exception as e:
+                                logger.debug("Failed to inject headline", error=str(e))
+
+                    else:
+                        # No market match — inject as "global" sentiment
+                        # This still feeds the NVI for trending keyword detection
+                        try:
+                            # Use category as a generic market_id for global tracking
+                            global_market_id = f"__global_{item.category}__"
+                            self.narrative_velocity.ingest(
+                                text=item.title,
+                                market_id=global_market_id,
+                                timestamp_ms=item.published_ms,
+                            )
+                        except Exception:
+                            pass
+
+                logger.info(
+                    "📰 News ingestion cycle complete",
+                    total_headlines=len(news_items),
+                    matched_to_markets=matched_count,
+                    injected_signals=injected_count,
+                )
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error("News ingestion error", error=str(e))
+
+            await asyncio.sleep(NEWS_INTERVAL)
+
+    async def _crypto_5min_scan_task(self) -> None:
+        """
+        Background task that scans for 5-min BTC arbitrage signals.
+        Runs every 10 seconds.
+        """
+        if not self.crypto_5min_scanner:
+            logger.info("5-min crypto scan task disabled (scanner not initialized)")
+            return
+
+        SCAN_INTERVAL = 10  # seconds
+        logger.info("⚡ 5-min crypto scan task started", interval=SCAN_INTERVAL)
+
+        # Wait a bit for startup
+        await asyncio.sleep(5)
+
+        while True:
+            try:
+                # Discover active markets
+                markets = await self.crypto_5min_scanner.discover_active_markets()
+
+                if markets:
+                    # Scan for latency signals
+                    signals = await self.crypto_5min_scanner.scan_for_signals()
+
+                    # Broadcast via WebSocket
+                    if signals and ws_manager.connection_count > 0:
+                        await ws_manager.broadcast({
+                            "type": "crypto_5min_signals",
+                            "data": [
+                                {
+                                    "market": s.market_slug,
+                                    "direction": s.direction,
+                                    "btcMove": round(s.binance_move_pct, 3),
+                                    "marketPrice": round(s.polymarket_up_price, 3),
+                                    "trueProbability": round(s.estimated_true_prob, 3),
+                                    "edge": round(s.edge, 3),
+                                    "confidence": s.confidence,
+                                    "timeRemaining": round(s.time_remaining_seconds),
+                                    "recommendedSide": s.recommended_side,
+                                    "tokenId": s.recommended_token_id,
+                                }
+                                for s in signals[:5]
+                            ],
+                        })
+
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error("5-min scan error", error=str(e))
+
+            await asyncio.sleep(SCAN_INTERVAL)
+
     async def _v2_feature_update_task(self) -> None:
         """Background task to compute V2 features every 10 seconds."""
         if not self.feature_engineer or not self.quant_model:
@@ -268,6 +464,43 @@ class AppState:
 
                     for market_id in self.active_markets[:20]:  # Limit to 20 markets
                         try:
+                            # Fetch orderbook for OBI computation
+                            try:
+                                # Get the token ID for this market
+                                cached = self.polymarket_client.get_cached()
+                                market_data = next(
+                                    (m for m in cached if m.id == market_id), None
+                                )
+                                if market_data and market_data.tokens:
+                                    token_id = market_data.tokens[0].token_id
+                                    book_data = await self.polymarket_client.fetch_orderbook(token_id)
+
+                                    if book_data:
+                                        from quant.config import OrderBookSnapshot, OrderBookLevel
+
+                                        orderbook = OrderBookSnapshot(
+                                            market_id=market_id,
+                                            timestamp_ms=int(time.time() * 1000),
+                                            bids=[
+                                                OrderBookLevel(
+                                                    price=b["price"],
+                                                    size=b["size"]
+                                                )
+                                                for b in book_data.get("bids", [])[:10]
+                                            ],
+                                            asks=[
+                                                OrderBookLevel(
+                                                    price=a["price"],
+                                                    size=a["size"]
+                                                )
+                                                for a in book_data.get("asks", [])[:10]
+                                            ],
+                                        )
+                                        self.feature_engineer.ingest_orderbook(orderbook)
+                            except Exception as e:
+                                logger.debug("Orderbook fetch failed for feature update",
+                                           market_id=market_id, error=str(e))
+
                             # Compute features
                             features = self.feature_engineer.compute(market_id)
 
@@ -320,6 +553,85 @@ class AppState:
                 logger.error("V2 feature update error", error=str(e))
 
             await asyncio.sleep(UPDATE_INTERVAL)
+
+    async def build_real_world_state(self, market_id: str):
+        """
+        Build a real WorldState for the Council from live data.
+        This is THE BRIDGE between data collection and Council deliberation.
+        """
+        from quant.council.agents import (
+            WorldState, MarketMicrostructure, NarrativeState,
+            OnChainState, PortfolioState
+        )
+
+        # Get market data
+        cached = self.polymarket_client.get_cached()
+        market = next((m for m in cached if m.id == market_id), None)
+        if not market:
+            return None
+
+        # Get features if available
+        features = None
+        if self.feature_engineer:
+            features = self.feature_engineer.compute(market_id)
+
+        # Get narrative if available
+        narrative = None
+        if self.narrative_velocity:
+            narrative = self.narrative_velocity.compute(market_id)
+
+        # Build microstructure
+        micro = MarketMicrostructure(
+            order_book_imbalance=features.order_book_imbalance if features and features.is_valid else 0.0,
+            volume_z_score=features.volume_z_score if features and features.is_valid else 0.0,
+            momentum_1h=features.momentum_1h if features and features.is_valid else 0.0,
+            momentum_4h=0.0,  # TODO: add 4h momentum
+            momentum_24h=0.0,  # TODO: add 24h momentum
+            spread_bps=features.spread_bps if features and features.is_valid else market.spread * 10000,
+            liquidity_depth_usd=market.liquidity,
+            price_reversion_score=0.0,  # TODO: compute mean reversion
+        )
+
+        # Build narrative state
+        narr_state = NarrativeState(
+            sentiment_score=features.sentiment_score if features and features.is_valid else 0.0,
+            nvi_score=narrative.nvi_score if narrative else 0.0,
+            novelty_index=0.5,  # Default
+            credibility_factor=0.7,  # Default (news sources are generally credible)
+            sarcasm_probability=0.1,  # Default low
+            tweet_volume_z=0.0,  # TODO: add Twitter feed
+            narrative_coherence=0.5,  # Default
+        )
+
+        # Build on-chain state (simplified without whale tracking)
+        on_chain = OnChainState(
+            smart_money_flow=0.0,   # TODO: add whale tracking
+            whale_concentration=0.0,
+            retail_flow=0.0,
+            cross_platform_spread=0.0,
+            gas_congestion_pct=0.0,
+        )
+
+        # Build portfolio state (use defaults if no portfolio)
+        portfolio = PortfolioState(
+            current_drawdown=0.0,
+            correlated_exposure=0.0,
+            leverage=0.0,
+            sharpe_ratio=1.0,
+            win_rate=0.5,
+            time_to_resolution_hours=max(1.0, 24.0),  # TODO: compute from end_date
+            implied_volatility=features.implied_volatility if features and features.is_valid else 0.3,
+        )
+
+        return WorldState(
+            market_id=market_id,
+            timestamp_ms=int(time.time() * 1000),
+            mid_price=market.yes_price,
+            micro=micro,
+            narrative=narr_state,
+            on_chain=on_chain,
+            portfolio=portfolio,
+        )
 
 
 # Global state instance

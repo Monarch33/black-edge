@@ -6,6 +6,7 @@ Handles rate limiting, filtering, and normalization for the terminal feed.
 """
 
 import asyncio
+import json
 import time
 from dataclasses import dataclass, field
 
@@ -16,6 +17,46 @@ logger = structlog.get_logger()
 
 CLOB_BASE = "https://clob.polymarket.com"
 GAMMA_BASE = "https://gamma-api.polymarket.com"
+
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+def _parse_clob_token_ids(clob_token_ids) -> list[str]:
+    """
+    Parse clobTokenIds from Gamma API.
+
+    The field can be:
+    - A list: ["0x123...", "0x456..."]
+    - A JSON string: '["0x123...", "0x456..."]'
+    - A malformed string: "["
+
+    Returns:
+        List of token IDs, or empty list if parsing fails
+    """
+    if not clob_token_ids:
+        return []
+
+    # Already a list
+    if isinstance(clob_token_ids, list):
+        return [str(tid) for tid in clob_token_ids]
+
+    # Try to parse as JSON string
+    if isinstance(clob_token_ids, str):
+        try:
+            parsed = json.loads(clob_token_ids)
+            if isinstance(parsed, list):
+                return [str(tid) for tid in parsed]
+            else:
+                # Single token as string
+                return [str(parsed)]
+        except json.JSONDecodeError:
+            # Malformed JSON, return empty
+            logger.warning("⚠️ Failed to parse clobTokenIds", value=clob_token_ids[:50])
+            return []
+
+    return []
 
 # Minimum 2s between requests to avoid rate limits
 MIN_REQUEST_INTERVAL = 2.0
@@ -261,8 +302,8 @@ class PolymarketClient:
                     skipped_low_volume += 1
                     continue
 
-                # Extract token info from clobTokenIds
-                clob_token_ids = m.get("clobTokenIds", [])
+                # Extract token info from clobTokenIds (parse properly - can be JSON string)
+                clob_token_ids = _parse_clob_token_ids(m.get("clobTokenIds"))
                 outcomes = m.get("outcomes", [])
                 outcome_prices = m.get("outcomePrices", [])
 
@@ -350,3 +391,40 @@ class PolymarketClient:
     def get_cached(self) -> list[PolymarketMarket]:
         """Return cached markets without making an API call."""
         return self._cache
+
+    async def fetch_orderbook(self, token_id: str) -> dict | None:
+        """
+        Fetch L2 orderbook for a specific token from the CLOB.
+
+        Args:
+            token_id: Polymarket CLOB token ID
+
+        Returns:
+            Dict with 'bids' and 'asks', each a list of [price, size] pairs,
+            or None on failure
+        """
+        await self._rate_limit()
+        client = await self._get_client()
+
+        try:
+            resp = await client.get(
+                f"{CLOB_BASE}/book",
+                params={"token_id": token_id},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            return {
+                "bids": [
+                    {"price": float(o.get("price", 0)), "size": float(o.get("size", 0))}
+                    for o in data.get("bids", [])
+                ],
+                "asks": [
+                    {"price": float(o.get("price", 0)), "size": float(o.get("size", 0))}
+                    for o in data.get("asks", [])
+                ],
+                "token_id": token_id,
+            }
+        except Exception as e:
+            logger.warning("CLOB orderbook fetch failed", token_id=token_id, error=str(e))
+            return None
