@@ -51,95 +51,62 @@ export function LandingView({ onNavigate }: { onNavigate: (view: string) => void
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95])
 
-  // Gamma API fallback for signals
-  const fetchGammaSignals = async (): Promise<{ count: number; signals: LiveSignal[] }> => {
-    const res = await fetch(
-      "https://gamma-api.polymarket.com/markets?active=true&limit=6&order=volume24hr&ascending=false&closed=false",
-      { signal: AbortSignal.timeout(8000) }
-    )
-    const data = await res.json()
-    const markets = Array.isArray(data) ? data : []
-    const signals: LiveSignal[] = markets.map((m: any) => {
-      const outcomePrices: string[] = Array.isArray(m.outcomePrices) ? m.outcomePrices : []
-      const yesPrice = outcomePrices[0] ? parseFloat(outcomePrices[0]) : 0.5
-      return {
-        market: m.slug || "",
-        question: m.question || "",
-        edge: Math.abs(yesPrice - 0.5) * 20,
-        signalStrength: 50,
-        prediction: yesPrice > 0.5 ? "YES" : "NO",
-      }
-    })
-    return { count: markets.length, signals }
-  }
-
-  // Fetch all data
+  // Fetch all data — Gamma API is primary source for signals
   useEffect(() => {
     const fetchData = async () => {
+      // 1. Always fetch from Gamma API directly (no backend needed)
       try {
-        // Fetch signals — with Gamma fallback
-        let signalsFetched = false
-        try {
-          const controller = new AbortController()
-          const timer = setTimeout(() => controller.abort(), 5000)
-          const signalsRes = await fetch(`${API_URL}/api/v2/signals`, { signal: controller.signal })
-          clearTimeout(timer)
-          if (signalsRes.ok) {
-            const signalsData = await signalsRes.json()
-            if (signalsData.signals && signalsData.signals.length > 0) {
-              setMarketCount(signalsData.signals.length)
-              const topSignals = signalsData.signals
-                .sort((a: any, b: any) => Math.abs(b.edge) - Math.abs(a.edge))
-                .slice(0, 6)
-                .map((s: any) => ({
-                  market: s.market,
-                  question: s.question,
-                  edge: s.edge,
-                  signalStrength: s.signalStrength,
-                  prediction: s.prediction
-                }))
-              setLiveSignals(topSignals)
-              signalsFetched = true
-            }
+        const res = await fetch(
+          "https://gamma-api.polymarket.com/markets?active=true&limit=50&order=volume24hr&ascending=false&closed=false"
+        )
+        const data = await res.json()
+        const markets: any[] = Array.isArray(data) ? data : []
+
+        setMarketCount(markets.length)
+
+        const topSignals: LiveSignal[] = markets.slice(0, 6).map((m: any) => {
+          const op: string[] = Array.isArray(m.outcomePrices) ? m.outcomePrices : []
+          const yesPrice = op[0] ? parseFloat(op[0]) : 0.5
+          return {
+            market: m.slug || "",
+            question: m.question || "",
+            edge: Math.round(Math.abs(yesPrice - 0.5) * 40 * 10) / 10,
+            signalStrength: 60,
+            prediction: yesPrice >= 0.5 ? "YES" : "NO",
           }
-        } catch { /* backend unavailable */ }
+        })
+        setLiveSignals(topSignals)
+      } catch (err) {
+        console.error("Gamma fetch failed:", err)
+      }
 
-        if (!signalsFetched) {
-          try {
-            const { count, signals } = await fetchGammaSignals()
-            setMarketCount(count)
-            setLiveSignals(signals)
-          } catch { /* Gamma also unavailable */ }
-        }
-
-        // Fetch track record
-        try {
-          const trackRecordRes = await fetch(`${API_URL}/api/v2/track-record`)
+      // 2. Try backend for track record + 5-min (non-blocking)
+      try {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 5000)
+        const trackRecordRes = await fetch(`${API_URL}/api/v2/track-record`, { signal: controller.signal })
+        clearTimeout(timer)
+        if (trackRecordRes.ok) {
           const trackRecordData = await trackRecordRes.json()
-          if (trackRecordData.track_record) {
-            setTrackRecord(trackRecordData.track_record.summary)
-          }
-        } catch { /* ignore */ }
+          if (trackRecordData.track_record) setTrackRecord(trackRecordData.track_record.summary)
+        }
+      } catch { /* backend unavailable */ }
 
-        // Fetch 5-min crypto
-        try {
-          const cryptoRes = await fetch(`${API_URL}/api/v2/crypto/5min/signals`)
+      try {
+        const controller2 = new AbortController()
+        const timer2 = setTimeout(() => controller2.abort(), 5000)
+        const cryptoRes = await fetch(`${API_URL}/api/v2/crypto/5min/signals`, { signal: controller2.signal })
+        clearTimeout(timer2)
+        if (cryptoRes.ok) {
           const cryptoData = await cryptoRes.json()
           if (cryptoData.active_markets && cryptoData.active_markets[0]) {
             const market = cryptoData.active_markets[0]
-            setCrypto5Min({
-              timeRemaining: market.timeRemaining,
-              upPrice: market.upPrice,
-              downPrice: market.downPrice
-            })
+            setCrypto5Min({ timeRemaining: market.timeRemaining, upPrice: market.upPrice, downPrice: market.downPrice })
           }
-        } catch { /* ignore */ }
+        }
+      } catch { /* ignore */ }
 
-        setLoading(false)
-      } catch (err) {
-        console.error('Failed to fetch data:', err)
-        setLoading(false)
-      }
+      setLoading(false)
     }
 
     fetchData()

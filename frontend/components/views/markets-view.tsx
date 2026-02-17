@@ -59,16 +59,11 @@ export function MarketsView() {
   const [displayCount, setDisplayCount] = useState(20)
 
   useEffect(() => {
-    const fetchFromGamma = async (): Promise<PolyMarket[]> => {
-      const res = await fetch(
-        "https://gamma-api.polymarket.com/markets?active=true&limit=100&order=volume24hr&ascending=false&closed=false",
-        { signal: AbortSignal.timeout(10000) }
-      )
-      const data = await res.json()
-      return (Array.isArray(data) ? data : []).map((m: any) => {
-        const outcomePrices: string[] = Array.isArray(m.outcomePrices) ? m.outcomePrices : []
-        const yesPrice = outcomePrices[0] ? parseFloat(outcomePrices[0]) : 0.5
-        const noPrice = outcomePrices[1] ? parseFloat(outcomePrices[1]) : 0.5
+    const GAMMA = "https://gamma-api.polymarket.com/markets?active=true&limit=100&order=volume24hr&ascending=false&closed=false"
+
+    const parseGamma = (data: any[]): PolyMarket[] =>
+      data.filter(m => m.question && !m.closed).map(m => {
+        const op: string[] = Array.isArray(m.outcomePrices) ? m.outcomePrices : []
         let outcomes: string[] = ["Yes", "No"]
         try { outcomes = typeof m.outcomes === "string" ? JSON.parse(m.outcomes) : (m.outcomes || ["Yes", "No"]) } catch {}
         const slug = m.slug || ""
@@ -79,19 +74,18 @@ export function MarketsView() {
           icon: m.icon || "",
           slug,
           url: `https://polymarket.com/event/${slug}`,
-          yes_price: yesPrice,
-          no_price: noPrice,
-          volume_24h: parseFloat(m.volume24hr || 0),
-          volume_total: parseFloat(m.volumeNum || 0),
-          liquidity: parseFloat(m.liquidityNum || 0),
+          yes_price: op[0] ? parseFloat(op[0]) : 0.5,
+          no_price:  op[1] ? parseFloat(op[1]) : 0.5,
+          volume_24h:   parseFloat(m.volume24hr   || 0),
+          volume_total: parseFloat(m.volumeNum    || 0),
+          liquidity:    parseFloat(m.liquidityNum || 0),
           end_date: m.endDate || "",
           outcomes: outcomes.slice(0, 2),
         } as PolyMarket
-      }).filter((m: PolyMarket) => m.question)
-    }
+      })
 
     const fetchMarkets = async () => {
-      // Try backend first with 5s timeout
+      // Try backend with timeout
       try {
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), 5000)
@@ -105,16 +99,15 @@ export function MarketsView() {
             return
           }
         }
-      } catch {
-        // Backend timed out or unavailable — fall through to Gamma
-      }
+      } catch { /* fall through */ }
 
-      // Gamma API fallback
+      // Direct Gamma fallback
       try {
-        const gammaMarkets = await fetchFromGamma()
-        setMarkets(gammaMarkets)
+        const res = await fetch(GAMMA)
+        const data = await res.json()
+        setMarkets(parseGamma(Array.isArray(data) ? data : []))
       } catch (err) {
-        console.error("Failed to fetch markets from Gamma:", err)
+        console.error("Gamma fetch failed:", err)
       }
       setLoading(false)
     }
