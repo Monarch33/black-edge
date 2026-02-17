@@ -43,3 +43,4 @@ htmlcov/
 # Misc
 *.pem
 *.key
+API_KEYS_LOCAL.txt

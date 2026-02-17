@@ -91,9 +91,9 @@ function getRecommendation(signal: QuantSignal): {
   if (arbFlag) {
     return {
       label: "🚨 ARBITRAGE",
-      color: "text-yellow-400",
-      bgColor: "bg-yellow-500/20",
-      borderColor: "border-yellow-500/50"
+      color: "text-white",
+      bgColor: "bg-white/20",
+      borderColor: "border-white/50"
     }
   }
 
@@ -131,18 +131,18 @@ function getRecommendation(signal: QuantSignal): {
   if (edge >= 1.0 && edge < 2.0 && signalStrength > 30) {
     return {
       label: "⚠️  HOLD",
-      color: "text-yellow-400",
-      bgColor: "bg-yellow-500/15",
-      borderColor: "border-yellow-500/30"
+      color: "text-white/70",
+      bgColor: "bg-white/10",
+      borderColor: "border-white/30"
     }
   }
 
   // AVOID: Negative edge or very high risk
   return {
     label: "❌ AVOID",
-    color: "text-red-400",
-    bgColor: "bg-red-500/15",
-    borderColor: "border-red-500/30"
+    color: "text-white/50",
+    bgColor: "bg-white/5",
+    borderColor: "border-white/20"
   }
 }
 
@@ -167,34 +167,7 @@ function categorizeMarket(question: string, market: string): Category {
   return "OTHER"
 }
 
-const mockSignals: QuantSignal[] = [
-  { id: "1", market: "EPSTEIN_LIST_REVEAL", question: "Will the Epstein list be revealed?", platform: "Polymarket", url: "", polyOdds: 12, trueProb: 18, edge: 6, volume: "$2.4M", volumeTotal: "$14M", liquidity: 320000, trend: "up", risk: "high", spread: 0.03, kellyFraction: 0.08, volatility: 0.032, arbFlag: false, arbDetail: "", signalStrength: 72 },
-  { id: "2", market: "FED_RATE_CUT_Q2", question: "Fed rate cut in Q2 2026?", platform: "Polymarket", url: "", polyOdds: 67, trueProb: 71, edge: 4, volume: "$8.1M", volumeTotal: "$42M", liquidity: 890000, trend: "up", risk: "low", spread: 0.01, kellyFraction: 0.05, volatility: 0.018, arbFlag: false, arbDetail: "", signalStrength: 65 },
-  { id: "3", market: "CEO_INDICTMENT_TECH", question: "Major tech CEO indicted in 2026?", platform: "Polymarket", url: "", polyOdds: 34, trueProb: 41, edge: 7, volume: "$1.2M", volumeTotal: "$6M", liquidity: 150000, trend: "up", risk: "medium", spread: 0.04, kellyFraction: 0.12, volatility: 0.045, arbFlag: false, arbDetail: "", signalStrength: 78 },
-  { id: "4", market: "TAIWAN_STRAIT_INCIDENT", question: "Taiwan Strait military incident in 2026?", platform: "Polymarket", url: "", polyOdds: 8, trueProb: 5, edge: -3, volume: "$4.7M", volumeTotal: "$18M", liquidity: 520000, trend: "down", risk: "high", spread: 0.06, kellyFraction: 0, volatility: 0.055, arbFlag: false, arbDetail: "", signalStrength: 25 },
-  { id: "5", market: "BTC_100K_2026", question: "Bitcoin above $100K by end of 2026?", platform: "Polymarket", url: "", polyOdds: 45, trueProb: 52, edge: 7, volume: "$12.3M", volumeTotal: "$85M", liquidity: 1200000, trend: "up", risk: "medium", spread: 0.02, kellyFraction: 0.10, volatility: 0.028, arbFlag: false, arbDetail: "", signalStrength: 81 },
-  { id: "6", market: "WHISTLEBLOWER_ALIVE", question: "Key whistleblower confirmed alive?", platform: "Polymarket", url: "", polyOdds: 78, trueProb: 72, edge: -6, volume: "$890K", volumeTotal: "$3M", liquidity: 95000, trend: "down", risk: "high", spread: 0.05, kellyFraction: 0, volatility: 0.061, arbFlag: false, arbDetail: "", signalStrength: 18 },
-  { id: "7", market: "AI_REGULATION_US", question: "US passes major AI regulation in 2026?", platform: "Polymarket", url: "", polyOdds: 56, trueProb: 61, edge: 5, volume: "$3.2M", volumeTotal: "$21M", liquidity: 410000, trend: "up", risk: "low", spread: 0.02, kellyFraction: 0.07, volatility: 0.015, arbFlag: false, arbDetail: "", signalStrength: 68 },
-  { id: "8", market: "PANDEMIC_LAB_LEAK", question: "Lab leak origin confirmed officially?", platform: "Polymarket", url: "", polyOdds: 41, trueProb: 48, edge: 7, volume: "$5.6M", volumeTotal: "$32M", liquidity: 670000, trend: "up", risk: "medium", spread: 0.03, kellyFraction: 0.11, volatility: 0.035, arbFlag: true, arbDetail: "Underpriced: YES(0.41) + NO(0.52) = 0.93 < 1.0", signalStrength: 85 },
-]
-
-const logMessages = [
-  { type: "info", text: "> INITIALIZING BLACK_EDGE_CORE v4.0.0..." },
-  { type: "success", text: "> CONNECTED TO MAINNET via PRIVATE_RPC" },
-  { type: "info", text: "> MEV_PROTECTION: Flashbots relay active" },
-  { type: "success", text: "> SNIPER_MODULE: Armed and ready" },
-  { type: "info", text: "> SCANNING 10,847 MARKETS..." },
-  { type: "warning", text: "> VALIDATOR_BRIBE: Queued 0.002 ETH priority" },
-  { type: "info", text: "> KELLY_ENGINE: Calculating optimal allocations..." },
-  { type: "success", text: "> QUANT_SIGNALS: 8 enriched opportunities" },
-  { type: "error", text: "> ARB DETECTED: Underpriced market found" },
-  { type: "info", text: "> VOLATILITY_INDEX: 1h window computed" },
-  { type: "success", text: "> SIGNAL_STRENGTH: Composite scores ready" },
-  { type: "warning", text: "> FRONTRUN_DETECTED: Competitor tx in mempool" },
-  { type: "success", text: "> MEV_BUNDLE: Protected execution ready" },
-  { type: "info", text: "> WHALE_RADAR: Monitoring 3 wallets..." },
-  { type: "info", text: "> WAITING FOR TRIGGER CONDITIONS..." },
-]
+// Mock data removed - using live API only
 
 // =============================================================================
 // Sub-Components
@@ -217,14 +190,14 @@ function CategoryTabs({ activeCategory, onCategoryChange, opportunitiesByCategor
             onClick={() => onCategoryChange(category)}
             className={`px-3 py-2 text-[10px] md:text-xs font-mono tracking-wider transition-all border ${
               isActive
-                ? "bg-red-500/20 border-red-500/50 text-red-400"
+                ? "bg-white/10 border-white/30 text-white"
                 : "bg-white/5 border-white/10 text-white/40 hover:border-white/20 hover:text-white/60"
             }`}
           >
             {category}
             {count > 0 && (
               <span className={`ml-2 px-1.5 py-0.5 text-[8px] rounded ${
-                isActive ? "bg-red-500/30" : "bg-white/10"
+                isActive ? "bg-white/20" : "bg-white/10"
               }`}>
                 {count}
               </span>
@@ -258,7 +231,7 @@ function AITickerTape({ signals, isPaywalled }: { signals: QuantSignal[]; isPayw
   return (
     <div className="relative border-b border-white/10 bg-[#020408] overflow-hidden h-8 flex items-center">
       <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-[#020408] to-transparent z-10 flex items-center pl-2">
-        <Zap className="w-3 h-3 text-red-500" />
+        <Zap className="w-3 h-3 text-white/60" />
       </div>
       <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-[#020408] to-transparent z-10 flex items-center justify-end pr-2">
         <button onClick={() => setMuted(!muted)} className="text-white/30 hover:text-white/60 transition-colors">
@@ -275,7 +248,7 @@ function AITickerTape({ signals, isPaywalled }: { signals: QuantSignal[]; isPayw
           <span key={`${item.id}-${i}`} className="flex items-center gap-2 text-[10px] font-mono">
             <span className="text-white/60">{item.text}</span>
             <span className={item.edgeColor}>{item.edge}</span>
-            {item.arbBadge && <span className="text-yellow-500 font-bold">{item.arbBadge}</span>}
+            {item.arbBadge && <span className="text-white font-bold">{item.arbBadge}</span>}
             <span className="text-white/20">|</span>
             <span className="text-white/30">SIG:{item.signal}</span>
             <span className="text-white/10">///</span>
@@ -287,33 +260,43 @@ function AITickerTape({ signals, isPaywalled }: { signals: QuantSignal[]; isPayw
 }
 
 function TerminalLogs() {
-  const [logs, setLogs] = useState<typeof logMessages>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
+  const [logs, setLogs] = useState<Array<{ type: string; text: string }>>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    if (currentIndex < logMessages.length) {
-      const timer = setTimeout(() => {
-        setLogs((prev) => [...prev, logMessages[currentIndex]])
-        setCurrentIndex((prev) => prev + 1)
-      }, 800 + Math.random() * 600)
-      return () => clearTimeout(timer)
-    } else {
-      const timer = setTimeout(() => {
-        const randomLog = logMessages[Math.floor(Math.random() * logMessages.length)]
-        setLogs((prev) => [...prev.slice(-15), { ...randomLog, text: randomLog.text + ` [${Date.now()}]` }])
-      }, 2000 + Math.random() * 3000)
-      return () => clearTimeout(timer)
+    const fetchHealth = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/v2/health`)
+        if (res.ok) {
+          const h = await res.json()
+          setLogs([
+            { type: "info", text: "> BLACK_EDGE v4.0.0 initializing..." },
+            { type: "success", text: `> POLYMARKET: ${h.polymarket_client?.markets_cached || 0} markets cached` },
+            { type: "success", text: `> QUANT_ENGINE: ${h.quant_engine?.status || 'ready'}` },
+            { type: "success", text: "> SYSTEM: all components healthy" },
+            { type: "info", text: "> READY TO TRADE" },
+          ])
+        } else {
+          throw new Error('Health check failed')
+        }
+      } catch (error) {
+        setLogs([
+          { type: "info", text: "> BLACK_EDGE v4.0.0 initializing..." },
+          { type: "error", text: "> BACKEND: offline" },
+          { type: "warning", text: "> Start backend: cd backend && python main.py" },
+        ])
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }, [currentIndex, logs])
-
-  // REMOVED: Auto-scroll was causing "gravity scroll" bug
-  // Users should control their own scroll position
+    fetchHealth()
+  }, [])
 
   const getLogColor = (type: string) => {
     switch (type) {
-      case "success": return "text-green-500"
-      case "warning": return "text-yellow-500"
-      case "error": return "text-red-500"
+      case "success": return "text-[#22C55E]"
+      case "warning": return "text-[#888]"
+      case "error": return "text-[#EF4444]"
       default: return "text-white/50"
     }
   }
@@ -321,22 +304,29 @@ function TerminalLogs() {
   return (
     <div className="h-full overflow-y-auto font-mono text-[10px] md:text-xs p-3 md:p-4 space-y-1">
       {logs.map((log, i) => (
-        <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className={getLogColor(log.type)}>
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: i * 0.1 }}
+          className={getLogColor(log.type)}
+        >
           {log.text}
         </motion.div>
       ))}
-      <div className="flex items-center text-white/30">{">"} <span className="animate-blink ml-1">_</span></div>
+      {isLoading && <div className="text-white/30">&gt; Loading...</div>}
+      <div className="flex items-center text-white/30">&gt; <span className="animate-blink ml-1">_</span></div>
     </div>
   )
 }
 
 function MevProtectionToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
   return (
-    <button onClick={onToggle} className={`flex items-center gap-2 px-3 py-2 text-[10px] md:text-xs font-mono tracking-wider transition-all ${enabled ? "bg-purple-500/20 border border-purple-500/50 text-purple-400" : "bg-white/5 border border-white/10 text-white/40 hover:border-white/20"}`}>
-      <Shield className={`w-3 h-3 ${enabled ? "text-purple-400" : "text-white/30"}`} />
+    <button onClick={onToggle} className={`flex items-center gap-2 px-3 py-2 text-[10px] md:text-xs font-mono tracking-wider transition-all ${enabled ? "bg-white/20 border border-white/50 text-white" : "bg-white/5 border border-white/10 text-white/40 hover:border-white/20"}`}>
+      <Shield className={`w-3 h-3 ${enabled ? "text-white" : "text-white/30"}`} />
       <span className="hidden sm:inline">MEV PROTECTION</span>
       <span className="sm:hidden">MEV</span>
-      <div className={`w-6 h-3 rounded-full relative transition-colors ${enabled ? "bg-purple-500" : "bg-white/20"}`}>
+      <div className={`w-6 h-3 rounded-full relative transition-colors ${enabled ? "bg-white/50" : "bg-white/20"}`}>
         <div className={`absolute top-0.5 w-2 h-2 rounded-full bg-white transition-all ${enabled ? "left-3.5" : "left-0.5"}`} />
       </div>
     </button>
@@ -345,12 +335,12 @@ function MevProtectionToggle({ enabled, onToggle }: { enabled: boolean; onToggle
 
 function SniperModeBadge({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
   return (
-    <button onClick={onToggle} className={`relative flex items-center gap-2 px-3 py-2 text-[10px] md:text-xs font-mono tracking-wider transition-all overflow-hidden ${enabled ? "bg-red-500/20 border border-red-500/50 text-red-400" : "bg-white/5 border border-white/10 text-white/40 hover:border-white/20"}`}>
-      {enabled && <motion.div className="absolute inset-0 bg-red-500/10" animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }} />}
-      <Crosshair className={`w-3 h-3 relative z-10 ${enabled ? "text-red-400" : "text-white/30"}`} />
+    <button onClick={onToggle} className={`relative flex items-center gap-2 px-3 py-2 text-[10px] md:text-xs font-mono tracking-wider transition-all overflow-hidden ${enabled ? "bg-white/20 border border-white/50 text-white" : "bg-white/5 border border-white/10 text-white/40 hover:border-white/20"}`}>
+      {enabled && <motion.div className="absolute inset-0 bg-white/10" animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }} />}
+      <Crosshair className={`w-3 h-3 relative z-10 ${enabled ? "text-white" : "text-white/30"}`} />
       <span className="relative z-10 hidden sm:inline">SNIPER MODE</span>
       <span className="relative z-10 sm:hidden">SNIPE</span>
-      {enabled && <motion.span className="relative z-10 w-2 h-2 rounded-full bg-red-500" animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
+      {enabled && <motion.span className="relative z-10 w-2 h-2 rounded-full bg-white" animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
     </button>
   )
 }
@@ -381,8 +371,8 @@ function SignalHeatmap({ signals, isPaywalled }: { signals: QuantSignal[]; isPay
   const getHeatColor = (strength: number) => {
     const ratio = strength / 100
     if (ratio > 0.7) return "bg-green-500/40 border-green-500/60"
-    if (ratio > 0.4) return "bg-yellow-500/30 border-yellow-500/50"
-    return "bg-red-500/20 border-red-500/40"
+    if (ratio > 0.4) return "bg-white/20 border-white/40"
+    return "bg-white/10 border-white/20"
   }
 
   return (
@@ -397,9 +387,9 @@ function SignalHeatmap({ signals, isPaywalled }: { signals: QuantSignal[]; isPay
             <span className="text-[10px] text-white/40 font-mono">SIG:{s.signalStrength}</span>
           </div>
           <div className="mt-1 h-1 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 transition-all" style={{ width: `${s.signalStrength}%` }} />
+            <div className="h-full bg-gradient-to-r from-white/30 to-white/90 transition-all" style={{ width: `${s.signalStrength}%` }} />
           </div>
-          {s.arbFlag && <div className="mt-1 text-[8px] text-yellow-500 font-mono">ARB DETECTED</div>}
+          {s.arbFlag && <div className="mt-1 text-[8px] text-white font-mono">ARB DETECTED</div>}
         </div>
       ))}
     </div>
@@ -483,7 +473,7 @@ function WhaleRadar({ wallets, onAddWallet, onRemoveWallet, onToggleTracking, is
                       >
                         {isPaywalled ? <Lock className="w-3 h-3 inline" /> : "COPY TRADE"}
                       </button>
-                      <button onClick={() => onRemoveWallet(wallet.address)} className="text-white/30 hover:text-red-500 transition-colors">&times;</button>
+                      <button onClick={() => onRemoveWallet(wallet.address)} className="text-white/30 hover:text-white transition-colors">&times;</button>
                     </div>
                   </div>
                 ))
@@ -509,8 +499,8 @@ function OpportunityRow({ opp, onSelect, isPaywalled }: { opp: QuantSignal; onSe
       {/* MARKET */}
       <td className="py-3 px-3 md:px-4">
         <div className="flex items-center gap-2">
-          {opp.arbFlag && <AlertTriangle className="w-3 h-3 text-yellow-500 flex-shrink-0" />}
-          {opp.risk === "high" && !opp.arbFlag && <AlertTriangle className="w-3 h-3 text-red-500 flex-shrink-0" />}
+          {opp.arbFlag && <AlertTriangle className="w-3 h-3 text-white flex-shrink-0" />}
+          {opp.risk === "high" && !opp.arbFlag && <AlertTriangle className="w-3 h-3 text-white/60 flex-shrink-0" />}
           <div>
             <div className="flex items-center gap-1">
               <span className="text-white/80 text-[10px] md:text-xs font-mono whitespace-nowrap">{opp.market}</span>
@@ -545,16 +535,16 @@ function OpportunityRow({ opp, onSelect, isPaywalled }: { opp: QuantSignal; onSe
             <div
               className={`h-full transition-all ${
                 opp.signalStrength >= 70 ? "bg-green-500" :
-                opp.signalStrength >= 40 ? "bg-yellow-500" :
-                "bg-red-500"
+                opp.signalStrength >= 40 ? "bg-white/60" :
+                "bg-white/30"
               }`}
               style={{ width: `${opp.signalStrength}%` }}
             />
           </div>
           <span className={`text-[10px] md:text-xs font-mono font-bold w-8 text-right ${
             opp.signalStrength >= 70 ? "text-green-500" :
-            opp.signalStrength >= 40 ? "text-yellow-500" :
-            "text-red-500"
+            opp.signalStrength >= 40 ? "text-white/80" :
+            "text-white/50"
           }`}>
             {opp.signalStrength}
           </span>
@@ -583,8 +573,8 @@ function OpportunityRow({ opp, onSelect, isPaywalled }: { opp: QuantSignal; onSe
       <td className="py-3 px-3 md:px-4 text-center">
         <span className={`px-2 py-1 text-[10px] font-mono border ${
           opp.risk === "low" ? "text-green-400 bg-green-500/10 border-green-500/30" :
-          opp.risk === "medium" ? "text-yellow-400 bg-yellow-500/10 border-yellow-500/30" :
-          "text-red-400 bg-red-500/10 border-red-500/30"
+          opp.risk === "medium" ? "text-white/70 bg-white/10 border-white/30" :
+          "text-white/50 bg-white/5 border-white/20"
         }`}>
           {opp.risk.toUpperCase()}
         </span>
@@ -601,7 +591,7 @@ function OpportunityRow({ opp, onSelect, isPaywalled }: { opp: QuantSignal; onSe
           className={`px-3 py-2 text-[10px] md:text-xs font-mono tracking-wider transition-all flex items-center gap-2 ml-auto ${
             isPaywalled
               ? "bg-white/5 text-white/20 border border-white/5 cursor-not-allowed"
-              : "bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 hover:border-red-500/50"
+              : "bg-white/10 text-white border border-white/30 hover:bg-white/20 hover:border-white/50"
           }`}
         >
           {isPaywalled ? (
@@ -648,7 +638,7 @@ function PanicDock({ isPaywalled, onPanicSell, executedTrades, totalProfit }: {
           className={`px-4 py-2 text-[10px] md:text-xs font-mono tracking-wider transition-all flex items-center gap-2 ${
             isPaywalled
               ? "bg-white/5 text-white/20 border border-white/5 cursor-not-allowed"
-              : "bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500/30 active:bg-red-500/40"
+              : "bg-white/20 text-white border border-white/50 hover:bg-white/30 active:bg-white/40"
           }`}
         >
           {isPaywalled ? <Lock className="w-3 h-3" /> : <Skull className="w-3 h-3" />}
@@ -671,17 +661,17 @@ function PaywallOverlay({ secondsLeft, onUpgrade }: { secondsLeft: number; onUpg
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="border border-red-500/50 bg-[#020408] p-8 max-w-md text-center"
+        className="border border-white/50 bg-[#020408] p-8 max-w-md text-center"
       >
-        <div className="w-16 h-16 border border-red-500/50 bg-red-500/10 flex items-center justify-center mx-auto mb-6">
-          <Lock className="w-8 h-8 text-red-500" />
+        <div className="w-16 h-16 border border-white/50 bg-white/10 flex items-center justify-center mx-auto mb-6">
+          <Lock className="w-8 h-8 text-white" />
         </div>
         <h2 className="text-xl text-white font-mono tracking-wider mb-2">FREE TRIAL EXPIRED</h2>
         <p className="text-sm text-white/40 font-mono mb-6">Your 60-second preview has ended. Upgrade to Runner to unlock full access.</p>
         <div className="flex flex-col gap-3">
           <button
             onClick={onUpgrade}
-            className="w-full py-3 bg-red-500 text-white text-xs font-mono tracking-wider hover:bg-red-600 transition-colors"
+            className="w-full py-3 bg-white text-black text-xs font-mono tracking-wider hover:bg-white/90 transition-colors"
           >
             UPGRADE TO RUNNER — $29/mo
           </button>
@@ -704,12 +694,12 @@ function FreeTimerBadge({ secondsLeft }: { secondsLeft: number }) {
   return (
     <motion.div
       className={`flex items-center gap-2 px-3 py-2 text-[10px] md:text-xs font-mono tracking-wider border ${
-        isUrgent ? "bg-red-500/20 border-red-500/50 text-red-400" : "bg-white/5 border-white/10 text-white/40"
+        isUrgent ? "bg-white/20 border-white/50 text-white" : "bg-white/5 border-white/10 text-white/40"
       }`}
-      animate={isUrgent ? { borderColor: ["rgba(239,68,68,0.5)", "rgba(239,68,68,0.2)", "rgba(239,68,68,0.5)"] } : {}}
+      animate={isUrgent ? { borderColor: ["rgba(255,255,255,0.5)", "rgba(255,255,255,0.2)", "rgba(255,255,255,0.5)"] } : {}}
       transition={{ duration: 1, repeat: Infinity }}
     >
-      <Clock className={`w-3 h-3 ${isUrgent ? "text-red-400" : "text-white/30"}`} />
+      <Clock className={`w-3 h-3 ${isUrgent ? "text-white" : "text-white/30"}`} />
       FREE: {Math.floor(secondsLeft / 60)}:{(secondsLeft % 60).toString().padStart(2, "0")}
     </motion.div>
   )
@@ -729,7 +719,7 @@ export function TerminalView() {
   const [executedTrades, setExecutedTrades] = useState(0)
   const [totalProfit, setTotalProfit] = useState(0)
   const [showScrollHint, setShowScrollHint] = useState(true)
-  const [opportunities, setOpportunities] = useState<QuantSignal[]>(mockSignals)
+  const [opportunities, setOpportunities] = useState<QuantSignal[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>("table")
   const [activeCategory, setActiveCategory] = useState<Category>("ALL")
@@ -750,11 +740,8 @@ export function TerminalView() {
     privateRpc: true,
   })
 
-  const [whaleWallets, setWhaleWallets] = useState<WhaleWallet[]>([
-    { address: "0x28C6c06298d514Db089934071355E5743bf21d60", label: "Binance Hot", pnl: "+$2.4M", isTracking: true, lastAction: "Bought YES on FED_RATE_CUT (2m ago)" },
-    { address: "0x21a31Ee1afC51d94C2eFcCAa2092aD1028285549", label: "Jump Trading", pnl: "+$890K", isTracking: true, lastAction: "Sold NO on BTC_100K (5m ago)" },
-    { address: "0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503", label: "Binance 8", pnl: "+$12.1M", isTracking: false },
-  ])
+  // Mock whale wallet data removed - to be populated from real on-chain data
+  const [whaleWallets, setWhaleWallets] = useState<WhaleWallet[]>([])
 
   /**
    * Convert LatencySignal (crypto 5-min) to QuantSignal (TradeDock format)
@@ -958,8 +945,7 @@ export function TerminalView() {
                 <span className={`text-[10px] md:text-xs font-mono tracking-wider ${isConnected ? "text-green-500" : "text-red-500"}`}>{isConnected ? "CONNECTED" : "DISCONNECTED"}</span>
               </div>
               <div className="flex items-center gap-2"><Wifi className="w-3 h-3 text-white/40" /><span className="text-[10px] md:text-xs text-white/40 font-mono"><span className="text-green-500">{latency}ms</span></span></div>
-              <div className="flex items-center gap-2"><Activity className="w-3 h-3 text-white/40" /><span className={`text-[10px] md:text-xs font-mono tracking-wider ${status === "HUNTING" ? "text-yellow-500" : status === "PANIC SELL" ? "text-red-500 animate-pulse" : "text-green-500"}`}>{status}</span></div>
-              {settings.sniperMode && <div className="flex items-center gap-2"><Crosshair className="w-3 h-3 text-red-500" /><span className="text-[10px] md:text-xs text-red-500 font-mono tracking-wider">SNIPER ARMED</span></div>}
+              <div className="flex items-center gap-2"><Activity className="w-3 h-3 text-white/40" /><span className={`text-[10px] md:text-xs font-mono tracking-wider ${status === "HUNTING" ? "text-white" : status === "PANIC SELL" ? "text-white animate-pulse" : "text-green-500"}`}>{status}</span></div>
             </div>
             <div className="flex items-center gap-4 md:gap-6">
               <FreeTimerBadge secondsLeft={freeSecondsLeft} />
@@ -971,9 +957,7 @@ export function TerminalView() {
 
         {/* Control Panel */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex flex-wrap gap-2 mb-4">
-          <MevProtectionToggle enabled={settings.mevProtection} onToggle={() => setSettings((prev) => ({ ...prev, mevProtection: !prev.mevProtection }))} />
-          <SniperModeBadge enabled={settings.sniperMode} onToggle={() => setSettings((prev) => ({ ...prev, sniperMode: !prev.sniperMode }))} />
-          <PrivateRpcToggle enabled={settings.privateRpc} onToggle={() => setSettings((prev) => ({ ...prev, privateRpc: !prev.privateRpc }))} />
+          {/* ExecutionSettings toggles removed - non-functional in Phase 1, will be restored in Phase 6 */}
           <ViewModeToggle mode={viewMode} onToggle={() => setViewMode((prev) => prev === "table" ? "heatmap" : "table")} />
 
           {/* Data Source Indicator */}
@@ -981,7 +965,7 @@ export function TerminalView() {
             dataSource === "live"
               ? "bg-green-500/10 border-green-500/50 text-green-400"
               : dataSource === "mock"
-              ? "bg-yellow-500/10 border-yellow-500/50 text-yellow-400"
+              ? "bg-white/10 border-white/50 text-white"
               : "bg-white/5 border-white/10 text-white/40"
           }`}>
             <Radio className={`w-3 h-3 ${dataSource === "live" ? "animate-pulse" : ""}`} />
@@ -1021,9 +1005,9 @@ export function TerminalView() {
             {/* Table Header */}
             <div className="flex items-center justify-between px-3 md:px-4 py-3 border-b border-white/10 bg-white/[0.02]">
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-red-500" />
+                <Zap className="w-4 h-4 text-white" />
                 <span className="text-xs md:text-sm text-white font-mono tracking-wider">THE FEED</span>
-                {arbCount > 0 && <span className="px-1.5 py-0.5 text-[10px] bg-yellow-500/20 text-yellow-500 font-mono">{arbCount} ARB</span>}
+                {arbCount > 0 && <span className="px-1.5 py-0.5 text-[10px] bg-white/20 text-white font-mono">{arbCount} ARB</span>}
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-3 h-3 text-white/30" />
@@ -1077,7 +1061,7 @@ export function TerminalView() {
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="border border-white/10 bg-[#020408] h-[300px] lg:h-[350px] flex flex-col">
               <div className="flex items-center justify-between px-3 md:px-4 py-3 border-b border-white/10 bg-white/[0.02] shrink-0">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                   <span className="text-xs md:text-sm text-white font-mono tracking-wider">LOGS</span>
                 </div>
                 <span className="text-[10px] md:text-xs text-white/20 font-mono">LIVE</span>
@@ -1110,11 +1094,11 @@ export function TerminalView() {
           </div>
           <div className="border border-white/10 bg-[#020408] p-3 md:p-4">
             <div className="text-[10px] md:text-xs text-white/30 font-mono mb-1">ARB SIGNALS</div>
-            <div className={`text-lg md:text-2xl font-mono ${arbCount > 0 ? "text-yellow-500" : "text-white"}`}>{arbCount}</div>
+            <div className={`text-lg md:text-2xl font-mono ${arbCount > 0 ? "text-white" : "text-white/50"}`}>{arbCount}</div>
           </div>
           <div className="border border-white/10 bg-[#020408] p-3 md:p-4">
             <div className="text-[10px] md:text-xs text-white/30 font-mono mb-1">BRIBE</div>
-            <div className="text-lg md:text-2xl text-yellow-500 font-mono">0.002</div>
+            <div className="text-lg md:text-2xl text-white font-mono">0.002</div>
           </div>
         </motion.div>
       </div>

@@ -28,15 +28,10 @@ const nextConfig = {
   transpilePackages: ['@rainbow-me/rainbowkit', '@walletconnect/ethereum-provider'],
 
   // Performance optimizations (Phase 10)
-  swcMinify: true,
   compress: true,
-
-  // Output standalone for better production builds
-  output: 'standalone',
 
   // Experimental features for better performance
   experimental: {
-    optimizeCss: true,
     optimizePackageImports: ['lucide-react', 'framer-motion'],
   },
 
