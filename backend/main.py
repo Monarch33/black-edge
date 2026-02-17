@@ -1006,38 +1006,62 @@ class AppState:
 
         logger.info("🧠 Council analysis task started")
 
+        # Small initial delay so polymarket client can warm up
+        await asyncio.sleep(30)
+
         while True:
             try:
                 # Get cached markets from polymarket client
-                cached = self.polymarket_client.get_cached()
+                cached = self.polymarket_client.get_cached() if self.polymarket_client else []
+
+                # Fallback: fetch directly from Gamma API if cache is empty
+                if not cached:
+                    try:
+                        import httpx
+                        import json as _json
+                        async with httpx.AsyncClient(timeout=10) as hx:
+                            r = await hx.get(
+                                "https://gamma-api.polymarket.com/markets"
+                                "?active=true&limit=30&order=volume24hr&ascending=false&closed=false"
+                            )
+                            if r.status_code == 200:
+                                cached = r.json()
+                    except Exception as fetch_err:
+                        logger.warning("Council: Gamma API fallback failed", error=str(fetch_err))
+
                 if cached:
-                    # Sort by volume, take top 30
-                    top = sorted(
-                        cached,
-                        key=lambda m: float(getattr(m, 'volume', 0) or 0),
-                        reverse=True
-                    )[:30]
+                    # Sort by volume, take top 30 (support both dicts and objects)
+                    def _vol(m):
+                        v = m.get('volume24hr', 0) if isinstance(m, dict) else getattr(m, 'volume24hr', 0)
+                        return float(v or 0)
+                    top = sorted(cached, key=_vol, reverse=True)[:30]
 
                     markets_list = []
                     for m in top:
                         try:
-                            raw_prices = getattr(m, 'outcomePrices', '[]') or '[]'
+                            # Support both object attributes and dict keys
+                            def _get(key, default=""):
+                                if isinstance(m, dict):
+                                    return m.get(key, default)
+                                return getattr(m, key, default)
+
+                            raw_prices = _get('outcomePrices', '[]') or '[]'
                             if isinstance(raw_prices, str):
-                                import json
-                                prices = [float(p) for p in json.loads(raw_prices)]
+                                import json as _j
+                                prices = [float(p) for p in _j.loads(raw_prices)]
                             elif isinstance(raw_prices, list):
                                 prices = [float(p) for p in raw_prices]
                             else:
                                 prices = []
                             markets_list.append({
-                                "conditionId": getattr(m, 'conditionId', '') or getattr(m, 'id', ''),
-                                "id": getattr(m, 'id', ''),
-                                "question": getattr(m, 'question', ''),
+                                "conditionId": _get('conditionId') or _get('id'),
+                                "id": _get('id'),
+                                "question": _get('question'),
                                 "yesPrice": prices[0] if prices else 0.5,
                                 "noPrice": prices[1] if len(prices) > 1 else 0.5,
-                                "volume": float(getattr(m, 'volume', 0) or 0),
-                                "volume24hr": float(getattr(m, 'volume24hr', 0) or 0),
-                                "liquidity": float(getattr(m, 'liquidity', 0) or 0),
+                                "volume": float(_get('volume', 0) or 0),
+                                "volume24hr": float(_get('volume24hr', 0) or 0),
+                                "liquidity": float(_get('liquidity', 0) or 0),
                             })
                         except Exception:
                             continue
