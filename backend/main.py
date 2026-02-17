@@ -14,6 +14,7 @@ import asyncio
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Optional, Any
 
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -261,7 +262,7 @@ class AppState:
         except Exception as e:
             logger.error("Failed to initialize Polymarket WebSocket", error=str(e))
 
-    def build_world_state(self, market_id: str) -> Optional:
+    def build_world_state(self, market_id: str) -> Optional[Any]:
         """
         Build a complete WorldState for a market (Phase 5).
 
