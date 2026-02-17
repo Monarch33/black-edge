@@ -338,13 +338,37 @@ class PolymarketClient:
 
                 # Extract token info from clobTokenIds (parse properly - can be JSON string)
                 clob_token_ids = _parse_clob_token_ids(m.get("clobTokenIds"))
-                outcomes = m.get("outcomes", [])
-                outcome_prices = m.get("outcomePrices", [])
+                # outcomes is also a JSON-encoded string in Gamma API responses
+                raw_outcomes = m.get("outcomes", "[]")
+                if isinstance(raw_outcomes, str):
+                    try:
+                        import json as _json
+                        outcomes = _json.loads(raw_outcomes)
+                    except Exception:
+                        outcomes = ["Yes", "No"]
+                elif isinstance(raw_outcomes, list):
+                    outcomes = raw_outcomes
+                else:
+                    outcomes = ["Yes", "No"]
+
+                # Gamma API returns outcomePrices as a JSON-encoded string like '["0.19","0.81"]'
+                # Must parse it first before indexing
+                raw_op = m.get("outcomePrices", "[]")
+                if isinstance(raw_op, str):
+                    try:
+                        import json as _json
+                        outcome_prices = _json.loads(raw_op)
+                    except Exception:
+                        outcome_prices = []
+                elif isinstance(raw_op, list):
+                    outcome_prices = raw_op
+                else:
+                    outcome_prices = []
 
                 if not clob_token_ids or len(clob_token_ids) < 2:
                     continue
 
-                # Parse prices — Gamma returns them as strings in outcomePrices
+                # Parse prices — outcome_prices is now always a Python list
                 yes_price = 0.5
                 no_price = 0.5
                 if outcome_prices and len(outcome_prices) >= 2:
