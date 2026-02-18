@@ -1,6 +1,5 @@
 "use client"
 
-import { motion } from "framer-motion"
 import { useState, useEffect } from "react"
 import { Zap, TrendingUp, TrendingDown, Clock, Activity, DollarSign, Target, ArrowUpRight } from "lucide-react"
 
@@ -93,11 +92,7 @@ export function Crypto5MinView() {
     <div className="min-h-screen pt-20 md:pt-24 px-4 pb-8 bg-black">
       <div className="max-w-7xl mx-auto">
         {/* Professional Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
+        <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 tracking-tight">
@@ -138,7 +133,7 @@ export function Crypto5MinView() {
               </div>
             </div>
           )}
-        </motion.div>
+        </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
@@ -175,21 +170,14 @@ export function Crypto5MinView() {
 
             {/* Active Signals */}
             {data.signals.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-8"
-              >
+              <div className="mb-8">
                 <h2 className="text-sm font-mono text-white mb-4 tracking-wider">
                   ACTIVE SIGNALS ({data.signals.length})
                 </h2>
                 <div className="grid md:grid-cols-2 gap-4">
                   {data.signals.map((signal, idx) => (
-                    <motion.div
+                    <div
                       key={idx}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
                       className={`border p-5 ${
                         signal.direction === "UP"
                           ? "bg-green-500/5 border-green-500/30"
@@ -271,18 +259,14 @@ export function Crypto5MinView() {
                       >
                         EXECUTE {signal.direction}
                       </a>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* All Active Markets */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
+            <div>
               <h2 className="text-sm font-mono text-white mb-4 tracking-wider">
                 ALL ACTIVE MARKETS ({data.active_markets.length})
               </h2>
@@ -292,11 +276,8 @@ export function Crypto5MinView() {
                   const progressPct = (timeLeft / (market.interval * 60)) * 100
 
                   return (
-                    <motion.div
+                    <div
                       key={market.slug}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.03 }}
                       className="border border-white/10 bg-white/5 p-4 hover:border-white/30 transition-all"
                     >
                       {/* Interval Badge */}
@@ -350,19 +331,14 @@ export function Crypto5MinView() {
                       >
                         TRADE ON POLYMARKET
                       </a>
-                    </motion.div>
+                    </div>
                   )
                 })}
               </div>
-            </motion.div>
+            </div>
 
             {/* Strategy Info */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="mt-8 border border-white/10 bg-white/5 p-6"
-            >
+            <div className="mt-8 border border-white/10 bg-white/5 p-6">
               <h3 className="text-sm font-mono text-white mb-4 tracking-wider">
                 STRATEGY: LATENCY ARBITRAGE
               </h3>
@@ -386,7 +362,7 @@ export function Crypto5MinView() {
                   </p>
                 </div>
               </div>
-            </motion.div>
+            </div>
           </>
         )}
       </div>

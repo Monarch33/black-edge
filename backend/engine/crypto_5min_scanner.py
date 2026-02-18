@@ -136,12 +136,15 @@ class Crypto5MinScanner:
     # ─── BTC PRICE FROM BINANCE ───
 
     async def fetch_btc_price(self) -> float:
-        """Get current BTC/USDT price from Binance."""
+        """Get current BTC/USDT price — Binance primary, CoinGecko fallback."""
         client = await self._get_client()
+
+        # 1. Try Binance
         try:
             resp = await client.get(
                 f"{BINANCE_REST}/api/v3/ticker/price",
                 params={"symbol": "BTCUSDT"},
+                timeout=5.0,
             )
             resp.raise_for_status()
             price = float(resp.json()["price"])
@@ -149,8 +152,25 @@ class Crypto5MinScanner:
             self._btc_price_time = time.time()
             return price
         except Exception as e:
-            logger.warning("Binance price fetch failed", error=str(e))
-            return self._btc_price  # Return cached
+            logger.warning("Binance price fetch failed, trying CoinGecko", error=str(e))
+
+        # 2. Fallback: CoinGecko (no API key needed)
+        try:
+            resp = await client.get(
+                "https://api.coingecko.com/api/v3/simple/price",
+                params={"ids": "bitcoin", "vs_currencies": "usd"},
+                timeout=5.0,
+            )
+            resp.raise_for_status()
+            price = float(resp.json()["bitcoin"]["usd"])
+            self._btc_price = price
+            self._btc_price_time = time.time()
+            logger.info("BTC price from CoinGecko fallback", price=price)
+            return price
+        except Exception as e2:
+            logger.warning("CoinGecko price fetch also failed", error=str(e2))
+
+        return self._btc_price  # Return last cached value
 
     async def fetch_btc_price_at_time(self, timestamp_ms: int) -> float:
         """
