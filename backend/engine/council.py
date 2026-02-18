@@ -282,10 +282,10 @@ class CouncilAI:
                 score -= w * vote.confidence
             total_confidence += vote.confidence * w
 
-        if score > 0.3:
-            final_signal = "STRONG_BUY" if score > 0.5 else "BUY"
-        elif score < -0.3:
-            final_signal = "STRONG_SELL" if score < -0.5 else "SELL"
+        if score > 0.12:
+            final_signal = "STRONG_BUY" if score > 0.35 else "BUY"
+        elif score < -0.12:
+            final_signal = "STRONG_SELL" if score < -0.35 else "SELL"
         else:
             final_signal = "HOLD"
 
