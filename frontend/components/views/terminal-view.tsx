@@ -1,6 +1,5 @@
 "use client"
 
-import { motion, AnimatePresence } from "framer-motion"
 import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import {
   Activity, Wifi, Clock, Zap, AlertTriangle, TrendingUp, TrendingDown,
@@ -238,11 +237,9 @@ function AITickerTape({ signals, isPaywalled }: { signals: QuantSignal[]; isPayw
           {muted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
         </button>
       </div>
-      <motion.div
+      <div
         ref={tickerRef}
         className={`flex items-center gap-8 whitespace-nowrap ${isPaywalled ? "blur-sm" : ""}`}
-        animate={{ x: ["0%", "-50%"] }}
-        transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
       >
         {[...tickerItems, ...tickerItems].map((item, i) => (
           <span key={`${item.id}-${i}`} className="flex items-center gap-2 text-[10px] font-mono">
@@ -254,7 +251,7 @@ function AITickerTape({ signals, isPaywalled }: { signals: QuantSignal[]; isPayw
             <span className="text-white/10">///</span>
           </span>
         ))}
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -304,15 +301,12 @@ function TerminalLogs() {
   return (
     <div className="h-full overflow-y-auto font-mono text-[10px] md:text-xs p-3 md:p-4 space-y-1">
       {logs.map((log, i) => (
-        <motion.div
+        <div
           key={i}
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: i * 0.1 }}
           className={getLogColor(log.type)}
         >
           {log.text}
-        </motion.div>
+        </div>
       ))}
       {isLoading && <div className="text-white/30">Loading signals...</div>}
       <div className="flex items-center gap-1 text-white/20"><div className="w-1 h-3 bg-white/30 animate-pulse" /></div>
@@ -336,11 +330,11 @@ function MevProtectionToggle({ enabled, onToggle }: { enabled: boolean; onToggle
 function SniperModeBadge({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
   return (
     <button onClick={onToggle} className={`relative flex items-center gap-2 px-3 py-2 text-[10px] md:text-xs font-mono tracking-wider transition-all overflow-hidden ${enabled ? "bg-white/20 border border-white/50 text-white" : "bg-white/5 border border-white/10 text-white/40 hover:border-white/20"}`}>
-      {enabled && <motion.div className="absolute inset-0 bg-white/10" animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }} />}
+      {enabled && <div className="absolute inset-0 bg-white/10" />}
       <Crosshair className={`w-3 h-3 relative z-10 ${enabled ? "text-white" : "text-white/30"}`} />
       <span className="relative z-10 hidden sm:inline">SNIPER MODE</span>
       <span className="relative z-10 sm:hidden">SNIPE</span>
-      {enabled && <motion.span className="relative z-10 w-2 h-2 rounded-full bg-white" animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />}
+      {enabled && <span className="relative z-10 w-2 h-2 rounded-full bg-white" />}
     </button>
   )
 }
@@ -435,9 +429,8 @@ function WhaleRadar({ wallets, onAddWallet, onRemoveWallet, onToggleTracking, is
         </div>
         <ChevronRight className={`w-4 h-4 text-white/30 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
       </button>
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+              {isExpanded && (
+          <div className="overflow-hidden">
             <div className="p-3 border-b border-white/5">
               <div className="flex gap-2">
                 <input type="text" value={inputAddress} onChange={(e) => setInputAddress(e.target.value)} placeholder="0x... wallet address" className="flex-1 bg-white/5 border border-white/10 px-3 py-2 text-xs font-mono text-white placeholder:text-white/20 focus:outline-none focus:border-amber-500/50" />
@@ -479,10 +472,9 @@ function WhaleRadar({ wallets, onAddWallet, onRemoveWallet, onToggleTracking, is
                 ))
               )}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
-    </div>
+          </div>
   )
 }
 
@@ -490,9 +482,7 @@ function OpportunityRow({ opp, onSelect, isPaywalled }: { opp: QuantSignal; onSe
   const recommendation = getRecommendation(opp)
 
   return (
-    <motion.tr
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+    <tr
       className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group cursor-pointer"
       onClick={() => onSelect(opp)}
     >
@@ -607,7 +597,7 @@ function OpportunityRow({ opp, onSelect, isPaywalled }: { opp: QuantSignal; onSe
           )}
         </button>
       </td>
-    </motion.tr>
+    </tr>
   )
 }
 
@@ -653,14 +643,10 @@ function PaywallOverlay({ secondsLeft, onUpgrade }: { secondsLeft: number; onUpg
   if (secondsLeft > 0) return null
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
     >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
+      <div
         className="border border-white/50 bg-[#020408] p-8 max-w-md text-center"
       >
         <div className="w-16 h-16 border border-white/50 bg-white/10 flex items-center justify-center mx-auto mb-6">
@@ -682,8 +668,8 @@ function PaywallOverlay({ secondsLeft, onUpgrade }: { secondsLeft: number; onUpg
             RESTART PREVIEW
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   )
 }
 
@@ -692,16 +678,14 @@ function FreeTimerBadge({ secondsLeft }: { secondsLeft: number }) {
   const isUrgent = secondsLeft <= 15
 
   return (
-    <motion.div
+    <div
       className={`flex items-center gap-2 px-3 py-2 text-[10px] md:text-xs font-mono tracking-wider border ${
         isUrgent ? "bg-white/20 border-white/50 text-white" : "bg-white/5 border-white/10 text-white/40"
       }`}
-      animate={isUrgent ? { borderColor: ["rgba(255,255,255,0.5)", "rgba(255,255,255,0.2)", "rgba(255,255,255,0.5)"] } : {}}
-      transition={{ duration: 1, repeat: Infinity }}
     >
       <Clock className={`w-3 h-3 ${isUrgent ? "text-white" : "text-white/30"}`} />
       FREE: {Math.floor(secondsLeft / 60)}:{(secondsLeft % 60).toString().padStart(2, "0")}
-    </motion.div>
+    </div>
   )
 }
 
@@ -932,12 +916,12 @@ export function TerminalView() {
     <div className="min-h-screen pt-20 pb-16 px-3 md:px-4">
       <div className="max-w-[1600px] mx-auto">
         {/* AI Ticker Tape */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}>
+        <div>
           <AITickerTape signals={opportunities} isPaywalled={isPaywalled} />
-        </motion.div>
+        </div>
 
         {/* Status Bar */}
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="border border-white/10 border-t-0 bg-[#020408] mb-4">
+        <div className="border border-white/10 border-t-0 bg-[#020408] mb-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between px-4 md:px-6 py-3 gap-3 md:gap-0">
             <div className="flex flex-wrap items-center gap-4 md:gap-8">
               <div className="flex items-center gap-2">
@@ -953,10 +937,10 @@ export function TerminalView() {
               <div className="text-right"><div className="text-[10px] md:text-xs text-white/30 font-mono">P/L</div><div className={`text-sm font-mono ${totalProfit >= 0 ? "text-green-500" : "text-red-500"}`}>{totalProfit >= 0 ? "+" : ""}${totalProfit.toFixed(2)}</div></div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Control Panel */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           {/* ExecutionSettings toggles removed - non-functional in Phase 1, will be restored in Phase 6 */}
           <ViewModeToggle mode={viewMode} onToggle={() => setViewMode((prev) => prev === "table" ? "heatmap" : "table")} />
 
@@ -981,16 +965,16 @@ export function TerminalView() {
           <button onClick={fetchOpportunities} disabled={isLoading} className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 text-white/40 hover:border-white/20 hover:text-white/60 text-[10px] md:text-xs font-mono tracking-wider transition-all disabled:opacity-50">
             <RotateCcw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} /><span className="hidden sm:inline">REFRESH</span>
           </button>
-        </motion.div>
+        </div>
 
         {/* Category Tabs */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <div>
           <CategoryTabs
             activeCategory={activeCategory}
             onCategoryChange={setActiveCategory}
             opportunitiesByCategory={opportunitiesByCategory}
           />
-        </motion.div>
+        </div>
 
         {/* Crypto 5-Min Scanner - Floating badge when no signal, full panel when signal detected */}
         <Crypto5MinPanel
@@ -1001,7 +985,7 @@ export function TerminalView() {
         {/* Main Grid */}
         <div className="grid lg:grid-cols-[1fr_350px] gap-4">
           {/* Main Content */}
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="border border-white/10 bg-[#020408]">
+          <div className="border border-white/10 bg-[#020408]">
             {/* Table Header */}
             <div className="flex items-center justify-between px-3 md:px-4 py-3 border-b border-white/10 bg-white/[0.02]">
               <div className="flex items-center gap-2">
@@ -1046,19 +1030,19 @@ export function TerminalView() {
                 {/* Scroll hint - mobile */}
                 {showScrollHint && (
                   <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-[#020408] to-transparent pointer-events-none flex items-center justify-end pr-2 md:hidden">
-                    <motion.div animate={{ x: [0, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }} className="text-white/40">
+                    <div className="text-white/40">
                       <ChevronRight className="w-5 h-5" />
-                    </motion.div>
+                    </div>
                   </div>
                 )}
               </div>
             )}
-          </motion.div>
+          </div>
 
           {/* Sidebar */}
           <div className="flex flex-col gap-4 order-last lg:order-none">
             {/* Logs */}
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="border border-white/10 bg-[#020408] h-[300px] lg:h-[350px] flex flex-col">
+            <div className="border border-white/10 bg-[#020408] h-[300px] lg:h-[350px] flex flex-col">
               <div className="flex items-center justify-between px-3 md:px-4 py-3 border-b border-white/10 bg-white/[0.02] shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
@@ -1067,10 +1051,10 @@ export function TerminalView() {
                 <span className="text-[10px] md:text-xs text-white/20 font-mono">LIVE</span>
               </div>
               <TerminalLogs />
-            </motion.div>
+            </div>
 
             {/* Whale Radar */}
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
+            <div>
               <WhaleRadar
                 wallets={whaleWallets}
                 onAddWallet={addWhaleWallet}
@@ -1078,12 +1062,12 @@ export function TerminalView() {
                 onToggleTracking={toggleWhaleTracking}
                 isPaywalled={isPaywalled}
               />
-            </motion.div>
+            </div>
           </div>
         </div>
 
         {/* Bottom Stats */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-12">
+        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-12">
           <div className="border border-white/10 bg-[#020408] p-3 md:p-4">
             <div className="text-[10px] md:text-xs text-white/30 font-mono mb-1">MARKETS</div>
             <div className="text-lg md:text-2xl text-white font-mono">{opportunities.length.toLocaleString()}</div>
@@ -1100,7 +1084,7 @@ export function TerminalView() {
             <div className="text-[10px] md:text-xs text-white/30 font-mono mb-1">BRIBE</div>
             <div className="text-lg md:text-2xl text-white font-mono">0.002</div>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Panic Dock - Fixed Footer (only show if no trade dock is open) */}
