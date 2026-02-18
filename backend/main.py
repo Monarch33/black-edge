@@ -1323,7 +1323,17 @@ async def get_polymarket_markets():
             if m.get("closed") or not m.get("active", True):
                 continue
 
-            outcome_prices = m.get("outcomePrices", [])
+            # outcomePrices comes as a JSON-encoded string from Gamma API e.g. '["0.19","0.81"]'
+            raw_op = m.get("outcomePrices", "[]")
+            if isinstance(raw_op, str):
+                try:
+                    outcome_prices = json_lib.loads(raw_op)
+                except Exception:
+                    outcome_prices = []
+            elif isinstance(raw_op, list):
+                outcome_prices = raw_op
+            else:
+                outcome_prices = []
             yes_price = 0.5
             no_price = 0.5
             if outcome_prices and len(outcome_prices) >= 2:
