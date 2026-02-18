@@ -1,707 +1,331 @@
 "use client"
 
-import dynamic from "next/dynamic"
-import { motion, useScroll, useTransform } from "framer-motion"
-import { useEffect, useState, useRef } from "react"
-import {
-  Radio, Brain, BarChart3, ArrowRight, TrendingUp, Shield,
-  Zap, Clock, Target, Award, CheckCircle, Eye, Activity,
-  Sparkles, ArrowUpRight, Cpu, Database, GitBranch
-} from "lucide-react"
+import { useState, useEffect } from 'react'
+import { BarChart3, Newspaper, Crosshair, TrendingUp, Shield, Zap, ArrowRight, Radio } from 'lucide-react'
 
-const HeroScene = dynamic(() => import("@/components/hero-scene"), { ssr: false })
+// ============================================================
+// POLYMARKET GAMMA API — FETCH DIRECT, PAS DE BACKEND
+// ============================================================
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const GAMMA_API = 'https://gamma-api.polymarket.com'
 
-interface LiveSignal {
-  market: string
-  question: string
-  edge: number
-  signalStrength: number
-  prediction: string
+interface PMEvent {
+  id: string
+  title: string
+  slug: string
+  image: string
+  volume: number
+  liquidity: number
+  yesPrice: number
+  noPrice: number
+  firstQuestion: string
 }
 
-interface TrackRecord {
-  win_rate: number
-  total_predictions: number
-  total_resolved: number
-  avg_edge_realized: number
-  total_pnl: number
+function parseJsonStr(raw: any): any[] {
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw) } catch { return [] }
+  }
+  return []
 }
 
-interface Crypto5MinMarket {
-  timeRemaining: number
-  upPrice: number
-  downPrice: number
-}
+async function fetchEvents(limit = 20): Promise<PMEvent[]> {
+  // Fetch directement depuis Polymarket — PAS de backend
+  const res = await fetch(
+    `${GAMMA_API}/events?active=true&limit=${limit}&order=volume24hr&ascending=false&closed=false`,
+    { cache: 'no-store' }
+  )
+  if (!res.ok) return []
+  const data = await res.json()
 
-export function LandingView({ onNavigate }: { onNavigate: (view: string) => void }) {
-  const [email, setEmail] = useState("")
-  const [waitlistStatus, setWaitlistStatus] = useState<"idle" | "submitting" | "success">("idle")
-  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null)
-  const [liveSignals, setLiveSignals] = useState<LiveSignal[]>([])
-  const [trackRecord, setTrackRecord] = useState<TrackRecord | null>(null)
-  const [crypto5Min, setCrypto5Min] = useState<Crypto5MinMarket | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [marketCount, setMarketCount] = useState(0)
-
-  const heroRef = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"]
-  })
-
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
-  const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95])
-
-  // Fetch all data — Gamma API is primary source for signals
-  useEffect(() => {
-    const fetchData = async () => {
-      // 1. Always fetch from Gamma API directly (no backend needed)
-      try {
-        const res = await fetch(
-          "https://gamma-api.polymarket.com/markets?active=true&limit=50&order=volume24hr&ascending=false&closed=false"
-        )
-        const data = await res.json()
-        const markets: any[] = Array.isArray(data) ? data : []
-
-        setMarketCount(markets.length)
-
-        const topSignals: LiveSignal[] = markets.slice(0, 6).map((m: any) => {
-          const op: string[] = Array.isArray(m.outcomePrices) ? m.outcomePrices : []
-          const yesPrice = op[0] ? parseFloat(op[0]) : 0.5
-          return {
-            market: m.slug || "",
-            question: m.question || "",
-            edge: Math.round(Math.abs(yesPrice - 0.5) * 40 * 10) / 10,
-            signalStrength: 60,
-            prediction: yesPrice >= 0.5 ? "YES" : "NO",
-          }
-        })
-        setLiveSignals(topSignals)
-      } catch (err) {
-        console.error("Gamma fetch failed:", err)
+  return data
+    .filter((e: any) => e.title && e.markets && e.markets.length > 0)
+    .map((e: any) => {
+      const m = e.markets[0]
+      const prices = parseJsonStr(m?.outcomePrices || '[]').map(Number)
+      return {
+        id: e.id || '',
+        title: e.title || '',
+        slug: e.slug || '',
+        image: e.image || e.icon || '',
+        volume: parseFloat(e.volume || '0'),
+        liquidity: parseFloat(e.liquidity || '0'),
+        yesPrice: prices[0] || 0,
+        noPrice: prices[1] || 0,
+        firstQuestion: m?.question || e.title || '',
       }
+    })
+}
 
-      // 2. Try backend for track record + 5-min (non-blocking)
-      try {
-        const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), 5000)
-        const trackRecordRes = await fetch(`${API_URL}/api/v2/track-record`, { signal: controller.signal })
-        clearTimeout(timer)
-        if (trackRecordRes.ok) {
-          const trackRecordData = await trackRecordRes.json()
-          if (trackRecordData.track_record) setTrackRecord(trackRecordData.track_record.summary)
-        }
-      } catch { /* backend unavailable */ }
+function formatVol(v: number): string {
+  if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`
+  if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`
+  if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`
+  return `${v.toFixed(0)}`
+}
 
-      try {
-        const controller2 = new AbortController()
-        const timer2 = setTimeout(() => controller2.abort(), 5000)
-        const cryptoRes = await fetch(`${API_URL}/api/v2/crypto/5min/signals`, { signal: controller2.signal })
-        clearTimeout(timer2)
-        if (cryptoRes.ok) {
-          const cryptoData = await cryptoRes.json()
-          if (cryptoData.active_markets && cryptoData.active_markets[0]) {
-            const market = cryptoData.active_markets[0]
-            setCrypto5Min({ timeRemaining: market.timeRemaining, upPrice: market.upPrice, downPrice: market.downPrice })
-          }
-        }
-      } catch { /* ignore */ }
+function likelihood(yesPrice: number): { label: string; color: string } {
+  const pct = yesPrice * 100
+  if (pct >= 85) return { label: 'VERY LIKELY', color: 'text-[#22C55E]' }
+  if (pct >= 65) return { label: 'LIKELY', color: 'text-[#22C55E]/80' }
+  if (pct >= 45) return { label: 'TOSS-UP', color: 'text-[#888]' }
+  if (pct >= 25) return { label: 'UNLIKELY', color: 'text-[#EF4444]/80' }
+  return { label: 'VERY UNLIKELY', color: 'text-[#EF4444]' }
+}
 
-      setLoading(false)
-    }
+// ============================================================
+// COMPONENTS
+// ============================================================
 
-    fetchData()
-    const interval = setInterval(fetchData, 30000)
+function EventCard({ event }: { event: PMEvent }) {
+  const yesPct = Math.round(event.yesPrice * 100)
+  const noPct = Math.round(event.noPrice * 100)
+  const total = yesPct + noPct
+  const barWidth = total > 0 ? (yesPct / total) * 100 : 50
+  const lk = likelihood(event.yesPrice)
+
+  return (
+    <a
+      href={`https://polymarket.com/event/${event.slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block bg-[#0A0A0A] border border-[#1A1A1A] p-4 hover:border-[#333] transition-all duration-200 group"
+    >
+      <div className="flex items-start gap-3 mb-3">
+        {event.image && (
+          <img
+            src={event.image}
+            alt=""
+            className="w-10 h-10 rounded object-cover flex-shrink-0 bg-[#1A1A1A]"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-white leading-tight line-clamp-2 group-hover:text-white/80">
+            {event.title}
+          </p>
+          <div className={`mt-1 text-[10px] font-mono tracking-wider ${lk.color}`}>
+            {lk.label} • {yesPct}%
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-2">
+        <div className="flex justify-between text-xs font-mono mb-1">
+          <span className="text-[#22C55E]">YES {yesPct}¢</span>
+          <span className="text-[#EF4444]">NO {noPct}¢</span>
+        </div>
+        <div className="w-full h-1.5 bg-[#EF4444]/15 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-[#22C55E] rounded-full transition-all duration-700"
+            style={{ width: `${barWidth}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 text-[10px] font-mono text-[#555]">
+        <span>{formatVol(event.volume)} vol</span>
+        <span>{formatVol(event.liquidity)} liq</span>
+      </div>
+    </a>
+  )
+}
+
+function Skeleton() {
+  return (
+    <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-4 animate-pulse">
+      <div className="flex gap-3 mb-3">
+        <div className="w-10 h-10 rounded bg-[#1A1A1A]" />
+        <div className="flex-1">
+          <div className="h-4 bg-[#1A1A1A] rounded w-3/4 mb-2" />
+          <div className="h-3 bg-[#1A1A1A] rounded w-1/3" />
+        </div>
+      </div>
+      <div className="h-1.5 bg-[#1A1A1A] rounded-full mb-2" />
+      <div className="h-3 bg-[#1A1A1A] rounded w-1/2" />
+    </div>
+  )
+}
+
+function StatCard({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="bg-[#0A0A0A] border border-[#1A1A1A] px-6 py-4 text-center">
+      <div className="text-2xl font-mono text-white">{value}</div>
+      <div className="text-[10px] text-[#555] tracking-[0.2em] mt-1">{label}</div>
+    </div>
+  )
+}
+
+const COUNCIL_AGENTS = [
+  { icon: BarChart3, name: 'FUNDAMENTALS', desc: 'Orderbook depth, volume flow, liquidity analysis' },
+  { icon: Newspaper, name: 'SENTIMENT', desc: 'News feeds, social media, public opinion tracking' },
+  { icon: Crosshair, name: 'SNIPER', desc: 'Price microstructure, momentum, mean reversion' },
+  { icon: TrendingUp, name: 'NARRATIVE', desc: 'Viral potential, trending topics, upcoming catalysts' },
+  { icon: Shield, name: 'DOOMER', desc: 'Risk detection. Finds reasons to NOT trade. Veto power.' },
+]
+
+// ============================================================
+// MAIN LANDING VIEW
+// ============================================================
+
+export function LandingView({ onNavigate }: { onNavigate?: (view: string) => void }) {
+  const [events, setEvents] = useState<PMEvent[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchEvents(20)
+      .then((data) => { setEvents(data); setLoading(false) })
+      .catch(() => setLoading(false))
+
+    const interval = setInterval(() => {
+      fetchEvents(20).then(setEvents).catch(() => {})
+    }, 60000)
     return () => clearInterval(interval)
   }, [])
 
-  const handleWaitlistSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email || waitlistStatus === "submitting") return
-
-    setWaitlistStatus("submitting")
-
-    try {
-      // Call waitlist API
-      const response = await fetch(`${API_URL}/api/waitlist/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      })
-
-      const data = await response.json()
-
-      if (data.position) {
-        setWaitlistPosition(data.position)
-      } else {
-        setWaitlistPosition(Math.floor(Math.random() * 500) + 100)
-      }
-
-      setWaitlistStatus("success")
-      setEmail("")
-    } catch (err) {
-      console.error('Waitlist submission failed:', err)
-      // Fallback to simulated response
-      setWaitlistPosition(Math.floor(Math.random() * 500) + 100)
-      setWaitlistStatus("success")
-      setEmail("")
-    }
-  }
-
-  const formatTimeRemaining = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
   return (
-    <div className="min-h-screen bg-black text-white overflow-hidden">
-      {/* Hero Section - Enhanced */}
-      <section ref={heroRef} className="hero-gradient relative pt-32 pb-24 px-4 overflow-hidden">
-        {/* 3D Particle Background */}
-        <div className="absolute inset-0 pointer-events-none">
-          <HeroScene />
+    <div className="min-h-screen bg-black text-white">
+
+      {/* ── HERO ── */}
+      <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
+        {/* Gradient background */}
+        <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0" style={{
+            background: 'radial-gradient(ellipse at 20% 50%, rgba(255,255,255,0.03) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.02) 0%, transparent 50%), radial-gradient(ellipse at 50% 80%, rgba(255,255,255,0.015) 0%, transparent 50%)',
+          }} />
         </div>
 
-        {/* Animated Background Grid */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a1a1a_1px,transparent_1px),linear-gradient(to_bottom,#1a1a1a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] opacity-20" />
-
-        {/* Gradient Orbs */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#22C55E]/5 rounded-full blur-[128px]" />
-        <div className="absolute top-20 right-1/4 w-96 h-96 bg-[#3B82F6]/5 rounded-full blur-[128px]" />
-
-        <motion.div
-          style={{ opacity: heroOpacity, scale: heroScale }}
-          className="max-w-6xl mx-auto relative z-10"
-        >
-          {/* Live Indicator */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-center gap-2 mb-8"
-          >
-            <div className="flex items-center gap-2 px-4 py-2 bg-[#22C55E]/10 border border-[#22C55E]/20">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#22C55E] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#22C55E]"></span>
+        <div className="relative z-10 text-center max-w-3xl px-6">
+          {events.length > 0 && (
+            <div className="inline-flex items-center gap-2 mb-8 px-3 py-1.5 border border-[#1A1A1A] bg-[#0A0A0A]/80 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
+              <span className="text-xs font-mono text-[#888]">
+                LIVE • Analyzing {events.length} markets
               </span>
-              <span className="text-[#22C55E] text-xs font-medium tracking-wider uppercase">
-                {marketCount > 0 ? `LIVE • Scanning ${marketCount} markets` : "LIVE • Scanning markets"}
-              </span>
-            </div>
-          </motion.div>
-
-          {/* Main Headline */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1 }}
-            className="text-center mb-8"
-          >
-            <h1 className="text-6xl md:text-8xl font-bold text-white mb-6 tracking-tight leading-none">
-              The edge is in
-              <br />
-              <span className="bg-gradient-to-r from-white via-[#888] to-white bg-clip-text text-transparent">
-                the data.
-              </span>
-            </h1>
-
-            <p className="text-xl md:text-2xl text-[#888] max-w-3xl mx-auto leading-relaxed mb-4">
-              Quant signals + public track record for Polymarket.
-            </p>
-            <p className="text-base text-[#555] max-w-2xl mx-auto">
-              Institutional-grade analysis. Every signal backed by data.
-            </p>
-          </motion.div>
-
-          {/* Track Record Preview - Prominent */}
-          {trackRecord && (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="max-w-4xl mx-auto mb-12"
-            >
-              <div className="bg-gradient-to-br from-[#0A0A0A] to-black border border-[#1A1A1A] p-8">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                  <div className="text-center">
-                    <div className="text-4xl md:text-5xl font-bold text-[#22C55E] mb-2 font-mono">
-                      {trackRecord.win_rate.toFixed(1)}%
-                    </div>
-                    <div className="text-xs text-[#888] uppercase tracking-wider">Win Rate</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-4xl md:text-5xl font-bold text-white mb-2 font-mono">
-                      {trackRecord.total_predictions}
-                    </div>
-                    <div className="text-xs text-[#888] uppercase tracking-wider">Predictions</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-4xl md:text-5xl font-bold text-[#3B82F6] mb-2 font-mono">
-                      +{trackRecord.avg_edge_realized.toFixed(1)}%
-                    </div>
-                    <div className="text-xs text-[#888] uppercase tracking-wider">Avg Edge</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-4xl md:text-5xl font-bold text-[#F59E0B] mb-2 font-mono">
-                      ${trackRecord.total_pnl.toFixed(0)}
-                    </div>
-                    <div className="text-xs text-[#888] uppercase tracking-wider">Paper P&L</div>
-                  </div>
-                </div>
-                <div className="mt-6 pt-6 border-t border-[#1A1A1A] text-center">
-                  <p className="text-xs text-[#555]">
-                    <Eye className="inline w-3 h-3 mr-1" />
-                    100% transparent track record • All predictions logged publicly
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* CTA */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            className="max-w-xl mx-auto"
-          >
-            {waitlistStatus === "success" ? (
-              <div className="bg-[#22C55E]/10 border border-[#22C55E]/30 p-8 text-center">
-                <CheckCircle className="w-12 h-12 text-[#22C55E] mx-auto mb-4" />
-                <p className="text-white text-lg mb-2">
-                  You're <span className="text-[#22C55E] font-mono font-bold">#{waitlistPosition}</span> on the waitlist
-                </p>
-                <p className="text-[#888] text-sm">We'll notify you when it's your turn.</p>
-              </div>
-            ) : (
-              <>
-                <form onSubmit={handleWaitlistSubmit} className="flex gap-2 mb-4">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="flex-1 px-6 py-4 bg-[#0A0A0A] border border-[#1A1A1A] text-white placeholder:text-[#555] focus:outline-none focus:border-white/30 transition-colors text-base"
-                    required
-                    disabled={waitlistStatus === "submitting"}
-                  />
-                  <button
-                    type="submit"
-                    disabled={waitlistStatus === "submitting"}
-                    className="px-8 py-4 bg-white text-black hover:bg-white/90 transition-all text-base font-semibold tracking-wide whitespace-nowrap flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {waitlistStatus === "submitting" ? (
-                      <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="w-4 h-4 border-2 border-black border-t-transparent rounded-full"
-                        />
-                        JOINING...
-                      </>
-                    ) : (
-                      <>
-                        GET EARLY ACCESS
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-                <p className="text-xs text-center text-[#555]">
-                  Join the waitlist • No credit card required
-                </p>
-              </>
-            )}
-          </motion.div>
-        </motion.div>
-      </section>
-
-      {/* Live Signals - Enhanced Display */}
-      <section className="py-20 px-4 bg-[#0A0A0A]/30">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <div className="inline-flex items-center gap-2 mb-4 px-4 py-2 bg-[#0A0A0A] border border-[#1A1A1A]">
-              <Activity className="w-4 h-4 text-[#22C55E]" />
-              <span className="text-xs text-[#888] uppercase tracking-wider">Live Right Now</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              Top Signals
-            </h2>
-            <p className="text-[#888] max-w-2xl mx-auto">
-              Real-time market intelligence. Updated every 30 seconds.
-            </p>
-          </motion.div>
-
-          {loading ? (
-            <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-16 text-center">
-              <div className="text-[#555]">Fetching market data...</div>
-            </div>
-          ) : liveSignals.length === 0 ? (
-            <div className="bg-[#0A0A0A] border border-[#1A1A1A] p-16 text-center">
-              <div className="text-[#555]">No active signals</div>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 gap-4">
-              {liveSignals.map((signal, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: idx * 0.1 }}
-                  className="bg-[#0A0A0A] border border-[#1A1A1A] p-6 hover:border-white/30 transition-all group cursor-pointer"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="text-sm text-white mb-2 line-clamp-2 group-hover:text-white transition-colors">
-                        {signal.question}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium ${
-                          signal.prediction === "YES"
-                            ? "bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20"
-                            : "bg-[#EF4444]/10 text-[#EF4444] border border-[#EF4444]/20"
-                        }`}>
-                          {signal.prediction}
-                        </span>
-                        <span className="text-xs text-[#555]">
-                          {signal.signalStrength >= 70 ? "Strong" : signal.signalStrength >= 50 ? "Medium" : "Weak"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right ml-4">
-                      <div className={`text-2xl font-bold font-mono ${
-                        signal.edge > 0 ? "text-[#22C55E]" : "text-[#EF4444]"
-                      }`}>
-                        {signal.edge > 0 ? "+" : ""}{signal.edge.toFixed(1)}%
-                      </div>
-                      <div className="text-xs text-[#555]">edge</div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
             </div>
           )}
 
-          {marketCount > 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              className="text-center mt-8"
-            >
-              <a
-                href="#"
-                onClick={(e) => { e.preventDefault(); onNavigate('markets') }}
-                className="inline-flex items-center gap-2 text-white hover:text-[#888] transition-colors text-sm"
-              >
-                View all {marketCount} markets
-                <ArrowUpRight className="w-4 h-4" />
-              </a>
-            </motion.div>
-          )}
+          <h1 className="text-5xl md:text-7xl font-semibold tracking-tight leading-[1.1] mb-6">
+            The edge is in<br />the data.
+          </h1>
+          <p className="text-lg text-[#888] max-w-xl mx-auto mb-10">
+            Quantitative prediction intelligence for Polymarket.
+            Multi-agent AI analysis. Real-time data. Public track record.
+          </p>
+          <a
+            href="#markets"
+            className="inline-block bg-white text-black px-8 py-3.5 text-sm font-medium tracking-wider hover:bg-white/90 transition-colors"
+          >
+            EXPLORE MARKETS
+          </a>
         </div>
       </section>
 
-      {/* 5-Min BTC - If Active */}
-      {crypto5Min && (
-        <section className="py-20 px-4">
-          <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="bg-gradient-to-br from-[#0A0A0A] to-black border border-[#F59E0B]/30 p-8 md:p-12"
-            >
-              <div className="flex items-center gap-3 mb-6">
-                <Zap className="w-6 h-6 text-[#F59E0B]" />
-                <h3 className="text-2xl md:text-3xl font-bold text-white">
-                  BTC 5-MIN — LIVE NOW
-                </h3>
-                <span className="ml-auto text-[#F59E0B] font-mono text-lg font-bold animate-pulse">
-                  {formatTimeRemaining(crypto5Min.timeRemaining)}
-                </span>
-              </div>
+      {/* ── LIVE MARKETS ── */}
+      <section id="markets" className="px-4 md:px-8 py-16 max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-2xl font-semibold mb-1">Live Markets</h2>
+            <p className="text-sm text-[#555]">Real-time data from Polymarket. Updated every 60s.</p>
+          </div>
+          {events.length > 0 && (
+            <span className="text-xs font-mono text-[#555]">
+              {events.length} events • Source: Polymarket
+            </span>
+          )}
+        </div>
 
-              <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <div className="bg-[#22C55E]/5 border border-[#22C55E]/20 p-6">
-                  <div className="text-[#888] text-sm mb-2 uppercase tracking-wider">UP</div>
-                  <div className="text-[#22C55E] font-mono font-bold text-4xl">
-                    {(crypto5Min.upPrice * 100).toFixed(0)}¢
-                  </div>
-                </div>
-                <div className="bg-[#EF4444]/5 border border-[#EF4444]/20 p-6">
-                  <div className="text-[#888] text-sm mb-2 uppercase tracking-wider">DOWN</div>
-                  <div className="text-[#EF4444] font-mono font-bold text-4xl">
-                    {(crypto5Min.downPrice * 100).toFixed(0)}¢
-                  </div>
-                </div>
-              </div>
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} />)}
+          </div>
+        ) : events.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {events.slice(0, 9).map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <Radio className="w-8 h-8 text-[#333] mx-auto mb-3" />
+            <p className="text-[#555] text-sm">Connecting to Polymarket...</p>
+            <p className="text-[#333] text-xs mt-1">If this persists, Polymarket API may be temporarily unavailable.</p>
+          </div>
+        )}
+      </section>
 
-              <button
-                onClick={() => onNavigate('crypto5min')}
-                className="w-full flex items-center justify-center gap-2 py-4 bg-white text-black hover:bg-white/90 transition-colors text-base font-semibold"
-              >
-                View Live Analysis
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </motion.div>
+      {/* ── STATS ── */}
+      {events.length > 0 && (
+        <section className="px-4 md:px-8 py-12 max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard value={events.length.toString()} label="MARKETS TRACKED" />
+            <StatCard value={formatVol(events.reduce((s, e) => s + e.volume, 0))} label="TOTAL VOLUME" />
+            <StatCard value="5" label="AI AGENTS" />
+            <StatCard value={formatVol(events.reduce((s, e) => s + e.liquidity, 0))} label="TOTAL LIQUIDITY" />
           </div>
         </section>
       )}
 
-      {/* Features Grid */}
-      <section className="py-20 px-4">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              Built for Serious Traders
-            </h2>
-            <p className="text-[#888] text-lg max-w-2xl mx-auto">
-              Institutional-grade analysis. Every signal backed by data.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              {
-                icon: Brain,
-                title: "5-Agent Council",
-                description: "Multi-agent AI system with Sniper, Narrative Hunter, Whale Hunter, Doomer, and Judge. Collective intelligence with veto protection.",
-                color: "#8B5CF6"
-              },
-              {
-                icon: Database,
-                title: "Real-time Orderbook",
-                description: "L2 orderbook data from CLOB. Track market microstructure, liquidity imbalances, and smart money flow in real-time.",
-                color: "#3B82F6"
-              },
-              {
-                icon: Activity,
-                title: "Whale Tracking",
-                description: "Monitor top performers on Polymarket. See what the whales are betting on before everyone else knows.",
-                color: "#22C55E"
-              },
-              {
-                icon: Radio,
-                title: "News Intelligence",
-                description: "Real-time news from Google, CryptoPanic, and Reddit. Auto-matched to markets with sentiment analysis and novelty scoring.",
-                color: "#F59E0B"
-              },
-              {
-                icon: Target,
-                title: "Edge Calculation",
-                description: "Proprietary Kelly-criterion based sizing. Risk-adjusted position recommendations with drawdown protection.",
-                color: "#EF4444"
-              },
-              {
-                icon: Shield,
-                title: "Paper Trading Logger",
-                description: "Every prediction logged publicly before outcomes. 100% transparent track record. No cherry-picking.",
-                color: "#06B6D4"
-              },
-            ].map((feature, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                className="bg-[#0A0A0A] border border-[#1A1A1A] p-8 hover:border-white/30 transition-all group"
-              >
-                <div
-                  className="w-12 h-12 mb-6 flex items-center justify-center border"
-                  style={{ borderColor: `${feature.color}40`, backgroundColor: `${feature.color}10` }}
-                >
-                  <feature.icon className="w-6 h-6" style={{ color: feature.color }} />
-                </div>
-                <h3 className="text-white font-semibold text-lg mb-3">{feature.title}</h3>
-                <p className="text-[#888] text-sm leading-relaxed">{feature.description}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works - Visual Process */}
-      <section className="py-20 px-4 bg-[#0A0A0A]/30">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              How It Works
-            </h2>
-            <p className="text-[#888] text-lg max-w-2xl mx-auto">
-              From data collection to signal delivery in milliseconds.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-4 gap-8">
-            {[
-              {
-                step: "01",
-                title: "Data Ingestion",
-                description: "News feeds, CLOB orderbook, whale wallets, and sentiment data collected in real-time.",
-                icon: Radio
-              },
-              {
-                step: "02",
-                title: "AI Analysis",
-                description: "5-agent Council debates each market. Doomer veto prevents bad trades. Judge aggregates consensus.",
-                icon: Brain
-              },
-              {
-                step: "03",
-                title: "Risk Sizing",
-                description: "Kelly criterion calculates optimal position size. Portfolio correlation analysis prevents overexposure.",
-                icon: Target
-              },
-              {
-                step: "04",
-                title: "Signal Delivery",
-                description: "WebSocket push notification to terminal. Trade directly from the interface with one click.",
-                icon: Zap
-              },
-            ].map((item, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.15 }}
-                className="relative"
-              >
-                {idx < 3 && (
-                  <div className="hidden md:block absolute top-12 left-full w-full h-[2px] bg-gradient-to-r from-[#1A1A1A] to-transparent -z-10" />
-                )}
-                <div className="text-center">
-                  <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center border border-[#1A1A1A] bg-[#0A0A0A]">
-                    <item.icon className="w-10 h-10 text-white" />
-                  </div>
-                  <div className="text-[#555] font-mono text-sm mb-2">{item.step}</div>
-                  <h3 className="text-white font-semibold text-lg mb-3">{item.title}</h3>
-                  <p className="text-[#888] text-sm leading-relaxed">{item.description}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Social Proof - Why Trust Us */}
-      <section className="py-20 px-4">
-        <div className="max-w-5xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="bg-gradient-to-br from-[#0A0A0A] to-black border border-[#1A1A1A] p-12"
-          >
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-                100% Transparent. Zero BS.
-              </h2>
-              <p className="text-[#888] text-lg">
-                Every prediction logged publicly. No cherry-picking. No hiding losses.
-              </p>
+      {/* ── HOW IT WORKS ── */}
+      <section className="px-4 md:px-8 py-20 max-w-5xl mx-auto">
+        <h2 className="text-2xl font-semibold mb-12 text-center">How It Works</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {[
+            { step: '01', icon: Radio, title: 'Collect', desc: 'Real-time data from Polymarket CLOB, news feeds, and orderbook depth. 30-second refresh cycle.' },
+            { step: '02', icon: Zap, title: 'Analyze', desc: '5 AI agents debate every market independently. The Doomer agent vetoes bad trades. Consensus required.' },
+            { step: '03', icon: ArrowRight, title: 'Deliver', desc: 'Signals with edge %, confidence level, and Kelly-criterion sizing. Every prediction logged publicly.' },
+          ].map((item) => (
+            <div key={item.step} className="bg-[#0A0A0A] border border-[#1A1A1A] p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-xs font-mono text-[#333]">{item.step}</span>
+                <item.icon className="w-5 h-5 text-white" />
+              </div>
+              <h3 className="text-lg font-medium mb-2">{item.title}</h3>
+              <p className="text-sm text-[#888] leading-relaxed">{item.desc}</p>
             </div>
+          ))}
+        </div>
+      </section>
 
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="text-center">
-                <Eye className="w-8 h-8 text-white mx-auto mb-4" />
-                <h4 className="text-white font-semibold mb-2">Public Track Record</h4>
-                <p className="text-[#888] text-sm">
-                  All predictions logged before outcomes. Full audit trail available.
-                </p>
-              </div>
-              <div className="text-center">
-                <CheckCircle className="w-8 h-8 text-white mx-auto mb-4" />
-                <h4 className="text-white font-semibold mb-2">Open Source Logic</h4>
-                <p className="text-[#888] text-sm">
-                  No black boxes. Signal generation logic fully documented.
-                </p>
-              </div>
-              <div className="text-center">
-                <Award className="w-8 h-8 text-white mx-auto mb-4" />
-                <h4 className="text-white font-semibold mb-2">Paper Trading First</h4>
-                <p className="text-[#888] text-sm">
-                  Test drive with paper money. Real money only when you're ready.
-                </p>
-              </div>
+      {/* ── THE COUNCIL ── */}
+      <section className="px-4 md:px-8 py-20 max-w-6xl mx-auto">
+        <div className="text-center mb-12">
+          <h2 className="text-2xl font-semibold mb-3">The Council</h2>
+          <p className="text-[#888] max-w-lg mx-auto text-sm">
+            Every signal passes through 5 independent agents. They don&apos;t agree with each other. That&apos;s the point.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {COUNCIL_AGENTS.map((agent) => (
+            <div
+              key={agent.name}
+              className={`bg-[#0A0A0A] border p-4 text-center ${
+                agent.name === 'DOOMER' ? 'border-[#2A2A2A]' : 'border-[#1A1A1A]'
+              }`}
+            >
+              <agent.icon className="w-6 h-6 text-white mx-auto mb-3" />
+              <div className="text-xs font-mono tracking-wider mb-2">{agent.name}</div>
+              <p className="text-[10px] text-[#555] leading-relaxed">{agent.desc}</p>
             </div>
-          </motion.div>
+          ))}
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-              Ready to get started?
-            </h2>
-            <p className="text-[#888] text-lg mb-8 max-w-2xl mx-auto">
-              Join the waitlist and get early access to the most advanced prediction market intelligence platform.
-            </p>
-
-            {waitlistStatus === "success" ? (
-              <div className="bg-[#22C55E]/10 border border-[#22C55E]/30 p-8 max-w-xl mx-auto">
-                <CheckCircle className="w-12 h-12 text-[#22C55E] mx-auto mb-4" />
-                <p className="text-white text-lg mb-2">
-                  You're <span className="text-[#22C55E] font-mono font-bold">#{waitlistPosition}</span> on the waitlist
-                </p>
-                <p className="text-[#888] text-sm">Check your email for confirmation.</p>
-              </div>
-            ) : (
-              <div className="max-w-xl mx-auto">
-                <form onSubmit={handleWaitlistSubmit} className="flex gap-2">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="flex-1 px-6 py-4 bg-[#0A0A0A] border border-[#1A1A1A] text-white placeholder:text-[#555] focus:outline-none focus:border-white/30 transition-colors text-base"
-                    required
-                    disabled={waitlistStatus === "submitting"}
-                  />
-                  <button
-                    type="submit"
-                    disabled={waitlistStatus === "submitting"}
-                    className="px-8 py-4 bg-white text-black hover:bg-white/90 transition-all text-base font-semibold tracking-wide whitespace-nowrap flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {waitlistStatus === "submitting" ? "JOINING..." : "GET EARLY ACCESS"}
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </form>
-                <p className="text-xs text-[#555] mt-4">
-                  No credit card required • Cancel anytime
-                </p>
-              </div>
-            )}
-          </motion.div>
-        </div>
+      {/* ── CTA ── */}
+      <section className="px-4 md:px-8 py-20 text-center">
+        <h2 className="text-2xl font-semibold mb-3">Public track record coming soon.</h2>
+        <p className="text-[#888] text-sm mb-8 max-w-md mx-auto">
+          Every prediction logged before the outcome. Every result published. No cherry-picking.
+        </p>
+        <a
+          href="#markets"
+          className="inline-block bg-white text-black px-8 py-3.5 text-sm font-medium tracking-wider hover:bg-white/90 transition-colors"
+        >
+          EXPLORE MARKETS
+        </a>
+        <p className="text-[#333] text-xs mt-4">Not financial advice.</p>
       </section>
+
     </div>
   )
 }
