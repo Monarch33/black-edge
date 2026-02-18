@@ -1,6 +1,5 @@
 "use client"
 
-import { motion, AnimatePresence } from "framer-motion"
 import { useState, useEffect } from "react"
 import { ArrowUpRight } from "lucide-react"
 
@@ -202,20 +201,16 @@ export function SportsView() {
         ) : (
           <>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-              <AnimatePresence>
-                {visible.map((event, idx) => {
+                {visible.map((event) => {
                   const yesPct = Math.round(event.yesPrice * 100)
                   const noPct  = Math.round(event.noPrice  * 100)
                   const yesWidth = (yesPct + noPct) > 0 ? (yesPct / (yesPct + noPct)) * 100 : 50
                   return (
-                    <motion.a
+                    <a
                       key={event.id}
                       href={event.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(idx * 0.02, 0.5) }}
                       className="bg-[#0A0A0A] border border-white/10 hover:border-white/30 transition-all group overflow-hidden block"
                     >
                       {/* Image */}
@@ -275,10 +270,9 @@ export function SportsView() {
                           </div>
                         </div>
                       </div>
-                    </motion.a>
+                    </a>
                   )
                 })}
-              </AnimatePresence>
             </div>
 
             {hasMore && (
