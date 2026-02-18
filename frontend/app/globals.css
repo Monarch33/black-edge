@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
@@ -230,4 +231,35 @@
 /* CRT glow effect */
 .crt-glow {
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+/* ── AWWWARDS ANIMATIONS ── */
+
+/* Ticker auto-scroll */
+@keyframes scroll-x {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-scroll-x {
+  animation: scroll-x 50s linear infinite;
+}
+
+/* Scroll hint pulse */
+@keyframes scroll-hint {
+  0%, 100% { transform: translateY(0); opacity: 0.3; }
+  50% { transform: translateY(8px); opacity: 0.6; }
+}
+.animate-scroll-hint {
+  animation: scroll-hint 2.5s ease-in-out infinite;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Hide native cursor on desktop */
+@media (hover: hover) and (pointer: fine) {
+  body { cursor: none; }
+  a, button { cursor: none; }
 }
