@@ -2,6 +2,7 @@ import React from "react"
 import type { Metadata } from "next"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "sonner"
+import { Providers } from "@/components/providers"
 import "./globals.css"
 
 export const dynamic = 'force-dynamic'
@@ -166,8 +167,10 @@ export default function RootLayout({
         />
       </head>
       <body>
-        {children}
-        <Toaster theme="dark" toastOptions={{ style: { background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" } }} />
+        <Providers>
+          {children}
+          <Toaster theme="dark" toastOptions={{ style: { background: "#0A0A0A", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" } }} />
+        </Providers>
         <Analytics />
       </body>
     </html>

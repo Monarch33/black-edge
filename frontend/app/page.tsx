@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
+import { ConnectButton } from "@rainbow-me/rainbowkit"
 
 const MARKETS = [
   { name: "Federal Reserve Rate Cut — Q3 2025", cat: "economy", prob: 67, delta: 3.2, vol: "$4.2M", kelly: "+8.1%", badge: "live" },
@@ -361,9 +362,19 @@ export default function Home() {
               <div className="live-dot" />
               LIVE
             </div>
-            <button type="button" className="btn-connect">
-              CONNECT WALLET
-            </button>
+            <ConnectButton.Custom>
+              {({ openConnectModal, openAccountModal, account }) =>
+                account ? (
+                  <button type="button" className="btn-connect" onClick={openAccountModal}>
+                    {account.displayName}
+                  </button>
+                ) : (
+                  <button type="button" className="btn-connect" onClick={openConnectModal}>
+                    CONNECT WALLET
+                  </button>
+                )
+              }
+            </ConnectButton.Custom>
           </div>
         </nav>
 
