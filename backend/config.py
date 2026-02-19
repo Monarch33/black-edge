@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     # LLM — at least one must be set
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    gemini_api_key: str = ""  # Google Gemini 1.5 Flash (scanner)
+
+    # Stripe
+    stripe_webhook_secret: str = ""  # whsec_xxx — required for webhook signature
 
     # ── Optional (polymarket admin read-only, etc.) ───────────
     polymarket_api_url: str = "https://gamma-api.polymarket.com"

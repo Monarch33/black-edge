@@ -1190,6 +1190,14 @@ try:
 except Exception as e:
     logger.warning("⚠️ Engine router disabled", error=str(e))
 
+# Include Stripe Webhook router
+try:
+    from api.stripe_webhook import router as stripe_router
+    app.include_router(stripe_router)
+    logger.info("✅ Stripe webhook enabled (POST /api/stripe/webhook)")
+except Exception as e:
+    logger.warning("⚠️ Stripe webhook disabled", error=str(e))
+
 
 # Health check
 @app.get("/health")

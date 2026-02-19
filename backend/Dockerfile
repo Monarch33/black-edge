@@ -32,5 +32,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
     CMD python -c "import urllib.request, os; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\", \"8000\")}/health')" || exit 1
 
-# Railway injects PORT at runtime — use shell to expand it
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1
+# 4 Uvicorn workers — optimized for async workloads (1000 concurrent users)
+# Note: only 1 worker handles the Background scanner task; WebSocket state is process-local.
+# For multi-process WebSocket broadcast, use Redis pub/sub (Phase 2).
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --loop uvloop --http httptools
