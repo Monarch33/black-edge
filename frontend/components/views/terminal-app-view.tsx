@@ -3,14 +3,19 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { useAccount } from "wagmi"
 import { useBotPositions } from "@/hooks/use-bot-positions"
-import Link from "next/link"
+
+type View = "landing" | "markets" | "crypto5min" | "sports" | "pricing" | "terminal" | "portfolio" | "trackrecord" | "results"
+
+interface TerminalAppViewProps {
+  onNavigate: (view: View) => void
+}
 
 /**
  * Terminal App — Vue simplifiée
  * Get Access + Connect Wallet uniquement.
  * Quand wallet connecté : dashboard avec positions du bot.
  */
-export function TerminalAppView() {
+export function TerminalAppView({ onNavigate }: TerminalAppViewProps) {
   const { address, isConnected } = useAccount()
   const { positions, trackRecord, isLoading, error, refetch } = useBotPositions()
 
@@ -57,14 +62,14 @@ export function TerminalAppView() {
                 5 AI agents analyze every Polymarket position. They debate. They vote. One exists only to say no.
               </p>
               <div className="flex gap-4 justify-center flex-wrap">
-                <Link
-                  href="#pricing"
+                <button
+                  onClick={() => onNavigate("pricing")}
                   className="inline-flex items-center gap-2.5 px-8 py-3.5 border border-white/15 text-white text-[9px] tracking-[0.2em] rounded-sm hover:border-[#10b981] transition-all relative overflow-hidden group"
                 >
                   <span className="relative z-10">GET ACCESS</span>
                   <span className="relative z-10">→</span>
                   <span className="absolute inset-0 bg-[#10b981] scale-x-0 group-hover:scale-x-100 origin-left transition-transform duration-300" />
-                </Link>
+                </button>
                 <ConnectButton.Custom>
                   {({ openConnectModal, account }) =>
                     !account ? (

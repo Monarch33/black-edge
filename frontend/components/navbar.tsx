@@ -1,12 +1,14 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
 import { Zap, Menu, X, ChevronDown, Copy, ExternalLink, Power } from "lucide-react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { useAccount, useBalance, useDisconnect } from "wagmi"
 import { POLYGON_CHAIN_ID, USDC_ADDRESS } from "@/lib/constants"
 import { useWalletState } from "./providers"
+import { useBackendHealth } from "@/hooks/use-backend-health"
 import Image from "next/image"
 
 type View = "landing" | "markets" | "crypto5min" | "sports" | "pricing" | "terminal" | "portfolio" | "trackrecord" | "results"
@@ -28,12 +30,22 @@ function WalletButton() {
   const { addWallet, connectedWallets } = useWalletState()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const prevConnected = useRef(false)
 
   useEffect(() => {
     if (address && isConnected) {
       addWallet(address)
     }
   }, [address, isConnected, addWallet])
+
+  useEffect(() => {
+    if (isConnected && !prevConnected.current) {
+      toast.success("Wallet connecté", {
+        description: "Votre portefeuille est prêt pour Black Edge.",
+      })
+    }
+    prevConnected.current = isConnected
+  }, [isConnected])
 
   const copyAddress = () => {
     if (address) {
@@ -240,6 +252,24 @@ function WalletButton() {
   )
 }
 
+function BackendIndicator() {
+  const { isOnline } = useBackendHealth()
+  if (isOnline === null) return null
+  return (
+    <div
+      className="hidden md:flex items-center gap-2 px-3 py-1.5 border border-white/10 rounded-sm"
+      title={isOnline ? "System Online" : "Bot Offline — Reconnecting..."}
+    >
+      <span
+        className={`w-2 h-2 rounded-full ${isOnline ? "bg-[#10b981] animate-pulse" : "bg-red-500"}`}
+      />
+      <span className="text-[10px] tracking-wider text-white/50">
+        {isOnline ? "ONLINE" : "OFFLINE"}
+      </span>
+    </div>
+  )
+}
+
 export function Navbar({ currentView, onNavigate }: NavbarProps) {
   const [isHovering, setIsHovering] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -309,6 +339,7 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
             </div>
 
             <div className="flex items-center gap-3">
+              <BackendIndicator />
               <div className="hidden md:block">
                 <WalletButton />
               </div>

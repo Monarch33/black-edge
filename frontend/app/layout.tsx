@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter, JetBrains_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Providers } from "@/components/providers"
+import { Toaster } from "sonner"
 import "./globals.css"
 
 const inter = Inter({
@@ -180,6 +181,19 @@ export default function RootLayout({
         <Providers>
           {children}
         </Providers>
+        <Toaster
+          theme="dark"
+          toastOptions={{
+            style: {
+              background: "#0A0A0A",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "#fff",
+            },
+            classNames: {
+              success: "!border-[#10b981]",
+            },
+          }}
+        />
         <Analytics />
       </body>
     </html>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { Navbar } from "@/components/navbar"
 import { LandingView } from "@/components/views/landing-view"
@@ -13,10 +13,21 @@ import { Crypto5MinView } from "@/components/views/crypto-5min-view"
 import { TrackRecordView } from "@/components/views/track-record-view"
 import { Footer } from "@/components/footer"
 
-type View = 'landing' | 'markets' | 'crypto5min' | 'sports' | 'pricing' | 'terminal' | 'portfolio' | 'trackrecord' | 'results' | 'app'
+type View = 'landing' | 'markets' | 'crypto5min' | 'sports' | 'pricing' | 'terminal' | 'portfolio' | 'trackrecord' | 'results'
+
+const VALID_VIEWS: View[] = ['landing', 'markets', 'crypto5min', 'sports', 'pricing', 'terminal', 'portfolio', 'trackrecord', 'results']
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<View>('landing')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const view = params.get('view')
+    if (view && VALID_VIEWS.includes(view as View)) {
+      setCurrentView(view as View)
+    }
+  }, [])
 
   const handleNavigate = (view: View) => {
     if (view === currentView) return
@@ -40,7 +51,7 @@ export default function Home() {
           {currentView === 'landing' && <LandingView onNavigate={(v) => handleNavigate(v as View)} />}
           {currentView === 'markets' && <MarketsView />}
           {currentView === 'pricing' && <PricingView />}
-          {currentView === 'terminal' && <TerminalAppView />}
+          {currentView === 'terminal' && <TerminalAppView onNavigate={handleNavigate} />}
           {currentView === 'portfolio' && <PortfolioView />}
           {currentView === 'sports' && <SportsView />}
           {currentView === 'crypto5min' && <Crypto5MinView />}
