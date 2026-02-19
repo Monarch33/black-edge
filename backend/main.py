@@ -83,6 +83,11 @@ class AppState:
         # Crypto 5-min scanner (initialized in startup)
         self.crypto_5min_scanner = None
 
+        # Engine dashboard (credentials + toggle)
+        self.engine_credentials: dict[str, str] = {}
+        self.engine_active = False
+        self.engine_pnl = 0.0
+
     async def startup(self) -> None:
         """Initialize application state on startup."""
         logger.info("Initializing application state...")
@@ -1156,6 +1161,42 @@ async def health_check() -> dict:
         "timestamp": datetime.utcnow().isoformat(),
         "websocket_connections": ws_manager.connection_count,
         "tier_distribution": ws_manager.get_tier_counts(),
+    }
+
+
+# Engine dashboard API
+class EngineKeysBody(BaseModel):
+    proxy_key: Optional[str] = None
+    secret: Optional[str] = None
+
+
+class EngineToggleBody(BaseModel):
+    active: bool = True
+
+
+@app.post("/api/engine/keys")
+async def engine_save_keys(body: EngineKeysBody) -> dict:
+    """Save API credentials for the autonomous agent."""
+    if body.proxy_key is not None:
+        state.engine_credentials["proxy_key"] = body.proxy_key
+    if body.secret is not None:
+        state.engine_credentials["secret"] = body.secret
+    return {"ok": True}
+
+
+@app.post("/api/engine/toggle")
+async def engine_toggle(body: EngineToggleBody) -> dict:
+    """Toggle the autonomous agent on/off."""
+    state.engine_active = body.active
+    return {"active": state.engine_active}
+
+
+@app.get("/api/engine/status")
+async def engine_status() -> dict:
+    """Get engine status and live PnL."""
+    return {
+        "active": state.engine_active,
+        "pnl": state.engine_pnl,
     }
 
 

@@ -1,10 +1,5 @@
-import { TrackRecordView } from "@/components/views/track-record-view"
+import { redirect } from "next/navigation"
 
 export default function ResultsPage() {
-  return <TrackRecordView />
-}
-
-export const metadata = {
-  title: "Results — Black Edge",
-  description: "Public track record. Every prediction logged. No cherry-picking.",
+  redirect("/#trackrecord")
 }

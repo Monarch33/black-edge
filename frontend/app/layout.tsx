@@ -1,20 +1,7 @@
 import React from "react"
 import type { Metadata } from "next"
-import { Inter, JetBrains_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
-import { Providers } from "@/components/providers"
-import { Toaster } from "sonner"
 import "./globals.css"
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-})
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-})
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +11,7 @@ export const metadata: Metadata = {
 
   // Basic Metadata
   title: {
-    default: "Black Edge | AI-Powered Prediction Market Intelligence",
+    default: "BLACK EDGE — Asymmetric Intelligence Terminal",
     template: "%s | Black Edge"
   },
   description: "Professional-grade AI intelligence for Polymarket. Multi-agent analysis, real-time orderbook data, whale tracking, and transparent track record. Join 500+ traders.",
@@ -177,23 +164,8 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
-        <Providers>
-          {children}
-        </Providers>
-        <Toaster
-          theme="dark"
-          toastOptions={{
-            style: {
-              background: "#0A0A0A",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "#fff",
-            },
-            classNames: {
-              success: "!border-[#10b981]",
-            },
-          }}
-        />
+      <body>
+        {children}
         <Analytics />
       </body>
     </html>
