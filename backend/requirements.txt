@@ -1,34 +1,69 @@
+# ── Server ──────────────────────────────────────────────────────────────────
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
-orjson==3.9.12
-ujson==5.9.0
 httptools==0.6.1
+
+# ── Database (async) ─────────────────────────────────────────────────────────
+sqlalchemy>=2.0.0
+asyncpg>=0.29.0          # Async PostgreSQL driver
+aiosqlite>=0.20.0        # Async SQLite (dev fallback)
+
+# ── Crypto / Security ────────────────────────────────────────────────────────
+cryptography>=42.0.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# ── Validation ───────────────────────────────────────────────────────────────
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# ── HTTP / WebSockets ────────────────────────────────────────────────────────
+httpx>=0.27.0
+websockets==12.0
+aiohttp==3.9.3
+
+# ── Cache / Queue ────────────────────────────────────────────────────────────
+redis==5.0.1
+aiocache==0.12.2
+
+# ── Payments ─────────────────────────────────────────────────────────────────
+stripe==7.12.0
+
+# ── Polymarket ───────────────────────────────────────────────────────────────
+py-clob-client==0.34.5
 web3>=7.0.0
 eth-account>=0.13.0
 eth-abi>=5.0.0
+
+# ── Quant ────────────────────────────────────────────────────────────────────
 numpy==1.26.3
 pandas==2.2.3
 scipy==1.12.0
-aiohttp==3.9.3
-httpx>=0.27.0
-aiocache==0.12.2
-redis==5.0.1
-slowapi==0.1.9
-python-dotenv==1.0.1
-sqlalchemy>=2.0.0
-cryptography>=42.0.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
-websockets==12.0
-prometheus-fastapi-instrumentator==6.1.0
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-stripe==7.12.0
-structlog==24.1.0
-firebase-admin==6.4.0
 cvxpy==1.4.0
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+structlog==24.1.0
+
+# ── Serialization ────────────────────────────────────────────────────────────
+orjson==3.9.12
+ujson==5.9.0
+
+# ── Config ───────────────────────────────────────────────────────────────────
+python-dotenv==1.0.1
+
+# ── Rate limiting ────────────────────────────────────────────────────────────
+slowapi==0.1.9
+
+# ── Firebase (optional auth) ─────────────────────────────────────────────────
+firebase-admin==6.4.0
+
+# ── News ─────────────────────────────────────────────────────────────────────
 feedparser==6.0.11
-py-clob-client==0.34.5
+
+# ── Metrics ──────────────────────────────────────────────────────────────────
+prometheus-fastapi-instrumentator==6.1.0
+
+# ── Dev ──────────────────────────────────────────────────────────────────────
 pytest==7.4.4
 pytest-asyncio==0.23.3
 black==24.1.1
