@@ -143,10 +143,7 @@ class Settings(BaseSettings):
 
         return self
 
-    @property
-    def llm_api_key(self) -> str:
-        """Backward compat — returns Anthropic or OpenAI key."""
-        return self.anthropic_api_key or self.openai_api_key
+    # llm_api_key field defined above — use get_resolved_llm_key() for resolution
 
 
 def _load_env() -> None:
