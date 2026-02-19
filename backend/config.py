@@ -1,31 +1,60 @@
 """
-Black Edge Configuration
-========================
-Central configuration for the arbitrage engine.
+Black Edge Configuration — The Invisible Engine
+===========================================
+All config loaded from .env.local at backend root.
+Application CRASHES at startup if any required key is missing.
 """
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from __future__ import annotations
+
 from functools import lru_cache
+from pathlib import Path
+
+from dotenv import load_dotenv
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _get_env_path() -> Path:
+    """Resolve .env.local path: backend root first, then project root."""
+    backend_root = Path(__file__).resolve().parent
+    candidates = [
+        backend_root / ".env.local",
+        backend_root.parent / ".env.local",
+        Path.cwd() / ".env.local",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return backend_root / ".env.local"  # fallback for error message
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """Application settings — REQUIRED keys must be set or app crashes."""
 
     # Server / Environment
     port: int = 8000
     environment: str = "development"
-
-    # API Configuration
-    app_name: str = "Black Edge"
-    debug: bool = False
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+    debug: bool = False
+    app_name: str = "Black Edge"
 
-    # External API Keys
-    llm_api_key: str = ""
+    # ── REQUIRED KEYS (crash if missing) ─────────────────────
+    database_url: str = ""
     stripe_secret_key: str = ""
+    fernet_key: str = ""  # For encrypting UserCredentials (polymarket keys)
 
-    # Polygon RPC Configuration
+    # LLM — at least one must be set
+    anthropic_api_key: str = ""
+    openai_api_key: str = ""
+
+    # ── Optional (polymarket admin read-only, etc.) ───────────
+    polymarket_api_url: str = "https://gamma-api.polymarket.com"
+    polymarket_clob_url: str = "https://clob.polymarket.com"
+    polymarket_admin_key: str = ""  # For global orderbook read if needed
+
+    # Polygon RPC
     polygon_rpc_url: str = "https://polygon-rpc.com"
     polygon_ws_url: str = "wss://polygon-bor-rpc.publicnode.com"
 
@@ -36,36 +65,105 @@ class Settings(BaseSettings):
     conditional_token_address: str = "0x4D97DCd97eC945f40cF65F87097ACe5EA0476045"
     usdc_address: str = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"
 
-    # Redis Configuration
+    # Redis
     redis_url: str = "redis://localhost:6379"
 
-    # Firebase Configuration
+    # Firebase
     firebase_credentials_path: str = ""
 
     # Arbitrage Parameters
-    min_profit_threshold: float = 0.05  # Minimum $0.05 profit to consider
-    max_position_probability: float = 0.95  # Ignore positions with >95% probability
-    vwap_block_window: int = 1  # Blocks for VWAP calculation
-    price_carry_forward_blocks: int = 5000  # ~2.5 hours on Polygon
-    risk_analysis_window: int = 950  # ~1 hour for slippage estimation
+    min_profit_threshold: float = 0.05
+    max_position_probability: float = 0.95
+    vwap_block_window: int = 1
+    price_carry_forward_blocks: int = 5000
+    risk_analysis_window: int = 950
 
-    # LLM Configuration (for Dependency Agent)
-    llm_model: str = "deepseek-r1-distill-qwen-32b"
-    dependency_update_interval: int = 3600  # Update dependencies every hour
+    # LLM
+    llm_model: str = "claude-sonnet-4-20250514"
+    llm_api_key: str = ""  # Legacy alias for anthropic
+    dependency_update_interval: int = 3600
 
-    # Tier Configuration
+    # Tier
     tier_observer: str = "observer"
     tier_runner: str = "runner"
     tier_whale: str = "whale"
 
+    # Security
+    jwt_secret_key: str = ""
+    cors_origins: str = "http://localhost:3000,https://blackedge.io"
+
+    # Email
+    resend_api_key: str = ""
+
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=[
+            str(Path(__file__).resolve().parent / ".env.local"),
+            str(_get_env_path()),
+            ".env.local",
+            ".env",
+        ],
         env_file_encoding="utf-8",
         extra="ignore",
+        env_nested_delimiter="__",
     )
+
+    @model_validator(mode="after")
+    def validate_required_keys(self) -> "Settings":
+        """Crash at startup if any required key is missing."""
+        env_path = _get_env_path()
+        missing: list[str] = []
+
+        if not self.database_url.strip():
+            missing.append("DATABASE_URL")
+
+        if not self.stripe_secret_key.strip():
+            missing.append("STRIPE_SECRET_KEY")
+
+        if not self.fernet_key.strip():
+            missing.append("FERNET_KEY")
+
+        # At least one LLM key
+        if not self.anthropic_api_key.strip() and not self.openai_api_key.strip():
+            if self.llm_api_key.strip():
+                self.anthropic_api_key = self.llm_api_key  # Backward compat
+            else:
+                missing.append("ANTHROPIC_API_KEY or OPENAI_API_KEY")
+
+        if missing:
+            msg = (
+                f"\n{'='*60}\n"
+                f"BLACK EDGE CRASH: Missing required config in .env.local\n"
+                f"{'='*60}\n"
+                f"Missing keys: {', '.join(missing)}\n"
+                f"Expected file: {env_path}\n"
+                f"Create .env.local from .env.local.example and fill all values.\n"
+                f"{'='*60}\n"
+            )
+            raise ValueError(msg)
+
+        return self
+
+    @property
+    def llm_api_key(self) -> str:
+        """Backward compat — returns Anthropic or OpenAI key."""
+        return self.anthropic_api_key or self.openai_api_key
+
+
+def _load_env() -> None:
+    """Load .env.local into os.environ before any other code reads env."""
+    for p in [
+        Path(__file__).resolve().parent / ".env.local",
+        _get_env_path(),
+        Path.cwd() / ".env.local",
+        Path.cwd() / ".env",
+    ]:
+        if p.exists():
+            load_dotenv(p, override=False)
+            break
 
 
 @lru_cache()
 def get_settings() -> Settings:
-    """Get cached settings instance."""
+    """Get cached settings. Validates required keys on first load."""
+    _load_env()
     return Settings()
