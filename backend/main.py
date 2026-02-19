@@ -1095,8 +1095,24 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     await state.startup()
+
+    # Start The Invisible Engine — Global Scanner (Master)
+    try:
+        from orchestrator import start_scanner, stop_scanner
+        start_scanner()
+        logger.info("✅ Global Scanner (orchestrator) started")
+    except Exception as e:
+        logger.warning("⚠️ Orchestrator not started", error=str(e))
+
     yield
-    # Shutdown
+
+    # Shutdown — stop Global Scanner first
+    try:
+        from orchestrator import stop_scanner
+        await stop_scanner()
+    except Exception as e:
+        logger.warning("Orchestrator shutdown error", error=str(e))
+
     await state.shutdown()
 
 
@@ -1145,6 +1161,22 @@ try:
     logger.info("✅ V2 API router enabled")
 except Exception as e:
     logger.warning("⚠️ V2 API router disabled", error=str(e))
+
+# Include Auth router (license verification for CLI)
+try:
+    from api.auth import router as auth_router
+    app.include_router(auth_router)
+    logger.info("✅ Auth router enabled (POST /api/auth/verify)")
+except Exception as e:
+    logger.warning("⚠️ Auth router disabled", error=str(e))
+
+# Include Engine router (The Invisible Engine — keys, toggle, status)
+try:
+    from api.engine_router import router as engine_router
+    app.include_router(engine_router)
+    logger.info("✅ Engine router enabled (POST /api/engine/keys, /toggle, GET /status)")
+except Exception as e:
+    logger.warning("⚠️ Engine router disabled", error=str(e))
 
 
 # Health check
