@@ -1,22 +1,24 @@
 """
 Engine API — The Invisible Engine
 =================================
-Endpoints for the Frontend Dashboard.
-POST /keys, POST /toggle, GET /status
+POST /setup, /activate, /toggle, /keys
+GET  /status, /trades
+WS   /logs/{user_id}
 """
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 
+import httpx
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
-import structlog
-
 from api.websocket_manager import engine_logs_manager
 from db.credentials import get_polymarket_credentials_decrypted, save_polymarket_credentials
-from db.models import BotInstance, BotStatus, TradeLog, User, UserTier, init_db
+from db.models import BotInstance, BotStatus, TradeLog, User, UserCredentials, UserTier, init_db
 from db.session import get_session
 
 logger = structlog.get_logger()
@@ -55,38 +57,141 @@ def ensure_user_and_bot(user_id: int) -> None:
 # -----------------------------------------------------------------------------
 
 
-class KeysRequest(BaseModel):
-    """Request body for storing Polymarket keys."""
+class SetupRequest(BaseModel):
+    """Onboarding: user submits Polymarket API credentials."""
 
-    proxy_key: str = Field(..., min_length=1, description="Polymarket proxy key")
-    secret: str = Field(..., min_length=1, description="Polymarket secret")
+    polymarket_api_key: str = Field(..., min_length=1, description="Polymarket API / proxy key")
+    polymarket_proxy_secret: str = Field(..., min_length=1, description="Polymarket proxy secret")
+    polymarket_passphrase: str = Field("", description="Polymarket passphrase (optional)")
+
+
+class SetupResponse(BaseModel):
+    status: str
+    message: str
+    keys_valid: bool = False
+
+
+class ActivateResponse(BaseModel):
+    status: str
+    message: str
+
+
+class KeysRequest(BaseModel):
+    proxy_key: str = Field(..., min_length=1)
+    secret: str = Field(..., min_length=1)
 
 
 class KeysResponse(BaseModel):
-    """Response after storing keys."""
-
     status: str = "success"
     message: str = "Polymarket keys stored securely"
 
 
 class ToggleResponse(BaseModel):
-    """Response after toggling bot."""
-
     status: str = Field(..., description="RUNNING or STOPPED")
     message: str
 
 
 class StatusResponse(BaseModel):
-    """Dashboard status for Frontend."""
-
     status: str = Field(..., description="RUNNING or STOPPED")
-    current_pnl: float = Field(0.0, description="Current P&L")
-    total_trades_count: int = Field(0, description="Total trades executed")
-    last_log: str = Field("", description="Last status message (e.g. Scanning Polymarket...)")
+    current_pnl: float = Field(0.0)
+    total_trades_count: int = Field(0)
+    last_log: str = Field("")
 
 
 # -----------------------------------------------------------------------------
-# Endpoints
+# POST /setup — Onboarding: validate + encrypt Polymarket keys
+# -----------------------------------------------------------------------------
+
+
+async def _ping_polymarket_keys(api_key: str, secret: str) -> bool:
+    """Validate Polymarket credentials by calling a lightweight CLOB endpoint."""
+    clob_url = os.environ.get("POLYMARKET_CLOB_URL", "https://clob.polymarket.com")
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(
+                f"{clob_url}/time",
+                headers={
+                    "POLY_API_KEY": api_key,
+                    "POLY_SECRET": secret,
+                },
+            )
+            return resp.status_code == 200
+    except Exception as e:
+        logger.warning("Polymarket ping failed", error=str(e))
+        return False
+
+
+@router.post("/setup", response_model=SetupResponse)
+async def setup_polymarket_keys(
+    request: SetupRequest,
+    user_id: int = Depends(get_current_user_id),
+) -> SetupResponse:
+    """
+    Onboarding endpoint (post-payment).
+    1. Ping Polymarket CLOB to validate keys.
+    2. Encrypt with Fernet and store in UserCredentials.
+    """
+    ensure_user_and_bot(user_id)
+    init_db()
+
+    keys_valid = await _ping_polymarket_keys(request.polymarket_api_key, request.polymarket_proxy_secret)
+
+    with get_session() as session:
+        save_polymarket_credentials(
+            session=session,
+            user_id=user_id,
+            polymarket_proxy_key=request.polymarket_api_key,
+            polymarket_secret=request.polymarket_proxy_secret,
+            polymarket_passphrase=request.polymarket_passphrase,
+        )
+
+    if keys_valid:
+        logger.info("Setup complete — keys validated", user_id=user_id)
+        return SetupResponse(status="success", message="Keys validated and stored securely", keys_valid=True)
+
+    logger.warning("Setup complete — keys stored but ping failed", user_id=user_id)
+    return SetupResponse(
+        status="warning",
+        message="Keys stored but could not be validated against Polymarket. They may still work.",
+        keys_valid=False,
+    )
+
+
+# -----------------------------------------------------------------------------
+# POST /activate — Start the bot for this user
+# -----------------------------------------------------------------------------
+
+
+@router.post("/activate", response_model=ActivateResponse)
+def activate_bot(
+    user_id: int = Depends(get_current_user_id),
+) -> ActivateResponse:
+    """
+    Activate the bot: set status to RUNNING.
+    Requires credentials to be set first (/setup).
+    """
+    ensure_user_and_bot(user_id)
+    init_db()
+
+    with get_session() as session:
+        creds = session.query(UserCredentials).filter(UserCredentials.user_id == user_id).first()
+        if not creds:
+            raise HTTPException(status_code=400, detail="No Polymarket credentials. Call /setup first.")
+
+        bot = session.query(BotInstance).filter(BotInstance.user_id == user_id).first()
+        if not bot:
+            raise HTTPException(status_code=404, detail="BotInstance not found")
+
+        bot.status = BotStatus.RUNNING
+        bot.last_heartbeat = datetime.now(timezone.utc)
+        bot.last_log = "Bot activated — entering scanner queue..."
+
+    logger.info("Bot activated", user_id=user_id)
+    return ActivateResponse(status="RUNNING", message="Bot activated successfully")
+
+
+# -----------------------------------------------------------------------------
+# Legacy /keys endpoint (kept for backward compat)
 # -----------------------------------------------------------------------------
 
 
@@ -95,9 +200,7 @@ def store_polymarket_keys(
     request: KeysRequest,
     user_id: int = Depends(get_current_user_id),
 ) -> KeysResponse:
-    """
-    Store Polymarket API keys (encrypted via Fernet).
-    """
+    """Store Polymarket API keys (encrypted via Fernet)."""
     ensure_user_and_bot(user_id)
     init_db()
 
@@ -113,13 +216,16 @@ def store_polymarket_keys(
     return KeysResponse(status="success", message="Polymarket keys stored securely")
 
 
+# -----------------------------------------------------------------------------
+# POST /toggle
+# -----------------------------------------------------------------------------
+
+
 @router.post("/toggle", response_model=ToggleResponse)
 def toggle_bot(
     user_id: int = Depends(get_current_user_id),
 ) -> ToggleResponse:
-    """
-    Toggle bot status: IDLE <-> RUNNING.
-    """
+    """Toggle bot status: IDLE <-> RUNNING."""
     ensure_user_and_bot(user_id)
     init_db()
 
@@ -144,28 +250,25 @@ def toggle_bot(
     return ToggleResponse(status=status_str, message=message)
 
 
+# -----------------------------------------------------------------------------
+# GET /status
+# -----------------------------------------------------------------------------
+
+
 @router.get("/status", response_model=StatusResponse)
 def get_engine_status(
     user_id: int = Depends(get_current_user_id),
 ) -> StatusResponse:
-    """
-    Dashboard status: status, current_pnl, total_trades_count, last_log.
-    """
+    """Dashboard status: status, current_pnl, total_trades_count, last_log."""
     ensure_user_and_bot(user_id)
     init_db()
 
     with get_session() as session:
         bot = session.query(BotInstance).filter(BotInstance.user_id == user_id).first()
         if not bot:
-            return StatusResponse(
-                status="STOPPED",
-                current_pnl=0.0,
-                total_trades_count=0,
-                last_log="",
-            )
+            return StatusResponse(status="STOPPED", current_pnl=0.0, total_trades_count=0, last_log="")
 
         total_trades = session.query(TradeLog).filter(TradeLog.user_id == user_id).count()
-
         status_str = "RUNNING" if bot.status == BotStatus.RUNNING else "STOPPED"
 
         return StatusResponse(
@@ -176,14 +279,17 @@ def get_engine_status(
         )
 
 
+# -----------------------------------------------------------------------------
+# GET /trades
+# -----------------------------------------------------------------------------
+
+
 @router.get("/trades")
 def get_engine_trades(
     user_id: int = Depends(get_current_user_id),
     limit: int = Query(50, ge=1, le=200),
 ) -> dict:
-    """
-    List trades executed by the bot for the dashboard.
-    """
+    """List trades executed by the bot for the dashboard."""
     ensure_user_and_bot(user_id)
     init_db()
 
@@ -217,6 +323,11 @@ def get_engine_trades(
         }
 
 
+# -----------------------------------------------------------------------------
+# WebSocket /logs/{user_id}
+# -----------------------------------------------------------------------------
+
+
 @router.websocket("/logs/{user_id}")
 async def engine_logs_websocket(websocket: WebSocket, user_id: int) -> None:
     """
@@ -227,7 +338,6 @@ async def engine_logs_websocket(websocket: WebSocket, user_id: int) -> None:
     await engine_logs_manager.connect(websocket, user_id)
     try:
         while True:
-            # Keep connection alive, optional: receive pings
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text('{"type": "pong"}')

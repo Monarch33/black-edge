@@ -19,32 +19,28 @@ def save_polymarket_credentials(
     user_id: int,
     polymarket_proxy_key: str,
     polymarket_secret: str,
+    polymarket_passphrase: str = "",
 ) -> UserCredentials:
     """
     Store Polymarket keys — encrypts before DB insert.
-
-    Args:
-        session: SQLAlchemy session
-        user_id: User ID
-        polymarket_proxy_key: Raw proxy key (will be encrypted)
-        polymarket_secret: Raw secret (will be encrypted)
-
-    Returns:
-        Created or updated UserCredentials row
+    All three fields encrypted with Fernet before storage.
     """
     enc_proxy = encrypt_credential(polymarket_proxy_key)
     enc_secret = encrypt_credential(polymarket_secret)
+    enc_passphrase = encrypt_credential(polymarket_passphrase) if polymarket_passphrase else ""
 
     existing = session.query(UserCredentials).filter(UserCredentials.user_id == user_id).first()
     if existing:
         existing.polymarket_proxy_key = enc_proxy
         existing.polymarket_secret = enc_secret
+        existing.polymarket_passphrase = enc_passphrase
         return existing
 
     cred = UserCredentials(
         user_id=user_id,
         polymarket_proxy_key=enc_proxy,
         polymarket_secret=enc_secret,
+        polymarket_passphrase=enc_passphrase,
     )
     session.add(cred)
     return cred
@@ -53,16 +49,17 @@ def save_polymarket_credentials(
 def get_polymarket_credentials_decrypted(
     session: Session,
     user_id: int,
-) -> Optional[tuple[str, str]]:
+) -> Optional[tuple[str, str, str]]:
     """
     Retrieve Polymarket keys decrypted.
 
     Returns:
-        (proxy_key, secret) or None if not found
+        (proxy_key, secret, passphrase) or None if not found
     """
     row = session.query(UserCredentials).filter(UserCredentials.user_id == user_id).first()
     if not row:
         return None
     proxy = decrypt_credential(row.polymarket_proxy_key)
     secret = decrypt_credential(row.polymarket_secret)
-    return (proxy, secret)
+    passphrase = decrypt_credential(row.polymarket_passphrase) if row.polymarket_passphrase else ""
+    return (proxy, secret, passphrase)
