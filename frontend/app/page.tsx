@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useRef } from "react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
-import { useDisconnect } from "wagmi"
+import { useAccount, useDisconnect } from "wagmi"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import Link from "next/link"
 import { AccessModal } from "@/components/access-modal"
 
 const MARKETS = [
@@ -40,22 +42,37 @@ const WC = [
 
 export default function Home() {
   const router = useRouter()
+  const { address, isConnected, isConnecting } = useAccount()
   const { disconnect } = useDisconnect()
   const [accessModalOpen, setAccessModalOpen] = useState(false)
-  const [accessModalTier, setAccessModalTier] = useState<"pro" | "whale">("pro")
-  const [walletMenuOpen, setWalletMenuOpen] = useState(false)
-  const walletMenuRef = useRef<HTMLDivElement>(null)
+  const [accessModalTier, setAccessModalTier] = useState<"runner" | "whale">("runner")
+  const [accessTerminalLoading, setAccessTerminalLoading] = useState(false)
+  const [pageFadeOut, setPageFadeOut] = useState(false)
 
-  // Fermer le menu wallet en cliquant ailleurs
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (walletMenuRef.current && !walletMenuRef.current.contains(e.target as Node)) {
-        setWalletMenuOpen(false)
+  const handleOpenAccessTerminal = async () => {
+    if (!address) return
+    setAccessTerminalLoading(true)
+    try {
+      const res = await fetch(`/api/user/status?address=${encodeURIComponent(address)}`)
+      const { tier } = await res.json()
+      if (tier === "free") {
+        document.getElementById("pricing")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        })
+        toast.info("Licence required for Terminal Access.")
+      } else if (tier === "runner" || tier === "whale") {
+        setPageFadeOut(true)
+        setTimeout(() => router.push("/dashboard"), 400)
+        return
       }
+    } catch {
+      document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth", block: "start" })
+      toast.info("Licence required for Terminal Access.")
+    } finally {
+      setAccessTerminalLoading(false)
     }
-    document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
-  }, [])
+  }
 
   useEffect(() => {
     let activeFilter = "all"
@@ -367,7 +384,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div id="app">
+      <div id="app" style={{ opacity: pageFadeOut ? 0 : 1, transition: "opacity 0.4s cubic-bezier(0.23,1,0.32,1)" }}>
         <nav>
           <div className="nav-logo">
             BLACK<em>EDGE</em>
@@ -393,67 +410,25 @@ export default function Home() {
             </button>
             <ConnectButton.Custom>
               {({ openConnectModal, account }) =>
-                account ? (
-                  <div ref={walletMenuRef} style={{ position: "relative" }}>
-                    <button
-                      type="button"
-                      className="btn-connect"
-                      onClick={() => setWalletMenuOpen((v) => !v)}
-                      style={{ display: "flex", alignItems: "center", gap: 6 }}
-                    >
-                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--em)", display: "inline-block", flexShrink: 0 }} />
-                      {account.displayName}
-                      <span style={{ fontSize: 8, opacity: 0.5 }}>▾</span>
-                    </button>
-                    {walletMenuOpen && (
-                      <div style={{
-                        position: "absolute", top: "calc(100% + 8px)", right: 0,
-                        background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.1)",
-                        minWidth: 200, zIndex: 200,
-                      }}>
-                        <button
-                          type="button"
-                          onClick={() => { setWalletMenuOpen(false); router.push("/dashboard") }}
-                          style={{
-                            display: "block", width: "100%", padding: "12px 16px",
-                            textAlign: "left", fontFamily: "var(--t-mono)", fontSize: 10,
-                            letterSpacing: "0.2em", color: "var(--em)",
-                            background: "none", border: "none", cursor: "pointer",
-                            borderBottom: "1px solid rgba(255,255,255,0.06)",
-                          }}
-                        >
-                          ▶ OPEN TERMINAL
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setWalletMenuOpen(false); setAccessModalTier("pro"); setAccessModalOpen(true) }}
-                          style={{
-                            display: "block", width: "100%", padding: "12px 16px",
-                            textAlign: "left", fontFamily: "var(--t-mono)", fontSize: 10,
-                            letterSpacing: "0.2em", color: "rgba(255,255,255,0.6)",
-                            background: "none", border: "none", cursor: "pointer",
-                            borderBottom: "1px solid rgba(255,255,255,0.06)",
-                          }}
-                        >
-                          ⚡ SUBSCRIBE
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setWalletMenuOpen(false); disconnect() }}
-                          style={{
-                            display: "block", width: "100%", padding: "12px 16px",
-                            textAlign: "left", fontFamily: "var(--t-mono)", fontSize: 10,
-                            letterSpacing: "0.2em", color: "rgba(255,255,255,0.35)",
-                            background: "none", border: "none", cursor: "pointer",
-                          }}
-                        >
-                          DISCONNECT
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                isConnecting ? (
+                  <button type="button" className="btn-connect btn-connect-pulse" disabled>
+                    <span className="btn-pulse-dot" />
+                    CONNECTING...
+                  </button>
+                ) : account ? (
+                  <button
+                    type="button"
+                    className="btn-cta"
+                    onClick={handleOpenAccessTerminal}
+                    disabled={accessTerminalLoading}
+                  >
+                    {accessTerminalLoading ? (
+                      <span className="btn-pulse-dot" style={{ marginRight: 8 }} />
+                    ) : null}
+                    {accessTerminalLoading ? "CHECKING..." : "OPEN ACCESS TERMINAL"}
+                  </button>
                 ) : (
-                  <button type="button" className="btn-connect" onClick={openConnectModal}>
+                  <button type="button" className="btn-connect btn-connect-glass" onClick={openConnectModal}>
                     CONNECT WALLET
                   </button>
                 )
@@ -941,31 +916,32 @@ export default function Home() {
               </div>
               <div className="pcard featured reveal" style={{ transitionDelay: ".15s" }}>
                 <div className="pcard-badge">MOST POPULAR</div>
-                <div className="pcard-tier">PRO</div>
+                <div className="pcard-tier">RUNNER</div>
                 <div className="pcard-price">
-                  <sup>$</sup>49
+                  <sup>$</sup>29
                 </div>
                 <div className="pcard-per">/ MONTH</div>
+                <p className="pcard-subtext">Limited slots available at this rate</p>
                 <div className="pcard-features">
-                  <div className="pfeature">All live market signals</div>
+                  <div className="pfeature">Real-time market data</div>
                   <div className="pfeature">Full Council vote breakdown</div>
                   <div className="pfeature">Kelly criterion position sizing</div>
                   <div className="pfeature">Real-time terminal + bot</div>
                   <div className="pfeature">Polymarket API integration</div>
                   <div className="pfeature no">Full API access</div>
                 </div>
-                <button type="button" className="btn-tier em-btn" onClick={() => { setAccessModalTier("pro"); setAccessModalOpen(true); }}>
-                  GET ACCESS — $49
+                <button type="button" className="btn-tier em-btn" onClick={() => { setAccessModalTier("runner"); setAccessModalOpen(true); }}>
+                  GET STARTED — $29
                 </button>
               </div>
-              <div className="pcard reveal" style={{ transitionDelay: ".2s" }}>
+              <div className="pcard pcard-edge reveal" style={{ transitionDelay: ".2s" }}>
                 <div className="pcard-tier">THE EDGE</div>
                 <div className="pcard-price">
-                  <sup>$</sup>199
+                  <sup>$</sup>999
                 </div>
                 <div className="pcard-per">/ MONTH</div>
                 <div className="pcard-features">
-                  <div className="pfeature">Everything in Pro</div>
+                  <div className="pfeature">Everything in Runner</div>
                   <div className="pfeature">Full REST + WebSocket API</div>
                   <div className="pfeature">Webhook alerts</div>
                   <div className="pfeature">Priority signal delivery</div>
@@ -973,7 +949,7 @@ export default function Home() {
                   <div className="pfeature">Dedicated support</div>
                 </div>
                 <button type="button" className="btn-tier" onClick={() => { setAccessModalTier("whale"); setAccessModalOpen(true); }}>
-                  GET ACCESS — $199
+                  GET ACCESS — $999
                 </button>
               </div>
             </div>
@@ -1000,55 +976,27 @@ export default function Home() {
             <div>
               <div className="footer-col-title">NAVIGATION</div>
               <div className="footer-links">
-                <a href="#" className="footer-link">
-                  Home
-                </a>
-                <a href="#markets" className="footer-link">
-                  Markets
-                </a>
-                <a href="#council" className="footer-link">
-                  The Council
-                </a>
-                <a href="#trackrecord" className="footer-link">
-                  Track Record
-                </a>
-                <a href="#pricing" className="footer-link">
-                  Pricing
-                </a>
-              </div>
-            </div>
-            <div>
-              <div className="footer-col-title">RESOURCES</div>
-              <div className="footer-links">
-                <a href="#" className="footer-link">
-                  Documentation
-                </a>
-                <a href="#" className="footer-link">
-                  API Reference
-                </a>
-                <a href="#" className="footer-link">
-                  System Status
-                </a>
-                <a href="#" className="footer-link">
-                  Changelog
-                </a>
+                <Link href="/" className="footer-link">Home</Link>
+                <a href="/#markets" className="footer-link">Markets</a>
+                <a href="/#council" className="footer-link">The Council</a>
+                <a href="/#trackrecord" className="footer-link">Track Record</a>
+                <a href="/#pricing" className="footer-link">Pricing</a>
               </div>
             </div>
             <div>
               <div className="footer-col-title">LEGAL</div>
               <div className="footer-links">
-                <a href="/terms" className="footer-link">
-                  Terms of Service
-                </a>
-                <a href="/privacy" className="footer-link">
-                  Privacy Policy
-                </a>
-                <a href="/risk-disclosure" className="footer-link">
-                  Risk Disclosure
-                </a>
-                <a href="#" className="footer-link">
-                  Cookie Policy
-                </a>
+                <Link href="/terms" className="footer-link">Terms of Service</Link>
+                <Link href="/privacy" className="footer-link">Privacy Policy</Link>
+                <Link href="/risk-disclosure" className="footer-link">Risk Disclosure</Link>
+                <Link href="/technical-paper" className="footer-link">Technical Paper</Link>
+              </div>
+            </div>
+            <div>
+              <div className="footer-col-title">RESOURCES</div>
+              <div className="footer-links">
+                <a href="/#markets" className="footer-link">Documentation</a>
+                <a href="/status" className="footer-link">System Status</a>
               </div>
             </div>
           </div>

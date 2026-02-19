@@ -20,7 +20,9 @@
   --t-mono:   'JetBrains Mono', monospace;
 }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+.legal-page h1, .legal-page h2 { font-family: var(--t-mono); }
+.legal-page p, .legal-page li { font-family: system-ui, -apple-system, sans-serif; }
 body {
   background: var(--black);
   color: var(--white);
@@ -215,6 +217,25 @@ nav {
   backdrop-filter: blur(8px);
 }
 .btn-connect:hover { border-color: var(--em); background: rgba(16,185,129,.08); }
+.btn-connect-glass {
+  backdrop-filter: blur(12px);
+  background: rgba(255,255,255,.03);
+  border-color: rgba(255,255,255,.12);
+}
+.btn-connect-pulse { cursor: wait; }
+.btn-pulse-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--em); margin-right: 8px; vertical-align: middle;
+  animation: blink 1.2s ease-in-out infinite;
+}
+.btn-cta {
+  padding: 10px 20px; border: 1px solid var(--em);
+  font-family: var(--t-mono); font-size: 9px; letter-spacing: .2em;
+  color: var(--em); background: rgba(16,185,129,.12); cursor: pointer;
+  border-radius: 2px; transition: all .3s; display: inline-flex; align-items: center;
+}
+.btn-cta:hover:not(:disabled) { background: var(--em); color: var(--black); }
+.btn-cta:disabled { opacity: 0.8; cursor: wait; }
 
 /* HERO */
 #hero {
@@ -698,7 +719,10 @@ section { position: relative; z-index: 10; }
 .pcard-tier { font-size: 7px; letter-spacing: .3em; color: rgba(255,255,255,.35); margin-bottom: 16px; }
 .pcard-price { font-family: var(--t-syne); font-size: 52px; font-weight: 900; letter-spacing: -.04em; line-height: 1; margin-bottom: 4px; }
 .pcard-price sup { font-size: .4em; color: rgba(255,255,255,.5); font-weight: 700; }
-.pcard-per { font-size: 9px; letter-spacing: .15em; color: rgba(255,255,255,.3); margin-bottom: 28px; }
+.pcard-per { font-size: 9px; letter-spacing: .15em; color: rgba(255,255,255,.3); margin-bottom: 8px; }
+.pcard-subtext { font-size: 8px; letter-spacing: .15em; color: rgba(255,255,255,.25); margin-bottom: 20px; }
+.pcard-edge { border-color: rgba(139,92,246,.35); }
+.pcard-edge:hover { border-color: rgba(139,92,246,.6); box-shadow: 0 0 24px rgba(139,92,246,.15); }
 .pcard-features { display: flex; flex-direction: column; gap: 10px; margin-bottom: 32px; }
 .pfeature { font-size: 10px; line-height: 1.5; color: rgba(255,255,255,.4); display: flex; align-items: flex-start; gap: 10px; }
 .pfeature::before { content: '✓'; color: var(--em); flex-shrink: 0; }

@@ -4,6 +4,7 @@ Configuration centralisée Black Edge
 Variables d'environnement, seuils, paramètres.
 """
 
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,10 +25,22 @@ class BlackEdgeSettings(BaseSettings):
     min_volume_usd: float = 25_000.0
     min_liquidity: float = 5_000.0
 
-    # LLM
-    llm_provider: str = "anthropic"  # anthropic | openai
-    llm_model: str = "claude-3-5-sonnet-20241022"  # ou gpt-4o pour OpenAI
+    # LLM — BLACKEDGE_LLM_API_KEY ou OPENAI_API_KEY (fallback Railway)
+    llm_provider: str = "openai"  # anthropic | openai
+    llm_model: str = "gpt-4o-mini"  # gpt-4o-mini (économique) ou gpt-4o pour OpenAI
     llm_api_key: str = ""
+
+    def get_llm_api_key(self) -> str:
+        """Utilise OPENAI_API_KEY si llm_api_key vide (Railway)."""
+        if self.llm_api_key:
+            return self.llm_api_key
+        return os.getenv("OPENAI_API_KEY", "")
+
+    def get_llm_provider(self) -> str:
+        """Force openai si on utilise OPENAI_API_KEY."""
+        if not self.llm_api_key and os.getenv("OPENAI_API_KEY"):
+            return "openai"
+        return self.llm_provider
 
     # Alpha (décalage Probabilité IA vs Marché)
     alpha_threshold_pct: float = 10.0  # % minimum pour signal

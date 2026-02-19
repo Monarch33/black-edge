@@ -109,14 +109,14 @@ Réponds UNIQUEMENT en JSON valide, sans markdown, avec exactement ces champs:
         Analyse un marché via le LLM.
         Retourne None si JSON invalide → trade annulé (fail-safe).
         """
-        api_key = self._settings.llm_api_key
+        api_key = self._settings.get_llm_api_key()
         if not api_key:
-            logger.warning("llm_api_key_missing", hint="Définir BLACKEDGE_LLM_API_KEY")
+            logger.warning("llm_api_key_missing", hint="Définir BLACKEDGE_LLM_API_KEY ou OPENAI_API_KEY")
             return None
 
         prompt = self._build_prompt(market)
         client = await self._get_client()
-        provider = self._settings.llm_provider.lower()
+        provider = self._settings.get_llm_provider().lower()
 
         try:
             if provider == "anthropic":

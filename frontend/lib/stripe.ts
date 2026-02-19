@@ -45,6 +45,7 @@ export function isStripeConfigured(): boolean {
 
 /**
  * Subscription tier prices.
+ * Runner $29 = psychological anchor. The Edge $999 = prestige tier.
  */
 export const TIER_PRICES = {
   runner: {
@@ -53,21 +54,23 @@ export const TIER_PRICES = {
     name: "Runner",
     features: [
       "Real-time market data",
-      "Market Rebalancing Arbitrage",
-      "Risk assessments",
-      "Email alerts",
+      "Full Council vote breakdown",
+      "Kelly criterion position sizing",
+      "Real-time terminal + bot",
+      "Polymarket API integration",
     ],
   },
   whale: {
     priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_WHALE || "",
-    amount: 299,
-    name: "Whale",
+    amount: 999,
+    name: "The Edge",
     features: [
       "Everything in Runner",
-      "Combinatorial Arbitrage",
-      "Raw institutional feed",
-      "API execution access",
-      "Priority support",
+      "Full REST + WebSocket API",
+      "Webhook alerts",
+      "Priority signal delivery",
+      "Portfolio integration",
+      "Dedicated support",
     ],
   },
 };
@@ -75,23 +78,27 @@ export const TIER_PRICES = {
 // Log configuration on module load
 if (typeof window !== "undefined") {
   console.log("💰 Stripe Price IDs configured:");
-  console.log("  - Runner:", TIER_PRICES.runner.priceId || "❌ MISSING");
-  console.log("  - Whale:", TIER_PRICES.whale.priceId || "❌ MISSING");
+  console.log("  - Runner ($29):", TIER_PRICES.runner.priceId || "❌ MISSING");
+  console.log("  - The Edge ($999):", TIER_PRICES.whale.priceId || "❌ MISSING");
 }
+
+export type StripeTier = "runner" | "whale"
 
 /**
  * Create a Stripe checkout session.
  */
 export async function createCheckoutSession(
-  tier: "runner" | "whale",
-  userId: string
-): Promise<string | null> {
+  tier: StripeTier,
+  userId: string,
+  options?: { successUrl?: string; cancelUrl?: string }
+): Promise<{ sessionId: string; url: string } | null> {
   console.log("💳 Creating Stripe checkout session:");
   console.log("  - Tier:", tier);
   console.log("  - Price ID:", TIER_PRICES[tier].priceId);
   console.log("  - User ID:", userId);
 
   try {
+    const origin = typeof window !== "undefined" ? window.location.origin : ""
     const response = await fetch("/api/stripe/checkout", {
       method: "POST",
       headers: {
@@ -100,8 +107,10 @@ export async function createCheckoutSession(
       body: JSON.stringify({
         priceId: TIER_PRICES[tier].priceId,
         userId,
+        successUrl: options?.successUrl || `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: options?.cancelUrl || `${origin}/pricing`,
       }),
-    });
+    })
 
     console.log("  - Response status:", response.status);
 
@@ -111,9 +120,10 @@ export async function createCheckoutSession(
       throw new Error("Failed to create checkout session");
     }
 
-    const { sessionId } = await response.json();
+    const data = await response.json();
+    const { sessionId, url } = data;
     console.log("✅ Checkout session created:", sessionId);
-    return sessionId;
+    return { sessionId, url };
   } catch (error) {
     console.error("❌ Checkout session error:", error);
     return null;
@@ -124,23 +134,15 @@ export async function createCheckoutSession(
  * Redirect to Stripe checkout.
  */
 export async function redirectToCheckout(
-  tier: "runner" | "whale",
-  userId: string
+  tier: StripeTier,
+  userId: string,
+  options?: { successUrl?: string; cancelUrl?: string }
 ): Promise<void> {
-  const sessionId = await createCheckoutSession(tier, userId);
-  if (!sessionId) {
+  const result = await createCheckoutSession(tier, userId, options);
+  if (!result?.url) {
     throw new Error("Failed to create checkout session");
   }
-
-  const stripe = await getStripe();
-  if (!stripe) {
-    throw new Error("Stripe not loaded");
-  }
-
-  const { error } = await stripe.redirectToCheckout({ sessionId });
-  if (error) {
-    throw error;
-  }
+  window.location.href = result.url;
 }
 
 /**
