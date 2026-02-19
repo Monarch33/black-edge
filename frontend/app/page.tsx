@@ -49,6 +49,18 @@ export default function Home() {
   const [accessTerminalLoading, setAccessTerminalLoading] = useState(false)
   const [pageFadeOut, setPageFadeOut] = useState(false)
 
+  const adminWallet = (typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS ?? "") : "") || ""
+
+  const handleGetAccess = (tier: "runner" | "whale" = "runner") => {
+    if (address && adminWallet && address.toLowerCase() === adminWallet.toLowerCase()) {
+      setPageFadeOut(true)
+      setTimeout(() => router.push("/dashboard"), 400)
+      return
+    }
+    setAccessModalTier(tier)
+    setAccessModalOpen(true)
+  }
+
   const handleOpenAccessTerminal = async () => {
     if (!address) return
     setAccessTerminalLoading(true)
@@ -384,7 +396,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div id="app" style={{ opacity: pageFadeOut ? 0 : 1, transition: "opacity 0.4s cubic-bezier(0.23,1,0.32,1)" }}>
+      <div id="app" className={`app-page-transition ${pageFadeOut ? "page-fade-out" : ""}`}>
         <nav>
           <div className="nav-logo">
             BLACK<em>EDGE</em>
@@ -402,9 +414,8 @@ export default function Home() {
             </div>
             <button
               type="button"
-              className="btn-primary"
-              onClick={() => setAccessModalOpen(true)}
-              style={{ padding: "8px 16px", fontSize: 10 }}
+              className="btn-primary btn-get-access"
+              onClick={() => handleGetAccess()}
             >
               GET ACCESS
             </button>
@@ -423,7 +434,7 @@ export default function Home() {
                     disabled={accessTerminalLoading}
                   >
                     {accessTerminalLoading ? (
-                      <span className="btn-pulse-dot" style={{ marginRight: 8 }} />
+                      <span className="btn-pulse-dot mr-2" />
                     ) : null}
                     {accessTerminalLoading ? "CHECKING..." : "OPEN ACCESS TERMINAL"}
                   </button>
@@ -441,33 +452,33 @@ export default function Home() {
           <div className="hero-layout">
             <div className="hero-left">
               <div className="hero-eyebrow reveal">PREDICTION MARKET INTELLIGENCE</div>
-              <h1 className="hero-title reveal" style={{ transitionDelay: ".1s" }}>
+              <h1 className="hero-title reveal reveal-delay-1">
                 The <span className="accent">edge</span>
                 <br />
                 is in the
                 <br />
                 <span className="line-serif">data.</span>
               </h1>
-              <p className="hero-sub reveal" style={{ transitionDelay: ".2s" }}>
+              <p className="hero-sub reveal reveal-delay-2">
                 5 AI agents analyze every Polymarket position independently. They debate. They vote. One exists only to say no.
               </p>
-              <div className="hero-ctas reveal" style={{ transitionDelay: ".3s" }}>
+              <div className="hero-ctas reveal reveal-delay-3">
                 <button
                   type="button"
                   className="btn-primary"
-                  onClick={() => setAccessModalOpen(true)}
+                  onClick={() => handleGetAccess()}
                 >
                   <span>GET ACCESS</span>
                   <span>→</span>
                 </button>
                 <a href="#markets" className="btn-ghost">
-                  EXPLORE MARKETS <span style={{ color: "var(--em)" }}>↓</span>
+                  EXPLORE MARKETS <span className="accent-em">↓</span>
                 </a>
                 <a href="#council" className="btn-ghost">
-                  THE COUNCIL <span style={{ color: "var(--em)" }}>↓</span>
+                  THE COUNCIL <span className="accent-em">↓</span>
                 </a>
               </div>
-              <div className="hero-stats reveal" style={{ transitionDelay: ".4s" }}>
+              <div className="hero-stats reveal reveal-delay-4">
                 <div className="hstat">
                   <div className="hstat-val green" id="stat-markets">247</div>
                   <div className="hstat-label">MARKETS TRACKED</div>
@@ -487,7 +498,7 @@ export default function Home() {
               </div>
             </div>
             <div className="hero-right">
-              <div className="orb-wrap reveal" id="orb-wrap" style={{ transitionDelay: ".2s" }}>
+              <div className="orb-wrap reveal reveal-delay-2" id="orb-wrap">
                 <div className="orb-glow" />
                 <div className="orb-core" />
                 <div className="orb-mask" />
@@ -512,12 +523,12 @@ export default function Home() {
           <div className="section-inner">
             <div className="section-tag reveal">LIVE MARKETS</div>
             <div className="markets-header">
-              <h2 className="section-title reveal" style={{ transitionDelay: ".1s" }}>
+              <h2 className="section-title reveal reveal-delay-1">
                 Real-Time
                 <br />
                 <em>Signals</em>
               </h2>
-              <div className="filter-tabs reveal" style={{ transitionDelay: ".15s" }} id="filters">
+              <div className="filter-tabs reveal reveal-delay-15" id="filters">
                 <button type="button" className="ftab active" data-cat="all">
                   ALL
                 </button>
@@ -539,18 +550,18 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="hr" style={{ position: "relative", zIndex: 10 }} />
+        <div className="hr hr-z" />
 
         <section id="howitworks">
           <div className="section-inner">
             <div className="section-tag reveal">METHODOLOGY</div>
-            <h2 className="section-title reveal" style={{ transitionDelay: ".1s" }}>
+            <h2 className="section-title reveal reveal-delay-1">
               How the
               <br />
               <em>Edge</em> is Built
             </h2>
             <div className="hiw-grid">
-              <div className="hiw-card reveal" style={{ transitionDelay: ".1s" }}>
+              <div className="hiw-card reveal reveal-delay-1">
                 <div className="hiw-num">01</div>
                 <div className="hiw-icon">⬡</div>
                 <div className="hiw-title">COLLECT</div>
@@ -559,7 +570,7 @@ export default function Home() {
                 </div>
                 <div className="hiw-tag">30s REFRESH</div>
               </div>
-              <div className="hiw-card reveal" style={{ transitionDelay: ".2s" }}>
+              <div className="hiw-card reveal reveal-delay-2">
                 <div className="hiw-num">02</div>
                 <div className="hiw-icon">⟁</div>
                 <div className="hiw-title">ANALYZE</div>
@@ -568,7 +579,7 @@ export default function Home() {
                 </div>
                 <div className="hiw-tag">5 INDEPENDENT AGENTS</div>
               </div>
-              <div className="hiw-card reveal" style={{ transitionDelay: ".3s" }}>
+              <div className="hiw-card reveal reveal-delay-3">
                 <div className="hiw-num">03</div>
                 <div className="hiw-icon">◈</div>
                 <div className="hiw-title">SIGNAL</div>
@@ -581,14 +592,14 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="hr" style={{ position: "relative", zIndex: 10 }} />
+        <div className="hr hr-z" />
 
         <section id="council">
           <div className="section-inner">
             <div className="section-tag reveal">THE COUNCIL</div>
             <div className="council-intro">
               <div>
-                <h2 className="section-title reveal" style={{ transitionDelay: ".1s" }}>
+                <h2 className="section-title reveal reveal-delay-1">
                   Five Agents.
                   <br />
                   One <em>Truth</em>.
@@ -598,7 +609,7 @@ export default function Home() {
                   <em>Disagreement is the feature, not the bug.</em>
                 </p>
               </div>
-              <div className="council-meta reveal" style={{ transitionDelay: ".3s" }}>
+              <div className="council-meta reveal reveal-delay-3">
                 <div className="cmeta-row">
                   <div className="cmeta-num">5</div>
                   <span>AI agents in council</span>
@@ -699,7 +710,7 @@ export default function Home() {
                   </svg>
                 </div>
               </div>
-              <div className="agent agent-d reveal" style={{ transitionDelay: ".2s" }}>
+              <div className="agent agent-d reveal reveal-delay-2">
                 <div className="agent-id">AGENT_04</div>
                 <div className="agent-name">Narrative</div>
                 <div className="agent-desc">
@@ -746,18 +757,18 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="hr" style={{ position: "relative", zIndex: 10 }} />
+        <div className="hr hr-z" />
 
         <section id="terminal-section">
           <div className="section-inner">
             <div className="section-tag reveal">REAL-TIME PULSE</div>
-            <h2 className="section-title reveal" style={{ transitionDelay: ".1s" }}>
+            <h2 className="section-title reveal reveal-delay-1">
               Market
               <br />
               <em>Terminal</em>
             </h2>
             <div style={{ marginTop: 48 }}>
-              <div className="terminal-frame reveal" style={{ transitionDelay: ".15s" }}>
+              <div className="terminal-frame reveal reveal-delay-15">
                 <div className="terminal-titlebar">
                   <div className="tbar-dot tbar-r" />
                   <div className="tbar-dot tbar-y" />
@@ -806,7 +817,7 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="hr" style={{ position: "relative", zIndex: 10 }} />
+        <div className="hr hr-z" />
 
         <section id="philosophy">
           <div className="phil-inner">
@@ -842,12 +853,12 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="hr" style={{ position: "relative", zIndex: 10 }} />
+        <div className="hr hr-z" />
 
         <section id="trackrecord">
           <div className="section-inner">
             <div className="section-tag reveal">PUBLIC TRACK RECORD</div>
-            <h2 className="section-title reveal" style={{ transitionDelay: ".1s" }}>
+            <h2 className="section-title reveal reveal-delay-1">
               Zero
               <br />
               <em>exceptions</em>.
@@ -856,7 +867,7 @@ export default function Home() {
               Every prediction published. Every result logged on-chain. No cherry-picking. No survivorship bias. The edge is real or it isn&apos;t.
             </p>
             <div className="tr-grid">
-              <div className="tr-stat reveal" style={{ transitionDelay: ".1s" }}>
+              <div className="tr-stat reveal reveal-delay-1">
                 <div className="tr-val coming">
                   LIVE
                   <br />
@@ -864,11 +875,11 @@ export default function Home() {
                 </div>
                 <div className="tr-desc">TOTAL TRADES</div>
               </div>
-              <div className="tr-stat reveal" style={{ transitionDelay: ".15s" }}>
+              <div className="tr-stat reveal reveal-delay-15">
                 <div className="tr-val coming">—</div>
                 <div className="tr-desc">WIN RATE</div>
               </div>
-              <div className="tr-stat reveal" style={{ transitionDelay: ".2s" }}>
+              <div className="tr-stat reveal reveal-delay-2">
                 <div className="tr-val coming">—</div>
                 <div className="tr-desc">TOTAL P&L</div>
               </div>
@@ -877,7 +888,7 @@ export default function Home() {
                 <div className="tr-desc">SHARPE RATIO</div>
               </div>
             </div>
-            <div className="tr-note reveal" style={{ transitionDelay: ".3s" }}>
+            <div className="tr-note reveal reveal-delay-3">
               First predictions go live this week. Every result published. Zero exceptions.
               <br />
               <a href="#markets">→ VIEW LIVE MARKETS</a>
@@ -885,18 +896,18 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="hr" style={{ position: "relative", zIndex: 10 }} />
+        <div className="hr hr-z" />
 
         <section id="pricing">
           <div className="section-inner">
             <div className="section-tag reveal">PRICING</div>
-            <h2 className="section-title reveal" style={{ transitionDelay: ".1s" }}>
+            <h2 className="section-title reveal reveal-delay-1">
               Choose your
               <br />
               <em>Edge</em>
             </h2>
             <div className="pricing-grid">
-              <div className="pcard reveal" style={{ transitionDelay: ".1s" }}>
+              <div className="pcard reveal reveal-delay-1">
                 <div className="pcard-tier">FREE</div>
                 <div className="pcard-price">
                   <sup>$</sup>0
@@ -910,11 +921,11 @@ export default function Home() {
                   <div className="pfeature no">Kelly criterion sizing</div>
                   <div className="pfeature no">API access</div>
                 </div>
-                <button type="button" className="btn-tier" onClick={() => setAccessModalOpen(true)}>
+                <button type="button" className="btn-tier" onClick={() => handleGetAccess("runner")}>
                   GET STARTED
                 </button>
               </div>
-              <div className="pcard featured reveal" style={{ transitionDelay: ".15s" }}>
+              <div className="pcard featured reveal reveal-delay-15">
                 <div className="pcard-badge">MOST POPULAR</div>
                 <div className="pcard-tier">RUNNER</div>
                 <div className="pcard-price">
@@ -930,11 +941,11 @@ export default function Home() {
                   <div className="pfeature">Polymarket API integration</div>
                   <div className="pfeature no">Full API access</div>
                 </div>
-                <button type="button" className="btn-tier em-btn" onClick={() => { setAccessModalTier("runner"); setAccessModalOpen(true); }}>
+                <button type="button" className="btn-tier em-btn" onClick={() => handleGetAccess("runner")}>
                   GET STARTED — $29
                 </button>
               </div>
-              <div className="pcard pcard-edge reveal" style={{ transitionDelay: ".2s" }}>
+              <div className="pcard pcard-edge reveal reveal-delay-2">
                 <div className="pcard-tier">THE EDGE</div>
                 <div className="pcard-price">
                   <sup>$</sup>999
@@ -948,7 +959,7 @@ export default function Home() {
                   <div className="pfeature">Portfolio integration</div>
                   <div className="pfeature">Dedicated support</div>
                 </div>
-                <button type="button" className="btn-tier" onClick={() => { setAccessModalTier("whale"); setAccessModalOpen(true); }}>
+                <button type="button" className="btn-tier" onClick={() => handleGetAccess("whale")}>
                   GET ACCESS — $999
                 </button>
               </div>
@@ -956,7 +967,7 @@ export default function Home() {
           </div>
         </section>
 
-        <div className="hr" style={{ position: "relative", zIndex: 10 }} />
+        <div className="hr hr-z" />
 
         <footer>
           <div className="footer-grid">
@@ -1002,7 +1013,7 @@ export default function Home() {
           </div>
           <div className="footer-bottom">
             <span>© 2026 BLACK EDGE — ALL RIGHTS RESERVED</span>
-            <span style={{ color: "var(--em)" }}>V3.0</span>
+            <span className="accent-em">V3.0</span>
             <span>NOT FINANCIAL ADVICE</span>
           </div>
         </footer>
