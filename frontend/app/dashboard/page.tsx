@@ -2,29 +2,29 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
+import { toast } from "sonner"
 
-const FAKE_LOGS = [
-  "[SCAN] Market ID 0x7a3... — Fetching orderbook",
-  "[EDGE] Found 12% gap — ETH ETF Approval",
-  "[COUNCIL] 4/5 agents positive — Doomer abstained",
-  "[KELLY] Optimal size: 4.2% of bankroll",
-  "[EXEC] Paper trade logged — YES @ 0.73",
-  "[SCAN] Market ID 0x9f2... — Volume spike detected",
-  "[EDGE] Found 8% gap — Fed Rate Cut Q3",
-  "[COUNCIL] 3/5 agents positive — Veto overridden",
-  "[SCAN] Refreshing Polymarket CLOB...",
-  "[P&L] +$127.40 — 3 positions resolved",
-]
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const WS_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/^http/, "ws")
+const ENGINE_OFFLINE = "[FATAL] ENGINE OFFLINE. CONNECTION REFUSED."
+
+function getLogClassName(line: string): string {
+  if (line.includes("[ERROR]")) return "text-red-400"
+  if (line.includes("[EXECUTION]") || line.includes("[EDGE]") || line.includes("[P&L]")) return "text-[#10b981]"
+  return "text-white/50"
+}
 
 export default function DashboardPage() {
   const [proxyKey, setProxyKey] = useState("")
   const [secret, setSecret] = useState("")
-  const [active, setActive] = useState(false)
-  const [pnl, setPnl] = useState<number | null>(null)
+  const [isBotActive, setIsBotActive] = useState(false)
+  const [currentPnl, setCurrentPnl] = useState<number | null>(null)
   const [logs, setLogs] = useState<string[]>([])
+  const [engineOffline, setEngineOffline] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toggling, setToggling] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
+  const wsRef = useRef<WebSocket | null>(null)
 
   const scrollToBottom = useCallback(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -36,13 +36,15 @@ export default function DashboardPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch("/api/engine/status")
+      const res = await fetch(`${API_BASE}/api/engine/status`)
       const data = await res.json()
-      setActive(data.active ?? false)
-      setPnl(typeof data.pnl === "number" ? data.pnl : 0)
+      setEngineOffline(false)
+      setIsBotActive(data.active ?? false)
+      setCurrentPnl(typeof data.pnl === "number" ? data.pnl : 0)
     } catch {
-      setActive(false)
-      setPnl(0)
+      setEngineOffline(true)
+      setIsBotActive(false)
+      setCurrentPnl(0)
     }
   }, [])
 
@@ -53,55 +55,88 @@ export default function DashboardPage() {
   }, [fetchStatus])
 
   useEffect(() => {
-    if (!active) return
-    const addLog = () => {
-      const line = FAKE_LOGS[Math.floor(Math.random() * FAKE_LOGS.length)]
-      const ts = new Date().toISOString().slice(11, 19)
-      setLogs((prev) => [...prev.slice(-99), `[${ts}] ${line}`])
+    if (engineOffline) {
+      setLogs((prev) => (prev.includes(ENGINE_OFFLINE) ? prev : [...prev, ENGINE_OFFLINE]))
+      return
     }
-    addLog()
-    const id = setInterval(addLog, 3000)
-    return () => clearInterval(id)
-  }, [active])
+    const wsUrl = `${WS_BASE}/api/engine/logs/1`
+    const ws = new WebSocket(wsUrl)
+    wsRef.current = ws
+
+    ws.onopen = () => {
+      setLogs((prev) => prev.filter((l) => l !== ENGINE_OFFLINE))
+    }
+
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        const msg = typeof data.message === "string" ? data.message : String(data.message ?? "")
+        if (msg) {
+          setLogs((prev) => [...prev.slice(-99), msg])
+        }
+      } catch {
+        setLogs((prev) => [...prev.slice(-99), e.data])
+      }
+    }
+
+    ws.onerror = () => {
+      setEngineOffline(true)
+      setLogs((prev) => (prev.includes(ENGINE_OFFLINE) ? prev : [...prev, ENGINE_OFFLINE]))
+    }
+
+    ws.onclose = () => {
+      wsRef.current = null
+    }
+
+    return () => {
+      ws.close()
+      wsRef.current = null
+    }
+  }, [engineOffline])
 
   const handleSaveCredentials = async () => {
     setSaving(true)
+    setEngineOffline(false)
     try {
-      const res = await fetch("/api/engine/keys", {
+      const res = await fetch(`${API_BASE}/api/engine/keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proxyKey, secret }),
+        body: JSON.stringify({ proxy_key: proxyKey, secret }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(data?.error || "Failed to save credentials")
+        toast.error(data?.error || "Failed to save credentials")
       } else {
         setProxyKey("")
         setSecret("")
+        toast.success("Credentials secured in vault")
       }
     } catch {
-      alert("Network error")
+      setEngineOffline(true)
+      toast.error("Engine offline")
     } finally {
       setSaving(false)
     }
   }
 
-  const handleToggle = async () => {
+  const toggleBot = async () => {
     setToggling(true)
+    setEngineOffline(false)
     try {
-      const res = await fetch("/api/engine/toggle", {
+      const res = await fetch(`${API_BASE}/api/engine/toggle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: !active }),
+        body: JSON.stringify({ active: !isBotActive }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        alert(data?.error || "Failed to toggle")
+        toast.error(data?.error || "Failed to toggle")
       } else {
-        setActive(data.active ?? !active)
+        setIsBotActive(data.active ?? !isBotActive)
       }
     } catch {
-      alert("Network error")
+      setEngineOffline(true)
+      toast.error("Engine offline")
     } finally {
       setToggling(false)
     }
@@ -167,15 +202,15 @@ export default function DashboardPage() {
 
           <div>
             <button
-              onClick={handleToggle}
+              onClick={toggleBot}
               disabled={toggling}
               className={`w-full py-6 border text-[10px] tracking-widest transition-all disabled:opacity-50 ${
-                active
+                isBotActive
                   ? "bg-[#10b981]/20 border-[#10b981] text-[#10b981] shadow-[0_0_24px_rgba(16,185,129,0.3)]"
                   : "border-white/20 text-white/60 hover:border-white/40 hover:text-white"
               }`}
             >
-              {toggling ? "..." : active ? "[ AGENT ACTIVE ]" : "[ ACTIVATE AUTONOMOUS AGENT ]"}
+              {toggling ? "..." : isBotActive ? "[ AGENT ACTIVE ]" : "[ ACTIVATE AUTONOMOUS AGENT ]"}
             </button>
           </div>
         </aside>
@@ -191,14 +226,11 @@ export default function DashboardPage() {
               <span className="text-[9px] tracking-widest text-white/30 ml-3">LIVE EXECUTION LOGS</span>
             </div>
             <div className="flex-1 overflow-y-auto p-4 font-mono text-xs">
-              {logs.length === 0 && !active && (
+              {logs.length === 0 && !isBotActive && !engineOffline && (
                 <p className="text-white/30">Agent inactive. Activate to see logs.</p>
               )}
               {logs.map((line, i) => (
-                <div
-                  key={`${i}-${line}`}
-                  className={`py-0.5 ${line.includes("[EDGE]") || line.includes("[P&L]") ? "text-[#10b981]" : "text-white/50"}`}
-                >
+                <div key={`${i}-${line}`} className={`py-0.5 ${getLogClassName(line)}`}>
                   {line}
                 </div>
               ))}
@@ -211,10 +243,10 @@ export default function DashboardPage() {
             <span className="text-[10px] tracking-widest text-white/40">LIVE PnL</span>
             <span
               className={`text-4xl font-bold tracking-tight ${
-                pnl !== null && pnl >= 0 ? "text-[#10b981]" : "text-red-400"
+                currentPnl !== null && currentPnl >= 0 ? "text-[#10b981]" : "text-red-400"
               }`}
             >
-              {pnl !== null ? `$${pnl.toFixed(2)}` : "—"}
+              {currentPnl !== null ? `$${currentPnl.toFixed(2)}` : "—"}
             </span>
           </div>
         </div>

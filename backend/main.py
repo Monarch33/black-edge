@@ -1100,8 +1100,15 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     await state.startup()
+    # Start engine log broadcast loop (for dashboard WebSocket)
+    _engine_log_task = asyncio.create_task(_engine_log_broadcast_loop())
     yield
     # Shutdown
+    _engine_log_task.cancel()
+    try:
+        await _engine_log_task
+    except asyncio.CancelledError:
+        pass
     await state.shutdown()
 
 
@@ -1633,6 +1640,67 @@ async def grok_commentary() -> dict:
     except Exception as e:
         logger.error("Grok commentary failed", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Engine logs WebSocket — streams live execution logs to dashboard
+_engine_log_subscribers: set[WebSocket] = set()
+
+
+_engine_log_mock_messages = [
+    "[SCAN] Market ID 0x7a3... — Fetching orderbook",
+    "[EDGE] Found 12% gap — ETH ETF Approval",
+    "[COUNCIL] 4/5 agents positive — Doomer abstained",
+    "[KELLY] Optimal size: 4.2% of bankroll",
+    "[EXECUTION] Paper trade logged — YES @ 0.73",
+    "[SCAN] Market ID 0x9f2... — Volume spike detected",
+    "[EDGE] Found 8% gap — Fed Rate Cut Q3",
+    "[COUNCIL] 3/5 agents positive — Veto overridden",
+    "[SCAN] Refreshing Polymarket CLOB...",
+    "[P&L] +$127.40 — 3 positions resolved",
+]
+
+
+@app.websocket("/api/engine/logs/{session_id}")
+async def engine_logs_websocket(websocket: WebSocket, session_id: str) -> None:
+    """Stream engine execution logs to the dashboard. session_id is used for routing (e.g. 1)."""
+    await websocket.accept()
+    _engine_log_subscribers.add(websocket)
+    try:
+        while True:
+            try:
+                data = await websocket.receive_text()
+                if data == "ping":
+                    await websocket.send_json({"message": "pong", "ts": datetime.utcnow().isoformat()})
+            except Exception:
+                break
+    finally:
+        _engine_log_subscribers.discard(websocket)
+
+
+async def _engine_log_broadcast_loop() -> None:
+    """Background task: broadcast mock logs when engine is active."""
+    import random
+    while True:
+        await asyncio.sleep(3)
+        if state.engine_active and _engine_log_subscribers:
+            msg = random.choice(_engine_log_mock_messages)
+            ts = datetime.utcnow().strftime("%H:%M:%S")
+            for ws in list(_engine_log_subscribers):
+                try:
+                    await ws.send_json({"message": f"[{ts}] {msg}"})
+                except Exception:
+                    _engine_log_subscribers.discard(ws)
+
+
+def broadcast_engine_log(message: str) -> None:
+    """Broadcast a log message to all connected dashboard clients."""
+    import asyncio
+    msg = {"message": message, "ts": datetime.utcnow().isoformat()}
+    for ws in list(_engine_log_subscribers):
+        try:
+            asyncio.create_task(ws.send_json(msg))
+        except Exception:
+            _engine_log_subscribers.discard(ws)
 
 
 # WebSocket endpoint
