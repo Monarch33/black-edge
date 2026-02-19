@@ -29,8 +29,8 @@ interface Plan {
 
 const plans: Plan[] = [
   { id: "observer", name: "OBSERVER", price: "$0", period: "/mo", description: "See the opportunities. Cannot execute.", features: ["15 Minute Delay", "Read-only market scanner", "Basic opportunity alerts", "Limited API access"], cta: "START WATCHING", highlighted: false, icon: Eye },
-  { id: "runner", name: "RUNNER", price: "$199", period: "/mo", description: "Autonomous AI trading. Full automation.", badge: "MOST POPULAR", features: ["Real-time AI Scanner", "Autonomous Execution (Paper + Live)", "GPT-4o Market Analysis", "Kelly Criterion Sizing", "Telegram/Discord Alerts", "MEV Protection (Flashbots)", "Whale Tracker (10 wallets)"], cta: "GET STARTED", highlighted: true, icon: Zap },
-  { id: "whale", name: "THE EDGE", price: "$999", period: "/mo", priceSubtext: "INSTITUTIONAL", description: "For serious traders deploying real capital.", features: [{ icon: Server, text: "Full API Access" }, { icon: Radio, text: "Custom Model Training" }, { icon: Clock, text: "Priority Execution Queue" }, { icon: Skull, text: "Dedicated Infra & Support" }], cta: "GET ALLOCATION", highlighted: false, isWhale: true, icon: Skull },
+  { id: "runner", name: "RUNNER", price: "$29", period: "/mo", description: "Autonomous AI execution. Real-time signals.", badge: "MOST POPULAR", features: ["Real-time AI Scanner", "Autonomous Execution (Paper + Live)", "Kelly Criterion Sizing", "Real-time Terminal Access", "Telegram/Discord Alerts", "Whale Tracker"], cta: "GET ACCESS", highlighted: true, icon: Zap },
+  { id: "whale", name: "WHALE SYNDICATE", price: "CONTACT", priceSubtext: "SALES", description: "Custom allocation for serious traders.", features: [{ icon: Server, text: "Full REST + WebSocket API" }, { icon: Radio, text: "Custom Model Training" }, { icon: Clock, text: "Priority Execution Queue" }, { icon: Skull, text: "Dedicated Infra & Support" }], cta: "REQUEST ACCESS", highlighted: false, isWhale: true, icon: Skull },
 ]
 
 export function PricingView() {
@@ -50,9 +50,9 @@ export function PricingView() {
         return
       }
 
-      // Whale: schedule a call
+      // Whale: contact sales page
       if (planId === "whale") {
-        window.open("https://cal.com/blackedge/whale", "_blank")
+        window.location.href = "mailto:camil.nova@outlook.fr?subject=Black%20Edge%20Whale%20Syndicate%20Access"
         setLoadingPlan(null)
         return
       }

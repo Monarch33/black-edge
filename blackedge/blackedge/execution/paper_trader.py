@@ -1,4 +1,4 @@
-"""Kelly Criterion — pure math, zero AI."""
+"""Paper trading simulator — records hypothetical orders."""
 
 from __future__ import annotations
 

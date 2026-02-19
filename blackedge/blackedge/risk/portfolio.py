@@ -1,4 +1,4 @@
-"""Kelly Criterion — pure math, zero AI."""
+"""Portfolio-level constraints & stop-loss logic."""
 
 from __future__ import annotations
 

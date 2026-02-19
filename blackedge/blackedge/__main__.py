@@ -1,8 +1,5 @@
-"""
-Point d'entrée : python -m blackedge start --key=BE-xxx
-"""
+"""Allow `python -m blackedge` invocation."""
 
 from blackedge.cli import app
 
-if __name__ == "__main__":
-    app()
+app()

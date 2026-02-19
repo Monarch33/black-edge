@@ -1,4 +1,4 @@
-"""Kelly Criterion — pure math, zero AI."""
+"""System & user prompts for the Intelligence Core agent."""
 
 from __future__ import annotations
 

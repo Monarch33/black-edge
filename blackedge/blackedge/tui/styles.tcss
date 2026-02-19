@@ -1,0 +1,6 @@
+/* Black Edge — Textual CSS theme (cyberpunk/institutional) */
+/* Full stylesheet in Step 4. */
+
+Screen {
+    background: #0a0a0a;
+}

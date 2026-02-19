@@ -1,46 +1,27 @@
-"""
-Schémas Pydantic — Output LLM
-=============================
-Structure stricte pour la réponse de l'agent IA.
-"""
+"""Pydantic v2 schemas for structured LLM output."""
+
+from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
 
-class AgentAnalysis(BaseModel):
-    """
-    Réponse validée de l'agent LLM.
-    Si le JSON est mal formaté → trade annulé (fail-safe).
-    """
-
-    market_id: str = Field(..., description="ID du marché Polymarket")
-    ia_probability: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Probabilité réelle estimée par l'IA (YES)",
-    )
-    confidence_score: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Niveau de confiance de l'IA (0-1)",
-    )
-    reasoning: str = Field(..., description="Explication concise du raisonnement")
-    recommended_side: str = Field(
-        ...,
-        description="YES ou NO — côté recommandé",
-    )
-
-
-class AlphaSignal(BaseModel):
-    """Signal Alpha : décalage IA vs Marché suffisant pour agir."""
+class MarketSignal(BaseModel):
+    """Strictly-typed output the LLM must produce for every market."""
 
     market_id: str
-    market_question: str
-    market_probability: float
-    ia_probability: float
-    alpha_pct: float  # |IA - Marché| en %
-    confidence_score: float
-    side: str  # YES ou NO
-    reasoning: str
+    ia_probability: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="The AI's estimated true probability (0-1).",
+    )
+    confidence_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="How confident the AI is in its own estimate (0-1).",
+    )
+    recommended_side: str = Field(
+        description="'YES' or 'NO' — the side the AI recommends.",
+    )
+    reasoning: str = Field(
+        description="One-paragraph justification.",
+    )

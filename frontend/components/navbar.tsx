@@ -16,7 +16,7 @@ interface NavbarProps {
   onNavigate: (view: View) => void
 }
 
-function WalletButton() {
+function WalletButton({ onConnected }: { onConnected?: () => void }) {
   const { address, isConnected, isConnecting } = useAccount()
   const { data: balance } = useBalance({ address })
   const { data: usdcBalance } = useBalance({
@@ -28,12 +28,17 @@ function WalletButton() {
   const { addWallet, connectedWallets } = useWalletState()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [wasConnected, setWasConnected] = useState(false)
 
   useEffect(() => {
     if (address && isConnected) {
       addWallet(address)
+      if (!wasConnected && onConnected) {
+        onConnected()
+      }
+      setWasConnected(true)
     }
-  }, [address, isConnected, addWallet])
+  }, [address, isConnected, addWallet, wasConnected, onConnected])
 
   const copyAddress = () => {
     if (address) {
@@ -307,7 +312,7 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
 
             <div className="flex items-center gap-3">
               <div className="hidden md:block">
-                <WalletButton />
+                <WalletButton onConnected={() => handleNavigate("terminal")} />
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
@@ -365,7 +370,7 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
                 ))}
               </div>
               <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-[#1A1A1A]">
-                <WalletButton />
+                <WalletButton onConnected={() => handleNavigate("terminal")} />
               </div>
             </motion.div>
           </>
