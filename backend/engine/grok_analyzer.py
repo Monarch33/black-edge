@@ -1,7 +1,7 @@
 """
-Black Edge — Grok xAI Integration
-===================================
-Uses xAI's Grok API to analyze prediction markets and generate commentary.
+Black Edge — Grok xAI / OpenAI Integration
+==========================================
+Uses xAI's Grok API when available, falls back to OpenAI (Railway OPENAI_API_KEY).
 """
 
 import os
@@ -13,22 +13,61 @@ from typing import Optional
 logger = structlog.get_logger()
 
 GROK_API_KEY = os.getenv("GROK_API_KEY", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 GROK_BASE = "https://api.x.ai/v1"
 GROK_MODEL = "grok-3-mini"
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 
 class GrokAnalyzer:
-    """Grok xAI integration for market analysis and commentary."""
+    """Grok xAI or OpenAI integration for market analysis and commentary."""
 
     def __init__(self):
-        self.api_key = GROK_API_KEY
+        self.grok_key = GROK_API_KEY
+        self.openai_key = OPENAI_API_KEY
         self.base_url = GROK_BASE
         self.model = GROK_MODEL
 
+    def _prefer_openai(self) -> bool:
+        """Utilise OpenAI si Grok non configuré (clé OpenAI sur Railway)."""
+        return not self.grok_key and bool(self.openai_key)
+
+    async def _call_openai(self, messages: list[dict], max_tokens: int = 300) -> Optional[str]:
+        """Fallback: appel OpenAI quand Grok non configuré (Railway OPENAI_API_KEY)."""
+        if not self.openai_key:
+            return None
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.openai_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": OPENAI_MODEL,
+                        "messages": messages,
+                        "max_tokens": max_tokens,
+                        "temperature": 0.3,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                return data["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            logger.error("OpenAI API call failed", error=str(e))
+            return None
+
     async def _call_grok(self, messages: list[dict], max_tokens: int = 300) -> Optional[str]:
-        """Make a call to the Grok API and return the response text."""
+        """Make a call to Grok or OpenAI API and return the response text."""
+        if self._prefer_openai():
+            return await self._call_openai(messages, max_tokens)
+
+        if not self.grok_key:
+            return None
+
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self.grok_key}",
             "Content-Type": "application/json",
         }
         payload = {
@@ -49,8 +88,8 @@ class GrokAnalyzer:
                 data = resp.json()
                 return data["choices"][0]["message"]["content"].strip()
         except Exception as e:
-            logger.error("Grok API call failed", error=str(e))
-            return None
+            logger.error("Grok API call failed, trying OpenAI fallback", error=str(e))
+            return await self._call_openai(messages, max_tokens)
 
     async def analyze_market(
         self,

@@ -16,7 +16,7 @@ interface AccessModalProps {
   defaultTier?: StripeTier
 }
 
-export function AccessModal({ isOpen, onClose, defaultTier = "pro" }: AccessModalProps) {
+export function AccessModal({ isOpen, onClose, defaultTier = "runner" }: AccessModalProps) {
   const { address } = useAccount()
   const [loading, setLoading] = useState(false)
   const [selectedTier, setSelectedTier] = useState<StripeTier>(defaultTier)
@@ -28,7 +28,7 @@ export function AccessModal({ isOpen, onClose, defaultTier = "pro" }: AccessModa
   const handleSubscribe = async (tier: StripeTier = selectedTier) => {
     if (!address || !TIER_PRICES[tier]?.priceId) {
       if (!TIER_PRICES[tier]?.priceId) {
-        toast.error("Stripe price not configured. Set NEXT_PUBLIC_STRIPE_PRICE_ID_PRO.")
+        toast.error("Stripe price not configured. Set NEXT_PUBLIC_STRIPE_PRICE_ID_RUNNER.")
       } else {
         toast.error("Connect your wallet first")
       }
@@ -55,7 +55,7 @@ export function AccessModal({ isOpen, onClose, defaultTier = "pro" }: AccessModa
 
   if (!isOpen) return null
 
-  const tiers: StripeTier[] = ["pro", "whale"]
+  const tiers: StripeTier[] = ["runner", "whale"]
   const currentTier = TIER_PRICES[selectedTier]
   const hasPrice = !!currentTier?.priceId
 

@@ -45,43 +45,32 @@ export function isStripeConfigured(): boolean {
 
 /**
  * Subscription tier prices.
- * Pro ($49) = bot terminal + Polymarket API. The Edge ($199) = full API.
+ * Runner $29 = psychological anchor. The Edge $999 = prestige tier.
  */
 export const TIER_PRICES = {
-  pro: {
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_RUNNER || "",
-    amount: 49,
-    name: "Pro",
-    features: [
-      "All live market signals",
-      "Full Council vote breakdown",
-      "Kelly criterion position sizing",
-      "Real-time terminal access",
-      "30s signal refresh",
-      "Autonomous bot + Polymarket API",
-    ],
-  },
   runner: {
     priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_RUNNER || "",
     amount: 29,
     name: "Runner",
     features: [
       "Real-time market data",
-      "Market Rebalancing Arbitrage",
-      "Risk assessments",
-      "Email alerts",
+      "Full Council vote breakdown",
+      "Kelly criterion position sizing",
+      "Real-time terminal + bot",
+      "Polymarket API integration",
     ],
   },
   whale: {
     priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_WHALE || "",
-    amount: 299,
-    name: "Whale",
+    amount: 999,
+    name: "The Edge",
     features: [
       "Everything in Runner",
-      "Combinatorial Arbitrage",
-      "Raw institutional feed",
-      "API execution access",
-      "Priority support",
+      "Full REST + WebSocket API",
+      "Webhook alerts",
+      "Priority signal delivery",
+      "Portfolio integration",
+      "Dedicated support",
     ],
   },
 };
@@ -89,11 +78,11 @@ export const TIER_PRICES = {
 // Log configuration on module load
 if (typeof window !== "undefined") {
   console.log("💰 Stripe Price IDs configured:");
-  console.log("  - Runner:", TIER_PRICES.runner.priceId || "❌ MISSING");
-  console.log("  - Whale:", TIER_PRICES.whale.priceId || "❌ MISSING");
+  console.log("  - Runner ($29):", TIER_PRICES.runner.priceId || "❌ MISSING");
+  console.log("  - The Edge ($999):", TIER_PRICES.whale.priceId || "❌ MISSING");
 }
 
-export type StripeTier = "pro" | "runner" | "whale"
+export type StripeTier = "runner" | "whale"
 
 /**
  * Create a Stripe checkout session.

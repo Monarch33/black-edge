@@ -9,30 +9,46 @@ const WS_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").rep
 const ENGINE_OFFLINE = "[FATAL] ENGINE OFFLINE. CONNECTION REFUSED."
 
 function getLogClassName(line: string): string {
-  if (line.includes("[ERROR]")) return "text-red-400"
-  if (line.includes("[EXECUTION]") || line.includes("[EDGE]") || line.includes("[P&L]")) return "text-[#10b981]"
-  return "text-white/50"
+  if (line.includes("[ERROR]") || line.includes("[VETO]") || line.includes("[FAIL]")) return "text-[#ef4444]"
+  if (line.includes("[SUCCESS]") || line.includes("[TRADE]") || line.includes("[ALPHA]") || line.includes("[EXECUTION]") || line.includes("[EDGE]") || line.includes("[P&L]")) return "text-[#10b981]"
+  return "text-[#6b7280]"
+}
+
+function formatTimestamp(): string {
+  const n = new Date()
+  return `[${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}:${String(n.getSeconds()).padStart(2,"0")}]`
 }
 
 export default function DashboardPage() {
   const [proxyKey, setProxyKey] = useState("")
   const [secret, setSecret] = useState("")
+  const [hasCredentials, setHasCredentials] = useState(false)
   const [isBotActive, setIsBotActive] = useState(false)
   const [currentPnl, setCurrentPnl] = useState<number | null>(null)
   const [logs, setLogs] = useState<string[]>([])
   const [engineOffline, setEngineOffline] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toggling, setToggling] = useState(false)
+  const [autoScroll, setAutoScroll] = useState(true)
   const logsEndRef = useRef<HTMLDivElement>(null)
+  const logsContainerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
 
   const scrollToBottom = useCallback(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [])
 
+  const handleScroll = useCallback(() => {
+    const el = logsContainerRef.current
+    if (!el) return
+    const { scrollTop, scrollHeight, clientHeight } = el
+    const atBottom = scrollHeight - scrollTop - clientHeight < 50
+    setAutoScroll(atBottom)
+  }, [])
+
   useEffect(() => {
-    scrollToBottom()
-  }, [logs, scrollToBottom])
+    if (autoScroll) scrollToBottom()
+  }, [logs, autoScroll, scrollToBottom])
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -72,10 +88,11 @@ export default function DashboardPage() {
         const data = JSON.parse(e.data)
         const msg = typeof data.message === "string" ? data.message : String(data.message ?? "")
         if (msg) {
-          setLogs((prev) => [...prev.slice(-99), msg])
+          const ts = formatTimestamp()
+          setLogs((prev) => [...prev.slice(-99), `${ts} ${msg}`])
         }
       } catch {
-        setLogs((prev) => [...prev.slice(-99), e.data])
+        setLogs((prev) => [...prev.slice(-99), `${formatTimestamp()} ${e.data}`])
       }
     }
 
@@ -109,6 +126,7 @@ export default function DashboardPage() {
       } else {
         setProxyKey("")
         setSecret("")
+        setHasCredentials(true)
         toast.success("Credentials secured in vault")
       }
     } catch {
@@ -142,17 +160,18 @@ export default function DashboardPage() {
     }
   }
 
+  const showVaultOnly = !hasCredentials && !proxyKey && !secret
+
   return (
-    <div className="min-h-screen bg-black text-white font-mono">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 bg-black/90 border-b border-white/10 backdrop-blur-sm">
+    <div className="min-h-screen bg-black text-white font-mono w-full max-w-[100vw] overflow-x-hidden">
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 bg-black/90 border-b border-white/10 backdrop-blur-sm">
         <Link href="/" className="font-bold text-base tracking-tight flex items-baseline gap-1">
           BLACK<span className="font-serif italic text-[#10b981]">EDGE</span>
         </Link>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 sm:gap-6">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
-            <span className="text-[10px] tracking-[0.2em] text-[#10b981]">STATUS: CONNECTED</span>
+            <span className="text-[10px] tracking-[0.2em] text-[#10b981] hidden sm:inline">STATUS: CONNECTED</span>
           </div>
           <Link
             href="/"
@@ -163,12 +182,16 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Main layout */}
-      <main className="pt-[72px] flex min-h-screen">
-        {/* Left column — Configuration (30%) */}
-        <aside className="w-[30%] min-w-[280px] border-r border-white/10 p-6 flex flex-col gap-8">
+      <main className="pt-[72px] flex min-h-screen flex-col lg:flex-row w-full">
+        <aside className="w-full lg:w-[30%] lg:min-w-[280px] border-r border-white/10 p-4 sm:p-6 flex flex-col gap-8">
           <div>
-            <h2 className="text-[10px] tracking-[0.3em] text-[#10b981] mb-4">API CREDENTIALS</h2>
+            <h2 className="text-[10px] tracking-[0.3em] text-[#10b981] mb-4">POLYMARKET API CREDENTIALS</h2>
+            {showVaultOnly && (
+              <div className="mb-6 p-6 border border-[#10b981]/30 bg-black text-center">
+                <p className="text-[#10b981] text-sm font-bold tracking-widest">VAULT ENCRYPTION REQUIRED</p>
+                <p className="text-white/40 text-[10px] mt-2">Paste your Polymarket CLOB keys below to unlock the terminal.</p>
+              </div>
+            )}
             <div className="space-y-4">
               <div>
                 <label className="block text-[9px] tracking-wider text-white/40 mb-2">Proxy Key</label>
@@ -177,7 +200,7 @@ export default function DashboardPage() {
                   value={proxyKey}
                   onChange={(e) => setProxyKey(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white text-sm placeholder-white/20 focus:border-[#10b981]/50 focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10 text-white text-sm placeholder-white/20 focus:border-[#10b981] focus:outline-none focus:ring-1 focus:ring-[#10b981]/30 transition-colors"
                 />
               </div>
               <div>
@@ -187,7 +210,7 @@ export default function DashboardPage() {
                   value={secret}
                   onChange={(e) => setSecret(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 text-white text-sm placeholder-white/20 focus:border-[#10b981]/50 focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10 text-white text-sm placeholder-white/20 focus:border-[#10b981] focus:outline-none focus:ring-1 focus:ring-[#10b981]/30 transition-colors"
                 />
               </div>
               <button
@@ -215,17 +238,20 @@ export default function DashboardPage() {
           </div>
         </aside>
 
-        {/* Right column — The Brain (70%) */}
-        <div className="flex-1 flex flex-col p-6 gap-6">
-          {/* Live Execution Logs */}
-          <div className="flex-1 flex flex-col min-h-0 border border-white/10 bg-black overflow-hidden">
+        <div className="flex-1 flex flex-col p-4 sm:p-6 gap-6 min-w-0">
+          <div className="flex-1 flex flex-col min-h-[300px] border border-white/10 bg-black overflow-hidden">
             <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500/80" />
               <div className="w-2 h-2 rounded-full bg-amber-500/80" />
               <div className="w-2 h-2 rounded-full bg-[#10b981]/80" />
               <span className="text-[9px] tracking-widest text-white/30 ml-3">LIVE EXECUTION LOGS</span>
+              {!autoScroll && <span className="text-[8px] text-white/30 ml-auto">Scroll to bottom to auto-follow</span>}
             </div>
-            <div className="flex-1 overflow-y-auto p-4 font-mono text-xs">
+            <div
+              ref={logsContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto p-4 font-mono text-xs"
+            >
               {logs.length === 0 && !isBotActive && !engineOffline && (
                 <p className="text-white/30">Agent inactive. Activate to see logs.</p>
               )}
@@ -238,11 +264,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Live PnL */}
           <div className="border border-white/10 p-6 flex items-center justify-between">
             <span className="text-[10px] tracking-widest text-white/40">LIVE PnL</span>
             <span
-              className={`text-4xl font-bold tracking-tight ${
+              className={`text-3xl sm:text-4xl font-bold tracking-tight ${
                 currentPnl !== null && currentPnl >= 0 ? "text-[#10b981]" : "text-red-400"
               }`}
             >

@@ -1,7 +1,12 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState, useRef } from "react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
+import { useAccount, useDisconnect } from "wagmi"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import Link from "next/link"
+import { AccessModal } from "@/components/access-modal"
 
 const MARKETS = [
   { name: "Federal Reserve Rate Cut — Q3 2025", cat: "economy", prob: 67, delta: 3.2, vol: "$4.2M", kelly: "+8.1%", badge: "live" },
@@ -36,6 +41,39 @@ const WC = [
 ]
 
 export default function Home() {
+  const router = useRouter()
+  const { address, isConnected, isConnecting } = useAccount()
+  const { disconnect } = useDisconnect()
+  const [accessModalOpen, setAccessModalOpen] = useState(false)
+  const [accessModalTier, setAccessModalTier] = useState<"runner" | "whale">("runner")
+  const [accessTerminalLoading, setAccessTerminalLoading] = useState(false)
+  const [pageFadeOut, setPageFadeOut] = useState(false)
+
+  const handleOpenAccessTerminal = async () => {
+    if (!address) return
+    setAccessTerminalLoading(true)
+    try {
+      const res = await fetch(`/api/user/status?address=${encodeURIComponent(address)}`)
+      const { tier } = await res.json()
+      if (tier === "free") {
+        document.getElementById("pricing")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        })
+        toast.info("Licence required for Terminal Access.")
+      } else if (tier === "runner" || tier === "whale") {
+        setPageFadeOut(true)
+        setTimeout(() => router.push("/dashboard"), 400)
+        return
+      }
+    } catch {
+      document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth", block: "start" })
+      toast.info("Licence required for Terminal Access.")
+    } finally {
+      setAccessTerminalLoading(false)
+    }
+  }
+
   useEffect(() => {
     let activeFilter = "all"
     const marketsData = [...MARKETS]
@@ -346,7 +384,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div id="app">
+      <div id="app" style={{ opacity: pageFadeOut ? 0 : 1, transition: "opacity 0.4s cubic-bezier(0.23,1,0.32,1)" }}>
         <nav>
           <div className="nav-logo">
             BLACK<em>EDGE</em>
@@ -362,14 +400,35 @@ export default function Home() {
               <div className="live-dot" />
               LIVE
             </div>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setAccessModalOpen(true)}
+              style={{ padding: "8px 16px", fontSize: 10 }}
+            >
+              GET ACCESS
+            </button>
             <ConnectButton.Custom>
-              {({ openConnectModal, openAccountModal, account }) =>
-                account ? (
-                  <button type="button" className="btn-connect" onClick={() => { window.location.href = "/?view=terminal" }}>
-                    {account.displayName} — TERMINAL
+              {({ openConnectModal, account }) =>
+                isConnecting ? (
+                  <button type="button" className="btn-connect btn-connect-pulse" disabled>
+                    <span className="btn-pulse-dot" />
+                    CONNECTING...
+                  </button>
+                ) : account ? (
+                  <button
+                    type="button"
+                    className="btn-cta"
+                    onClick={handleOpenAccessTerminal}
+                    disabled={accessTerminalLoading}
+                  >
+                    {accessTerminalLoading ? (
+                      <span className="btn-pulse-dot" style={{ marginRight: 8 }} />
+                    ) : null}
+                    {accessTerminalLoading ? "CHECKING..." : "OPEN ACCESS TERMINAL"}
                   </button>
                 ) : (
-                  <button type="button" className="btn-connect" onClick={openConnectModal}>
+                  <button type="button" className="btn-connect btn-connect-glass" onClick={openConnectModal}>
                     CONNECT WALLET
                   </button>
                 )
@@ -393,9 +452,16 @@ export default function Home() {
                 5 AI agents analyze every Polymarket position independently. They debate. They vote. One exists only to say no.
               </p>
               <div className="hero-ctas reveal" style={{ transitionDelay: ".3s" }}>
-                <a href="#markets" className="btn-primary">
-                  <span>EXPLORE MARKETS</span>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => setAccessModalOpen(true)}
+                >
+                  <span>GET ACCESS</span>
                   <span>→</span>
+                </button>
+                <a href="#markets" className="btn-ghost">
+                  EXPLORE MARKETS <span style={{ color: "var(--em)" }}>↓</span>
                 </a>
                 <a href="#council" className="btn-ghost">
                   THE COUNCIL <span style={{ color: "var(--em)" }}>↓</span>
@@ -844,9 +910,9 @@ export default function Home() {
                   <div className="pfeature no">Kelly criterion sizing</div>
                   <div className="pfeature no">API access</div>
                 </div>
-                <a href="#" className="btn-tier">
+                <button type="button" className="btn-tier" onClick={() => setAccessModalOpen(true)}>
                   GET STARTED
-                </a>
+                </button>
               </div>
               <div className="pcard featured reveal" style={{ transitionDelay: ".15s" }}>
                 <div className="pcard-badge">MOST POPULAR</div>
@@ -855,35 +921,36 @@ export default function Home() {
                   <sup>$</sup>29
                 </div>
                 <div className="pcard-per">/ MONTH</div>
+                <p className="pcard-subtext">Limited slots available at this rate</p>
                 <div className="pcard-features">
-                  <div className="pfeature">All live market signals</div>
-                  <div className="pfeature">Autonomous AI execution</div>
+                  <div className="pfeature">Real-time market data</div>
+                  <div className="pfeature">Full Council vote breakdown</div>
                   <div className="pfeature">Kelly criterion position sizing</div>
-                  <div className="pfeature">Real-time terminal access</div>
-                  <div className="pfeature">Telegram/Discord alerts</div>
-                  <div className="pfeature">Whale Tracker</div>
+                  <div className="pfeature">Real-time terminal + bot</div>
+                  <div className="pfeature">Polymarket API integration</div>
+                  <div className="pfeature no">Full API access</div>
                 </div>
-                <a href="#" className="btn-tier em-btn">
-                  GET ACCESS
-                </a>
+                <button type="button" className="btn-tier em-btn" onClick={() => { setAccessModalTier("runner"); setAccessModalOpen(true); }}>
+                  GET STARTED — $29
+                </button>
               </div>
-              <div className="pcard reveal" style={{ transitionDelay: ".2s" }}>
-                <div className="pcard-tier">WHALE SYNDICATE</div>
-                <div className="pcard-price" style={{ fontSize: "28px" }}>
-                  CONTACT SALES
+              <div className="pcard pcard-edge reveal" style={{ transitionDelay: ".2s" }}>
+                <div className="pcard-tier">THE EDGE</div>
+                <div className="pcard-price">
+                  <sup>$</sup>999
                 </div>
-                <div className="pcard-per">CUSTOM ALLOCATION</div>
+                <div className="pcard-per">/ MONTH</div>
                 <div className="pcard-features">
                   <div className="pfeature">Everything in Runner</div>
                   <div className="pfeature">Full REST + WebSocket API</div>
-                  <div className="pfeature">Custom model training</div>
-                  <div className="pfeature">Priority execution queue</div>
-                  <div className="pfeature">Dedicated infrastructure</div>
-                  <div className="pfeature">Direct support line</div>
+                  <div className="pfeature">Webhook alerts</div>
+                  <div className="pfeature">Priority signal delivery</div>
+                  <div className="pfeature">Portfolio integration</div>
+                  <div className="pfeature">Dedicated support</div>
                 </div>
-                <a href="mailto:camil.nova@outlook.fr?subject=Black%20Edge%20Whale%20Access" className="btn-tier">
-                  REQUEST ACCESS
-                </a>
+                <button type="button" className="btn-tier" onClick={() => { setAccessModalTier("whale"); setAccessModalOpen(true); }}>
+                  GET ACCESS — $999
+                </button>
               </div>
             </div>
           </div>
@@ -909,55 +976,27 @@ export default function Home() {
             <div>
               <div className="footer-col-title">NAVIGATION</div>
               <div className="footer-links">
-                <a href="#" className="footer-link">
-                  Home
-                </a>
-                <a href="#markets" className="footer-link">
-                  Markets
-                </a>
-                <a href="#council" className="footer-link">
-                  The Council
-                </a>
-                <a href="#trackrecord" className="footer-link">
-                  Track Record
-                </a>
-                <a href="#pricing" className="footer-link">
-                  Pricing
-                </a>
-              </div>
-            </div>
-            <div>
-              <div className="footer-col-title">RESOURCES</div>
-              <div className="footer-links">
-                <a href="#" className="footer-link">
-                  Documentation
-                </a>
-                <a href="#" className="footer-link">
-                  API Reference
-                </a>
-                <a href="#" className="footer-link">
-                  System Status
-                </a>
-                <a href="#" className="footer-link">
-                  Changelog
-                </a>
+                <Link href="/" className="footer-link">Home</Link>
+                <a href="/#markets" className="footer-link">Markets</a>
+                <a href="/#council" className="footer-link">The Council</a>
+                <a href="/#trackrecord" className="footer-link">Track Record</a>
+                <a href="/#pricing" className="footer-link">Pricing</a>
               </div>
             </div>
             <div>
               <div className="footer-col-title">LEGAL</div>
               <div className="footer-links">
-                <a href="/terms" className="footer-link">
-                  Terms of Service
-                </a>
-                <a href="/privacy" className="footer-link">
-                  Privacy Policy
-                </a>
-                <a href="/risk-disclosure" className="footer-link">
-                  Risk Disclosure
-                </a>
-                <a href="#" className="footer-link">
-                  Cookie Policy
-                </a>
+                <Link href="/terms" className="footer-link">Terms of Service</Link>
+                <Link href="/privacy" className="footer-link">Privacy Policy</Link>
+                <Link href="/risk-disclosure" className="footer-link">Risk Disclosure</Link>
+                <Link href="/technical-paper" className="footer-link">Technical Paper</Link>
+              </div>
+            </div>
+            <div>
+              <div className="footer-col-title">RESOURCES</div>
+              <div className="footer-links">
+                <a href="/#markets" className="footer-link">Documentation</a>
+                <a href="/status" className="footer-link">System Status</a>
               </div>
             </div>
           </div>
@@ -967,6 +1006,8 @@ export default function Home() {
             <span>NOT FINANCIAL ADVICE</span>
           </div>
         </footer>
+
+        <AccessModal isOpen={accessModalOpen} onClose={() => setAccessModalOpen(false)} defaultTier={accessModalTier} />
       </div>
     </>
   )
