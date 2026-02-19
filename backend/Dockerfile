@@ -28,9 +28,9 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Health check (Railway compatible - uses PORT env var)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request, os; urllib.request.urlopen(f'http://localhost:{os.getenv(\"PORT\", 8000)}/health')"
+# Health check (Railway sets PORT dynamically)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=5 \
+    CMD python -c "import urllib.request, os; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\", \"8000\")}/health')" || exit 1
 
-# Run uvicorn directly on port 8000 (Railway will map it automatically)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Railway injects PORT at runtime — use shell to expand it
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1

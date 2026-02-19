@@ -159,6 +159,7 @@ class UserCredentials(Base):
     # Stored as ciphertext — never plaintext in DB
     polymarket_proxy_key: Mapped[str] = mapped_column(Text, nullable=False)  # Encrypted
     polymarket_secret: Mapped[str] = mapped_column(Text, nullable=False)  # Encrypted
+    polymarket_passphrase: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Encrypted
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -327,9 +328,9 @@ def _get_engine_url() -> str:
         url = os.environ.get("DATABASE_URL", "").strip()
 
     url = (url or "").strip()
-    if url and url.startswith(("postgresql://", "postgres://")):
+    if url:
         return url
-    # Fallback for local dev if DATABASE_URL not set (config validator will catch in prod)
+    # Fallback for local dev
     data_dir = Path(__file__).resolve().parent.parent / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     return f"sqlite:///{data_dir / 'blackedge.db'}"
