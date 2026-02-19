@@ -1,4 +1,4 @@
-"""Textual TUI application — the client-facing dashboard."""
+"""Portfolio widget — PnL dashboard & open positions."""
 
 from __future__ import annotations
 

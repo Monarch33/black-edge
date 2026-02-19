@@ -1,10 +1,7 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect } from "react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
-import { useDisconnect } from "wagmi"
-import { useRouter } from "next/navigation"
-import { AccessModal } from "@/components/access-modal"
 
 const MARKETS = [
   { name: "Federal Reserve Rate Cut — Q3 2025", cat: "economy", prob: 67, delta: 3.2, vol: "$4.2M", kelly: "+8.1%", badge: "live" },
@@ -39,24 +36,6 @@ const WC = [
 ]
 
 export default function Home() {
-  const router = useRouter()
-  const { disconnect } = useDisconnect()
-  const [accessModalOpen, setAccessModalOpen] = useState(false)
-  const [accessModalTier, setAccessModalTier] = useState<"pro" | "whale">("pro")
-  const [walletMenuOpen, setWalletMenuOpen] = useState(false)
-  const walletMenuRef = useRef<HTMLDivElement>(null)
-
-  // Fermer le menu wallet en cliquant ailleurs
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (walletMenuRef.current && !walletMenuRef.current.contains(e.target as Node)) {
-        setWalletMenuOpen(false)
-      }
-    }
-    document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
-  }, [])
-
   useEffect(() => {
     let activeFilter = "all"
     const marketsData = [...MARKETS]
@@ -383,75 +362,12 @@ export default function Home() {
               <div className="live-dot" />
               LIVE
             </div>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => setAccessModalOpen(true)}
-              style={{ padding: "8px 16px", fontSize: 10 }}
-            >
-              GET ACCESS
-            </button>
             <ConnectButton.Custom>
-              {({ openConnectModal, account }) =>
+              {({ openConnectModal, openAccountModal, account }) =>
                 account ? (
-                  <div ref={walletMenuRef} style={{ position: "relative" }}>
-                    <button
-                      type="button"
-                      className="btn-connect"
-                      onClick={() => setWalletMenuOpen((v) => !v)}
-                      style={{ display: "flex", alignItems: "center", gap: 6 }}
-                    >
-                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--em)", display: "inline-block", flexShrink: 0 }} />
-                      {account.displayName}
-                      <span style={{ fontSize: 8, opacity: 0.5 }}>▾</span>
-                    </button>
-                    {walletMenuOpen && (
-                      <div style={{
-                        position: "absolute", top: "calc(100% + 8px)", right: 0,
-                        background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.1)",
-                        minWidth: 200, zIndex: 200,
-                      }}>
-                        <button
-                          type="button"
-                          onClick={() => { setWalletMenuOpen(false); router.push("/dashboard") }}
-                          style={{
-                            display: "block", width: "100%", padding: "12px 16px",
-                            textAlign: "left", fontFamily: "var(--t-mono)", fontSize: 10,
-                            letterSpacing: "0.2em", color: "var(--em)",
-                            background: "none", border: "none", cursor: "pointer",
-                            borderBottom: "1px solid rgba(255,255,255,0.06)",
-                          }}
-                        >
-                          ▶ OPEN TERMINAL
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setWalletMenuOpen(false); setAccessModalTier("pro"); setAccessModalOpen(true) }}
-                          style={{
-                            display: "block", width: "100%", padding: "12px 16px",
-                            textAlign: "left", fontFamily: "var(--t-mono)", fontSize: 10,
-                            letterSpacing: "0.2em", color: "rgba(255,255,255,0.6)",
-                            background: "none", border: "none", cursor: "pointer",
-                            borderBottom: "1px solid rgba(255,255,255,0.06)",
-                          }}
-                        >
-                          ⚡ SUBSCRIBE
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setWalletMenuOpen(false); disconnect() }}
-                          style={{
-                            display: "block", width: "100%", padding: "12px 16px",
-                            textAlign: "left", fontFamily: "var(--t-mono)", fontSize: 10,
-                            letterSpacing: "0.2em", color: "rgba(255,255,255,0.35)",
-                            background: "none", border: "none", cursor: "pointer",
-                          }}
-                        >
-                          DISCONNECT
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <button type="button" className="btn-connect" onClick={() => { window.location.href = "/?view=terminal" }}>
+                    {account.displayName} — TERMINAL
+                  </button>
                 ) : (
                   <button type="button" className="btn-connect" onClick={openConnectModal}>
                     CONNECT WALLET
@@ -477,16 +393,9 @@ export default function Home() {
                 5 AI agents analyze every Polymarket position independently. They debate. They vote. One exists only to say no.
               </p>
               <div className="hero-ctas reveal" style={{ transitionDelay: ".3s" }}>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => setAccessModalOpen(true)}
-                >
-                  <span>GET ACCESS</span>
+                <a href="#markets" className="btn-primary">
+                  <span>EXPLORE MARKETS</span>
                   <span>→</span>
-                </button>
-                <a href="#markets" className="btn-ghost">
-                  EXPLORE MARKETS <span style={{ color: "var(--em)" }}>↓</span>
                 </a>
                 <a href="#council" className="btn-ghost">
                   THE COUNCIL <span style={{ color: "var(--em)" }}>↓</span>
@@ -935,46 +844,46 @@ export default function Home() {
                   <div className="pfeature no">Kelly criterion sizing</div>
                   <div className="pfeature no">API access</div>
                 </div>
-                <button type="button" className="btn-tier" onClick={() => setAccessModalOpen(true)}>
+                <a href="#" className="btn-tier">
                   GET STARTED
-                </button>
+                </a>
               </div>
               <div className="pcard featured reveal" style={{ transitionDelay: ".15s" }}>
                 <div className="pcard-badge">MOST POPULAR</div>
-                <div className="pcard-tier">PRO</div>
+                <div className="pcard-tier">RUNNER</div>
                 <div className="pcard-price">
-                  <sup>$</sup>49
+                  <sup>$</sup>29
                 </div>
                 <div className="pcard-per">/ MONTH</div>
                 <div className="pcard-features">
                   <div className="pfeature">All live market signals</div>
-                  <div className="pfeature">Full Council vote breakdown</div>
+                  <div className="pfeature">Autonomous AI execution</div>
                   <div className="pfeature">Kelly criterion position sizing</div>
-                  <div className="pfeature">Real-time terminal + bot</div>
-                  <div className="pfeature">Polymarket API integration</div>
-                  <div className="pfeature no">Full API access</div>
+                  <div className="pfeature">Real-time terminal access</div>
+                  <div className="pfeature">Telegram/Discord alerts</div>
+                  <div className="pfeature">Whale Tracker</div>
                 </div>
-                <button type="button" className="btn-tier em-btn" onClick={() => { setAccessModalTier("pro"); setAccessModalOpen(true); }}>
-                  GET ACCESS — $49
-                </button>
+                <a href="#" className="btn-tier em-btn">
+                  GET ACCESS
+                </a>
               </div>
               <div className="pcard reveal" style={{ transitionDelay: ".2s" }}>
-                <div className="pcard-tier">THE EDGE</div>
-                <div className="pcard-price">
-                  <sup>$</sup>199
+                <div className="pcard-tier">WHALE SYNDICATE</div>
+                <div className="pcard-price" style={{ fontSize: "28px" }}>
+                  CONTACT SALES
                 </div>
-                <div className="pcard-per">/ MONTH</div>
+                <div className="pcard-per">CUSTOM ALLOCATION</div>
                 <div className="pcard-features">
-                  <div className="pfeature">Everything in Pro</div>
+                  <div className="pfeature">Everything in Runner</div>
                   <div className="pfeature">Full REST + WebSocket API</div>
-                  <div className="pfeature">Webhook alerts</div>
-                  <div className="pfeature">Priority signal delivery</div>
-                  <div className="pfeature">Portfolio integration</div>
-                  <div className="pfeature">Dedicated support</div>
+                  <div className="pfeature">Custom model training</div>
+                  <div className="pfeature">Priority execution queue</div>
+                  <div className="pfeature">Dedicated infrastructure</div>
+                  <div className="pfeature">Direct support line</div>
                 </div>
-                <button type="button" className="btn-tier" onClick={() => { setAccessModalTier("whale"); setAccessModalOpen(true); }}>
-                  GET ACCESS — $199
-                </button>
+                <a href="mailto:camil.nova@outlook.fr?subject=Black%20Edge%20Whale%20Access" className="btn-tier">
+                  REQUEST ACCESS
+                </a>
               </div>
             </div>
           </div>
@@ -1058,8 +967,6 @@ export default function Home() {
             <span>NOT FINANCIAL ADVICE</span>
           </div>
         </footer>
-
-        <AccessModal isOpen={accessModalOpen} onClose={() => setAccessModalOpen(false)} defaultTier={accessModalTier} />
       </div>
     </>
   )

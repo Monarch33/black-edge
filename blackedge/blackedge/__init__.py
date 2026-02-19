@@ -1,7 +1,4 @@
-"""
-Black Edge Core — Bot de Trading Autonome pour Marchés Prédictifs
-=================================================================
-Package principal. Ne pas importer depuis l'extérieur.
-"""
+"""Black Edge — Autonomous prediction market trading bot."""
 
 __version__ = "0.1.0"
+__app_name__ = "Black Edge"
