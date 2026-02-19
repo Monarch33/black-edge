@@ -238,8 +238,8 @@ export default function DashboardPage() {
           </div>
         </aside>
 
-        <div className="flex-1 flex flex-col p-4 sm:p-6 gap-6 min-w-0">
-          <div className="flex-1 flex flex-col min-h-[300px] border border-white/10 bg-black overflow-hidden">
+        <div className="flex-1 flex flex-col p-4 sm:p-6 gap-6 min-w-0 min-h-0">
+          <div className="flex-1 flex flex-col min-h-[50vh] lg:min-h-[calc(100vh-88px)] border border-white/10 bg-black overflow-hidden">
             <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500/80" />
               <div className="w-2 h-2 rounded-full bg-amber-500/80" />

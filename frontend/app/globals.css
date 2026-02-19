@@ -282,6 +282,7 @@ nav {
 .btn-primary:hover { border-color: var(--em); color: var(--black); }
 .btn-primary:hover::before { transform: scaleX(1); }
 .btn-primary span { position: relative; z-index: 1; }
+.btn-get-access { padding: 8px 16px; font-size: 10px; }
 .btn-ghost {
   font-size: 9px; letter-spacing: .2em; color: rgba(255,255,255,.4);
   text-decoration: none; cursor: none; transition: color .2s;
@@ -738,6 +739,93 @@ section { position: relative; z-index: 10; }
 .btn-tier:hover { border-color: rgba(255,255,255,.3); background: var(--glass2); }
 .btn-tier.em-btn { border-color: var(--em); color: var(--em); }
 .btn-tier.em-btn:hover { background: var(--em); color: var(--black); }
+
+/* ACCESS MODAL — Full-screen institutional checkout */
+.access-modal-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,.92); backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; animation: accessOverlayIn .4s cubic-bezier(.23,1,.32,1) forwards;
+}
+.access-modal-panel {
+  width: 100%; max-width: 64rem; /* max-w-5xl */
+  min-height: 80vh; max-height: 90vh;
+  background: #000;
+  border: 1px solid rgba(16,185,129,.15);
+  border-radius: 4px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.03) inset,
+    0 0 80px rgba(16,185,129,.08),
+    0 0 0 1px rgba(16,185,129,.2);
+  position: relative; overflow: hidden;
+  animation: accessPanelSlide .5s cubic-bezier(.23,1,.32,1) forwards;
+  display: flex; flex-direction: column;
+}
+.access-modal-panel::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(16,185,129,.06) 0%, transparent 40%),
+    linear-gradient(225deg, rgba(16,185,129,.06) 0%, transparent 40%),
+    linear-gradient(315deg, rgba(16,185,129,.04) 0%, transparent 40%),
+    linear-gradient(45deg, rgba(16,185,129,.04) 0%, transparent 40%);
+}
+.access-modal-edge-glow {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16,185,129,.12), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(16,185,129,.08), transparent 45%),
+    radial-gradient(ellipse 60% 40% at 0% 50%, rgba(16,185,129,.08), transparent 45%);
+}
+.access-modal-content { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; padding: 48px 56px; }
+.access-modal-title { font-family: var(--t-syne); font-weight: 800; font-size: 28px; letter-spacing: -.02em; margin-bottom: 8px; }
+.access-modal-subtitle { font-family: var(--t-mono); font-size: 11px; letter-spacing: .12em; color: rgba(255,255,255,.4); margin-bottom: 32px; }
+.access-price-syne { font-family: var(--t-syne); font-weight: 800; }
+.access-detail-mono { font-family: var(--t-mono); }
+.access-reassurance {
+  font-family: var(--t-mono); font-size: 9px; letter-spacing: .2em; color: rgba(255,255,255,.25);
+  margin-top: 32px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.06);
+}
+.access-tier-runner { border: 1px solid rgba(16,185,129,.25); background: rgba(16,185,129,.03); }
+.access-tier-edge {
+  border: 1px solid rgba(139,92,246,.3);
+  background: rgba(255,255,255,.02);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 0 40px rgba(139,92,246,.1), inset 0 0 60px rgba(255,255,255,.015);
+  position: relative;
+}
+.access-tier-edge::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(circle at 20% 30%, rgba(16,185,129,.06) 0%, transparent 25%),
+    radial-gradient(circle at 80% 70%, rgba(139,92,246,.06) 0%, transparent 25%);
+}
+.access-particles {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  opacity: .6;
+}
+.access-particles span {
+  position: absolute; width: 2px; height: 2px; background: rgba(16,185,129,.4); border-radius: 50%;
+  animation: accessParticleFloat 12s ease-in-out infinite;
+}
+.access-particles span:nth-child(1) { left: 10%; top: 20%; animation-delay: 0s; }
+.access-particles span:nth-child(2) { left: 25%; top: 60%; animation-delay: -2s; }
+.access-particles span:nth-child(3) { left: 60%; top: 15%; animation-delay: -4s; }
+.access-particles span:nth-child(4) { left: 80%; top: 50%; animation-delay: -6s; }
+.access-particles span:nth-child(5) { left: 40%; top: 80%; animation-delay: -8s; }
+.access-particles span:nth-child(6) { left: 90%; top: 25%; animation-delay: -10s; }
+@keyframes accessOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes accessPanelSlide { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes accessParticleFloat { 0%,100% { transform: translate(0,0) scale(1); opacity: .4; } 50% { transform: translate(8px,-12px) scale(1.2); opacity: .8; } }
+
+/* Page fade (for navigation) */
+.app-page-transition { transition: opacity .4s cubic-bezier(.23,1,.32,1); }
+.page-fade-out { opacity: 0; }
+.reveal-delay-1 { transition-delay: .1s; }
+.reveal-delay-2 { transition-delay: .2s; }
+.reveal-delay-3 { transition-delay: .3s; }
+.reveal-delay-4 { transition-delay: .4s; }
+.reveal-delay-15 { transition-delay: .15s; }
+.hr-z { position: relative; z-index: 10; }
+.accent-em { color: var(--em); }
 
 /* FOOTER */
 footer {
