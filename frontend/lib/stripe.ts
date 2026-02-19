@@ -45,8 +45,22 @@ export function isStripeConfigured(): boolean {
 
 /**
  * Subscription tier prices.
+ * Pro ($49) = bot terminal + Polymarket API. The Edge ($199) = full API.
  */
 export const TIER_PRICES = {
+  pro: {
+    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_RUNNER || "",
+    amount: 49,
+    name: "Pro",
+    features: [
+      "All live market signals",
+      "Full Council vote breakdown",
+      "Kelly criterion position sizing",
+      "Real-time terminal access",
+      "30s signal refresh",
+      "Autonomous bot + Polymarket API",
+    ],
+  },
   runner: {
     priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_RUNNER || "",
     amount: 29,
@@ -79,19 +93,23 @@ if (typeof window !== "undefined") {
   console.log("  - Whale:", TIER_PRICES.whale.priceId || "❌ MISSING");
 }
 
+export type StripeTier = "pro" | "runner" | "whale"
+
 /**
  * Create a Stripe checkout session.
  */
 export async function createCheckoutSession(
-  tier: "runner" | "whale",
-  userId: string
-): Promise<string | null> {
+  tier: StripeTier,
+  userId: string,
+  options?: { successUrl?: string; cancelUrl?: string }
+): Promise<{ sessionId: string; url: string } | null> {
   console.log("💳 Creating Stripe checkout session:");
   console.log("  - Tier:", tier);
   console.log("  - Price ID:", TIER_PRICES[tier].priceId);
   console.log("  - User ID:", userId);
 
   try {
+    const origin = typeof window !== "undefined" ? window.location.origin : ""
     const response = await fetch("/api/stripe/checkout", {
       method: "POST",
       headers: {
@@ -100,8 +118,10 @@ export async function createCheckoutSession(
       body: JSON.stringify({
         priceId: TIER_PRICES[tier].priceId,
         userId,
+        successUrl: options?.successUrl || `${origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: options?.cancelUrl || `${origin}/pricing`,
       }),
-    });
+    })
 
     console.log("  - Response status:", response.status);
 
@@ -111,9 +131,10 @@ export async function createCheckoutSession(
       throw new Error("Failed to create checkout session");
     }
 
-    const { sessionId } = await response.json();
+    const data = await response.json();
+    const { sessionId, url } = data;
     console.log("✅ Checkout session created:", sessionId);
-    return sessionId;
+    return { sessionId, url };
   } catch (error) {
     console.error("❌ Checkout session error:", error);
     return null;
@@ -124,23 +145,15 @@ export async function createCheckoutSession(
  * Redirect to Stripe checkout.
  */
 export async function redirectToCheckout(
-  tier: "runner" | "whale",
-  userId: string
+  tier: StripeTier,
+  userId: string,
+  options?: { successUrl?: string; cancelUrl?: string }
 ): Promise<void> {
-  const sessionId = await createCheckoutSession(tier, userId);
-  if (!sessionId) {
+  const result = await createCheckoutSession(tier, userId, options);
+  if (!result?.url) {
     throw new Error("Failed to create checkout session");
   }
-
-  const stripe = await getStripe();
-  if (!stripe) {
-    throw new Error("Stripe not loaded");
-  }
-
-  const { error } = await stripe.redirectToCheckout({ sessionId });
-  if (error) {
-    throw error;
-  }
+  window.location.href = result.url;
 }
 
 /**
