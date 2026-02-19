@@ -6,14 +6,14 @@ import { Navbar } from "@/components/navbar"
 import { LandingView } from "@/components/views/landing-view"
 import { MarketsView } from "@/components/views/markets-view"
 import { PricingView } from "@/components/views/pricing-view"
-import { TerminalView } from "@/components/views/terminal-view"
+import { TerminalAppView } from "@/components/views/terminal-app-view"
 import { PortfolioView } from "@/components/views/portfolio-view"
 import { SportsView } from "@/components/views/sports-view"
 import { Crypto5MinView } from "@/components/views/crypto-5min-view"
 import { TrackRecordView } from "@/components/views/track-record-view"
 import { Footer } from "@/components/footer"
 
-type View = 'landing' | 'markets' | 'crypto5min' | 'sports' | 'pricing' | 'terminal' | 'portfolio' | 'trackrecord' | 'results'
+type View = 'landing' | 'markets' | 'crypto5min' | 'sports' | 'pricing' | 'terminal' | 'portfolio' | 'trackrecord' | 'results' | 'app'
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<View>('landing')
@@ -40,7 +40,7 @@ export default function Home() {
           {currentView === 'landing' && <LandingView onNavigate={(v) => handleNavigate(v as View)} />}
           {currentView === 'markets' && <MarketsView />}
           {currentView === 'pricing' && <PricingView />}
-          {currentView === 'terminal' && <TerminalView />}
+          {currentView === 'terminal' && <TerminalAppView />}
           {currentView === 'portfolio' && <PortfolioView />}
           {currentView === 'sports' && <SportsView />}
           {currentView === 'crypto5min' && <Crypto5MinView />}

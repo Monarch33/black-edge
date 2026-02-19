@@ -442,6 +442,39 @@ def get_unresolved_predictions() -> List[Dict]:
     return unresolved
 
 
+def get_open_positions_for_api() -> List[Dict]:
+    """
+    Get open positions (unresolved) with full data for dashboard API.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, market_id, market_question, prediction, confidence, edge,
+               entry_price, recommended_amount, timestamp
+        FROM paper_trades
+        WHERE resolved = 0
+        ORDER BY timestamp DESC
+    """)
+
+    positions = []
+    for row in cursor.fetchall():
+        positions.append({
+            "id": row[0],
+            "market_id": row[1],
+            "market_question": row[2],
+            "prediction": row[3],
+            "confidence": row[4],
+            "edge": row[5],
+            "entry_price": row[6],
+            "recommended_amount": row[7],
+            "timestamp": row[8],
+        })
+
+    conn.close()
+    return positions
+
+
 # =============================================================================
 # AUTO-RESOLUTION (TODO: Implement with Polymarket API)
 # =============================================================================

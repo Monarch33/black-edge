@@ -1433,6 +1433,48 @@ async def build_approval(user_address: str) -> dict:
         return {"error": str(e)}
 
 
+@app.get("/api/positions")
+async def get_bot_positions() -> dict:
+    """
+    Positions ouvertes par le bot (paper trades non résolus).
+    Affichées dans le dashboard quand le wallet est connecté.
+    """
+    try:
+        from engine.paper_trading_logger import get_open_positions_for_api
+
+        raw = get_open_positions_for_api()
+        positions = [
+            {
+                "id": str(t["id"]),
+                "market_id": t["market_id"],
+                "question": t["market_question"],
+                "prediction": t["prediction"],
+                "confidence": t.get("confidence", 0),
+                "edge": t.get("edge", 0),
+                "entry_price": t.get("entry_price", 0),
+                "size_usd": t.get("recommended_amount", 0),
+                "timestamp": t.get("timestamp", 0),
+            }
+            for t in raw
+        ]
+        return {"positions": positions, "count": len(positions)}
+    except Exception as e:
+        logger.error("Failed to fetch positions", error=str(e))
+        return {"positions": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/track-record")
+async def get_track_record() -> dict:
+    """Track record du bot (win rate, PnL, etc.)."""
+    try:
+        from engine.paper_trading_logger import get_track_record as _get_track_record
+
+        return _get_track_record()
+    except Exception as e:
+        logger.error("Failed to fetch track record", error=str(e))
+        return {"error": str(e)}
+
+
 @app.post("/api/subscribe")
 async def subscribe_to_waitlist(email: str) -> dict:
     """

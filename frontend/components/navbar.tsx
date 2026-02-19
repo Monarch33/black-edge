@@ -247,13 +247,13 @@ export function Navbar({ currentView, onNavigate }: NavbarProps) {
 
   const baseNavItems = [
     { label: "HOME", view: "landing" as View },
+    { label: "APP", view: "terminal" as View },
     { label: "MARKETS", view: "markets" as View },
     { label: "SPORTS", view: "sports" as View },
     { label: "PRICING", view: "pricing" as View },
   ]
 
   const connectedNavItems = isConnected ? [
-    { label: "TERMINAL", view: "terminal" as View },
     { label: "PORTFOLIO", view: "portfolio" as View },
   ] : []
 
