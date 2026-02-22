@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { Terminal } from "@/components/terminal/Terminal"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 const WS_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/^http/, "ws")
@@ -263,6 +264,9 @@ export default function DashboardPage() {
               <div ref={logsEndRef} />
             </div>
           </div>
+
+          {/* HFT Engine Metrics — powered by black-edge-core (Rust) */}
+          <Terminal />
 
           <div className="border border-white/10 p-6 flex items-center justify-between">
             <span className="text-[10px] tracking-widest text-white/40">LIVE PnL</span>

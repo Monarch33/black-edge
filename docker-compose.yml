@@ -46,6 +46,32 @@ services:
       timeout: 3s
       retries: 3
 
+  # ── Rust HFT Execution Engine ──────────────────────────────────────────────
+  # Runs alongside the Python backend. Handles Binance WS ingestion,
+  # Black-Scholes pricing, Kelly sizing, and broadcasts metrics to the
+  # React dashboard over WebSocket on port 9000.
+  # Target deployment: AWS eu-west-2 (London) — co-located with Polymarket.
+  black-edge-core:
+    build:
+      context: ./black-edge-core
+      dockerfile: Dockerfile
+    container_name: blackedge-rust-engine
+    ports:
+      - "9000:9000"
+    environment:
+      - RUST_LOG=info
+      - RUST_ENGINE_PORT=9000
+      - BANKROLL=1000.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - blackedge-network
+
   # Optional: PostgreSQL database (uncomment if needed)
   # postgres:
   #   image: postgres:16-alpine
