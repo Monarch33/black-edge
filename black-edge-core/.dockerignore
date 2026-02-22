@@ -1,0 +1,6 @@
+# Build artefacts – never copy the local Rust target directory into Docker.
+# Without this file a `docker build` on a machine with a populated target/
+# would copy gigabytes of compiled objects into the build context.
+target/
+.git/
+*.md
