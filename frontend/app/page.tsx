@@ -398,8 +398,12 @@ export default function Home() {
 
       <div id="app" className={`app-page-transition ${pageFadeOut ? "page-fade-out" : ""}`}>
         <nav>
-          <div className="nav-logo">
-            BLACK<em>EDGE</em>
+          {/* ── Brand Identity ── */}
+          <div className="flex items-center gap-3 pointer-events-auto z-50">
+            <span className="font-mono tracking-[0.2em] text-white font-bold text-xl drop-shadow-md">
+              BLACK EDGE
+            </span>
+            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.9)]" />
           </div>
           <div className="nav-links">
             <a href="#markets" className="nav-a">MARKETS</a>

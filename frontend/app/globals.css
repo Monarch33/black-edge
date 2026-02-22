@@ -80,6 +80,9 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 180px;
   animation: grainAnim .35s steps(1) infinite;
+  /* GPU layer — prevents full-screen CPU repaint on every grain frame */
+  transform: translateZ(0);
+  will-change: transform;
 }
 @keyframes grainAnim {
   0%  { background-position: 0 0 }
@@ -93,12 +96,16 @@ body {
     linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
   background-size: 44px 44px;
+  /* Isolate on its own compositing layer */
+  transform: translateZ(0);
 }
 .ambient {
   position: fixed; border-radius: 50%;
   pointer-events: none; z-index: 0;
   filter: blur(140px); opacity: 0;
   animation: ambPulse var(--dur, 8s) ease-in-out infinite alternate;
+  /* Promote early so blur is cached on GPU layer before first paint */
+  will-change: opacity, transform;
 }
 .amb-em {
   width: 700px; height: 700px;
@@ -310,12 +317,16 @@ nav {
 .orb-wrap {
   position: relative; width: min(420px,45vw); height: min(420px,45vw);
   flex-shrink: 0;
+  /* Parallax scroll uses transform — promote early */
+  will-change: transform;
 }
 .orb-core {
   position: absolute; inset: 0; border-radius: 50%;
   background: conic-gradient(from 0deg, rgba(16,185,129,.6), rgba(139,92,246,.5), rgba(16,185,129,.1), rgba(16,185,129,.6));
   animation: orbSpin 14s linear infinite;
   filter: blur(2px);
+  /* GPU layer so filter is cached; rotation composites on top */
+  will-change: transform;
 }
 .orb-mask {
   position: absolute; inset: 12px; border-radius: 50%;
@@ -326,11 +337,13 @@ nav {
   position: absolute; inset: -16px; border-radius: 50%;
   border: 1px solid rgba(255,255,255,.05);
   animation: orbSpin 30s linear infinite reverse;
+  will-change: transform;
 }
 .orb-ring2 {
   position: absolute; inset: -40px; border-radius: 50%;
   border: 1px dashed rgba(16,185,129,.12);
   animation: orbSpin 45s linear infinite;
+  will-change: transform;
 }
 .orb-dot {
   position: absolute; width: 6px; height: 6px; border-radius: 50%;
@@ -407,6 +420,7 @@ section { position: relative; z-index: 10; }
   display: flex; gap: 48px; white-space: nowrap;
   animation: tickerMove 28s linear infinite;
   width: max-content;
+  will-change: transform;
 }
 .ticker-item {
   font-size: 9px; letter-spacing: .12em;
@@ -576,17 +590,19 @@ section { position: relative; z-index: 10; }
 .abar-val { width: 28px; text-align: right; color: var(--white); font-weight: 700; }
 
 .agent-radar { display: flex; justify-content: center; align-items: center; margin-top: 16px; }
-.radar-svg { animation: radarSpin 9s linear infinite; }
+.radar-svg { animation: radarSpin 9s linear infinite; will-change: transform; }
 @keyframes radarSpin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 
 .wcloud { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 6px; line-height: 1; }
 .wc { cursor: none; transition: color .2s; animation: wcGlitch 9s ease-in-out infinite; }
 .wc:hover { color: var(--em); }
 @keyframes wcGlitch {
-  0%,88%,100% { transform: none; filter: none; }
-  89% { transform: translate(-1px,1px); filter: hue-rotate(30deg); }
-  90% { transform: translate(1px,-1px); }
-  91% { transform: none; }
+  /* filter: hue-rotate() removed — CSS filter animations force CPU repaint.
+     Transform-only keyframes are fully GPU-compositable. */
+  0%,88%,100% { transform: none; }
+  89%          { transform: translate(-1px,1px); }
+  90%          { transform: translate(1px,-1px); }
+  91%          { transform: none; }
 }
 
 .doomer-ring {
