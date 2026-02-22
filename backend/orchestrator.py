@@ -490,21 +490,28 @@ async def _execute_for_user(user_id: int, decision: CouncilDecision) -> None:
 # =============================================================================
 
 
-def _get_running_user_ids() -> list[int]:
+def _get_running_users() -> list[dict]:
+    """Return list of dicts with user_id + per-user strategy flags."""
     try:
         init_db()
         with get_session() as session:
             bots = session.query(BotInstance).filter(BotInstance.status == BotStatus.RUNNING).all()
-            return [b.user_id for b in bots]
+            return [
+                {
+                    "user_id": b.user_id,
+                    "strategy_news": getattr(b, "strategy_news", True),
+                    "strategy_crypto": getattr(b, "strategy_crypto", True),
+                }
+                for b in bots
+            ]
     except Exception:
         return []
 
 
-async def _run_execution_engine(decision: CouncilDecision) -> None:
-    """Fan-out decision to all RUNNING users via asyncio.gather."""
-    user_ids = _get_running_user_ids()
+async def _run_execution_engine(decision: CouncilDecision, user_ids: list[int]) -> None:
+    """Fan-out decision to target users via asyncio.gather."""
     if not user_ids:
-        logger.info("[ENGINE] No active bots")
+        logger.info("[ENGINE] No eligible users for this path")
         return
 
     logger.info("[ENGINE] Dispatching", users=len(user_ids), edge=decision.edge_pct)
@@ -533,30 +540,34 @@ async def global_scanner_loop() -> None:
     Every 60s:
       1. Fetch 50 markets from Polymarket Gamma API
       2. Classify each as NEWS or CRYPTO_PRICE
-      3. CRYPTO path: evaluate_crypto_edge (Binance math) — no LLM cost
-      4. NEWS path: Gemini scan → GPT-4o analysis → CouncilDecision
-      5. Fan-out winning decisions to all RUNNING users
+      3. CRYPTO path: evaluate_crypto_edge (Binance math) — only for users with strategy_crypto=True
+      4. NEWS path: Gemini scan → GPT-4o analysis — only for users with strategy_news=True
+      5. Fan-out winning decisions to eligible users only
     """
     logger.info("[SCAN] Black Edge dual-engine V4 online")
 
     while True:
         try:
-            running_users = _get_running_user_ids()
+            running_users = _get_running_users()
 
             if not running_users:
                 # No armed users — sleep and check again
                 await asyncio.sleep(10)
                 continue
 
+            all_user_ids = [u["user_id"] for u in running_users]
+            crypto_user_ids = [u["user_id"] for u in running_users if u["strategy_crypto"]]
+            news_user_ids = [u["user_id"] for u in running_users if u["strategy_news"]]
+
             # ── HUNTING phase ──
-            await _broadcast_status(running_users, "HUNTING_ALPHA", True)
-            await _broadcast_log(running_users, "[SCAN] Analyzing Polymarket volume...")
+            await _broadcast_status(all_user_ids, "HUNTING_ALPHA", True)
+            await _broadcast_log(all_user_ids, "[SCAN] Analyzing Polymarket volume...")
 
             # Step 1: Fetch markets
             raw_markets = await _fetch_markets(limit=50)
             if not raw_markets:
                 logger.warning("[SCAN] No markets fetched — retrying in 60s")
-                await _broadcast_status(running_users, "SCANNING_NOISE", False)
+                await _broadcast_status(all_user_ids, "SCANNING_NOISE", False)
                 await asyncio.sleep(60)
                 continue
 
@@ -581,28 +592,38 @@ async def global_scanner_loop() -> None:
                 news=len(news_markets),
             )
 
-            # ── CRYPTO PATH (fast, no LLM) ──
-            crypto_decision: Optional[CouncilDecision] = None
-            for mkt, slug in crypto_markets:
+            # ── CRYPTO PATH (fast, no LLM) — only for users with Crypto engine ON ──
+            if crypto_user_ids and crypto_markets:
                 await _broadcast_log(
-                    running_users,
-                    f"[CRYPTO] Evaluating BTC market: {mkt.question[:55]}...",
+                    crypto_user_ids,
+                    f"[CRYPTO] Engine active — scanning {len(crypto_markets)} BTC markets...",
                 )
-                crypto_decision = await evaluate_crypto_edge(mkt, slug)
-                if crypto_decision:
+                crypto_decision: Optional[CouncilDecision] = None
+                for mkt, slug in crypto_markets:
                     await _broadcast_log(
-                        running_users,
-                        f"[EDGE] BTC math edge: {crypto_decision.edge_pct:.1f}% "
-                        f"({crypto_decision.recommended_side}) — {crypto_decision.reasoning}",
+                        crypto_user_ids,
+                        f"[CRYPTO] Evaluating BTC market: {mkt.question[:55]}...",
                     )
-                    break
+                    crypto_decision = await evaluate_crypto_edge(mkt, slug)
+                    if crypto_decision:
+                        await _broadcast_log(
+                            crypto_user_ids,
+                            f"[EDGE] BTC math edge: {crypto_decision.edge_pct:.1f}% "
+                            f"({crypto_decision.recommended_side}) — {crypto_decision.reasoning}",
+                        )
+                        break
 
-            if crypto_decision:
-                await _run_execution_engine(crypto_decision)
+                if crypto_decision:
+                    await _run_execution_engine(crypto_decision, crypto_user_ids)
+            elif crypto_markets and not crypto_user_ids:
+                logger.info("[SCAN] Crypto markets found but no users have Crypto engine enabled")
 
-            # ── NEWS PATH (LLM-powered) ──
-            if news_markets:
-                await _broadcast_log(running_users, f"[SCAN] Scanning {len(news_markets)} news markets via AI Council...")
+            # ── NEWS PATH (LLM-powered) — only for users with News engine ON ──
+            if news_user_ids and news_markets:
+                await _broadcast_log(
+                    news_user_ids,
+                    f"[SCAN] Scanning {len(news_markets)} news markets via AI Council...",
+                )
 
                 candidates: list[AlphaCandidate] = await scan_for_alpha(news_markets)
 
@@ -610,7 +631,7 @@ async def global_scanner_loop() -> None:
                     news_decision: Optional[CouncilDecision] = None
                     for candidate in candidates:
                         await _broadcast_log(
-                            running_users,
+                            news_user_ids,
                             f"[SCAN] Reviewing: {candidate.market.question[:60]}... "
                             f"(scanner confidence: {int(candidate.scanner_confidence * 100)}%)",
                         )
@@ -619,15 +640,17 @@ async def global_scanner_loop() -> None:
                             break
 
                     if news_decision:
-                        await _run_execution_engine(news_decision)
+                        await _run_execution_engine(news_decision, news_user_ids)
                     else:
-                        await _broadcast_log(running_users, "[SCAN] News candidates analyzed — no trade signal.")
+                        await _broadcast_log(news_user_ids, "[SCAN] News candidates analyzed — no trade signal.")
                 else:
-                    await _broadcast_log(running_users, "[SCAN] No alpha candidates this cycle.")
+                    await _broadcast_log(news_user_ids, "[SCAN] No alpha candidates this cycle.")
+            elif news_markets and not news_user_ids:
+                logger.info("[SCAN] News markets found but no users have News engine enabled")
 
             # ── IDLE phase ──
-            await _broadcast_status(running_users, "SCANNING_NOISE", False)
-            await _broadcast_log(running_users, "[SCAN] Cycle complete. Next scan in 60s.")
+            await _broadcast_status(all_user_ids, "SCANNING_NOISE", False)
+            await _broadcast_log(all_user_ids, "[SCAN] Cycle complete. Next scan in 60s.")
 
         except asyncio.CancelledError:
             logger.info("[SCAN] Global scanner cancelled")
@@ -635,8 +658,9 @@ async def global_scanner_loop() -> None:
         except Exception as e:
             logger.error("[SCAN] Master loop error", error=str(e))
             try:
-                running_users = _get_running_user_ids()
-                await _broadcast_status(running_users, "SCANNING_NOISE", False)
+                running_users = _get_running_users()
+                all_user_ids = [u["user_id"] for u in running_users]
+                await _broadcast_status(all_user_ids, "SCANNING_NOISE", False)
             except Exception:
                 pass
 

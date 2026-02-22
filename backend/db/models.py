@@ -204,6 +204,10 @@ class BotInstance(Base):
     current_pnl: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     last_log: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # Strategy flags — user selects which engines are active
+    strategy_news: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    strategy_crypto: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

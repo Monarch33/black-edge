@@ -56,6 +56,51 @@ function Tooltip({ text }: { text: string }) {
   )
 }
 
+/** Premium strategy toggle switch — Tailwind only. */
+function StrategyToggle({
+  label,
+  sub,
+  enabled,
+  onToggle,
+  disabled,
+}: {
+  label: string
+  sub: string
+  enabled: boolean
+  onToggle: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      disabled={disabled}
+      className="flex items-center justify-between w-full py-2.5 px-3 rounded-lg border border-white/[0.06] bg-black/20 hover:bg-black/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
+    >
+      <div className="text-left">
+        <div
+          className={`text-[10px] font-medium tracking-wider transition-colors ${
+            enabled ? "text-white" : "text-white/30"
+          }`}
+        >
+          {label}
+        </div>
+        <div className="text-[9px] text-white/20 mt-0.5">{sub}</div>
+      </div>
+      <div
+        className={`relative w-9 h-5 rounded-full transition-all duration-200 flex-shrink-0 ml-3 ${
+          enabled ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]" : "bg-zinc-800"
+        }`}
+      >
+        <div
+          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${
+            enabled ? "left-[18px]" : "left-0.5"
+          }`}
+        />
+      </div>
+    </button>
+  )
+}
+
 export default function DashboardPage() {
   const [proxyKey, setProxyKey] = useState("")
   const [secret, setSecret] = useState("")
@@ -70,6 +115,8 @@ export default function DashboardPage() {
   const [engineOffline, setEngineOffline] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toggling, setToggling] = useState(false)
+  const [strategyNews, setStrategyNews] = useState(true)
+  const [strategyCrypto, setStrategyCrypto] = useState(true)
   const [autoScroll, setAutoScroll] = useState(true)
   const logsEndRef = useRef<HTMLDivElement>(null)
   const logsContainerRef = useRef<HTMLDivElement>(null)
@@ -198,7 +245,11 @@ export default function DashboardPage() {
       const res = await fetch(`${API_BASE}/api/engine/toggle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: !isBotActive }),
+        body: JSON.stringify({
+          active: !isBotActive,
+          strategy_news: strategyNews,
+          strategy_crypto: strategyCrypto,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -374,11 +425,39 @@ export default function DashboardPage() {
             </div>
           )}
 
+          {/* Engine Strategy Selectors */}
+          <div>
+            <h2 className="text-[9px] tracking-[0.35em] text-emerald-500/60 mb-3 uppercase">
+              Engine Strategy
+            </h2>
+            <div className="space-y-2">
+              <StrategyToggle
+                label="Global News"
+                sub="Oracle / Low Volatility"
+                enabled={strategyNews}
+                onToggle={() => setStrategyNews((v) => !v)}
+                disabled={isBotActive}
+              />
+              <StrategyToggle
+                label="5-Min Crypto Arbitrage"
+                sub="High Volatility / BTC Math"
+                enabled={strategyCrypto}
+                onToggle={() => setStrategyCrypto((v) => !v)}
+                disabled={isBotActive}
+              />
+              {!strategyNews && !strategyCrypto && (
+                <p className="text-[9px] text-red-400/70 px-1 pt-1">
+                  Enable at least one engine before arming.
+                </p>
+              )}
+            </div>
+          </div>
+
           {/* Armed / Disarmed toggle */}
           <div>
             <button
               onClick={toggleBot}
-              disabled={toggling}
+              disabled={toggling || (!isBotActive && !strategyNews && !strategyCrypto)}
               className={`
                 w-full py-4 font-bold text-xs uppercase tracking-wide rounded-lg
                 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed

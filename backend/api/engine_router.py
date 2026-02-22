@@ -15,7 +15,7 @@ import httpx
 import structlog
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from api.websocket_manager import engine_logs_manager
@@ -90,8 +90,15 @@ class KeysResponse(BaseModel):
     message: str = "Polymarket keys stored securely"
 
 
+class ToggleRequest(BaseModel):
+    active: Optional[bool] = Field(None, description="Explicitly set state; None = toggle")
+    strategy_news: bool = Field(True, description="Enable Global News engine")
+    strategy_crypto: bool = Field(True, description="Enable 5-Min Crypto Arbitrage engine")
+
+
 class ToggleResponse(BaseModel):
     status: str = Field(..., description="RUNNING or STOPPED")
+    active: bool = Field(False)
     message: str
 
 
@@ -232,9 +239,10 @@ def store_polymarket_keys(
 
 @router.post("/toggle", response_model=ToggleResponse)
 def toggle_bot(
+    request: ToggleRequest = Body(default_factory=ToggleRequest),
     user_id: int = Depends(get_current_user_id),
 ) -> ToggleResponse:
-    """Toggle bot status: IDLE <-> RUNNING."""
+    """Toggle bot status: IDLE <-> RUNNING. Persists strategy flags."""
     ensure_user_and_bot(user_id)
     init_db()
 
@@ -243,20 +251,36 @@ def toggle_bot(
         if not bot:
             raise HTTPException(status_code=404, detail="BotInstance not found")
 
-        if bot.status == BotStatus.RUNNING:
-            bot.status = BotStatus.IDLE
-            bot.last_log = "Bot stopped by user"
-            status_str = "STOPPED"
-            message = "Bot stopped"
+        # Determine target state: explicit or flip current
+        if request.active is not None:
+            should_run = request.active
         else:
+            should_run = bot.status != BotStatus.RUNNING
+
+        if should_run:
             bot.status = BotStatus.RUNNING
             bot.last_heartbeat = datetime.now(timezone.utc)
             bot.last_log = "Bot started — scanning Polymarket..."
+            bot.strategy_news = request.strategy_news
+            bot.strategy_crypto = request.strategy_crypto
             status_str = "RUNNING"
-            message = "Bot started"
+            is_active = True
+            message = "Bot armed"
+        else:
+            bot.status = BotStatus.IDLE
+            bot.last_log = "Bot stopped by user"
+            status_str = "STOPPED"
+            is_active = False
+            message = "Bot disarmed"
 
-    logger.info("Bot toggled", user_id=user_id, new_status=status_str)
-    return ToggleResponse(status=status_str, message=message)
+    logger.info(
+        "Bot toggled",
+        user_id=user_id,
+        new_status=status_str,
+        strategy_news=request.strategy_news,
+        strategy_crypto=request.strategy_crypto,
+    )
+    return ToggleResponse(status=status_str, active=is_active, message=message)
 
 
 # -----------------------------------------------------------------------------
