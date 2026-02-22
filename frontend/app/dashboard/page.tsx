@@ -7,8 +7,10 @@ import { toast } from "sonner"
 // ── Backend endpoints ─────────────────────────────────────────────────────────
 const API_BASE  = process.env.NEXT_PUBLIC_API_URL  || "http://localhost:8000"
 const WS_BASE   = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/^http/, "ws")
-// Rust HFT engine runs on a dedicated port (REST only; metrics are polled)
+// Rust HFT engine — REST for credentials POST, WebSocket for live metrics
 const RUST_BASE = process.env.NEXT_PUBLIC_RUST_URL  || "http://localhost:8090"
+// Convert http(s) → ws(s) for the native WebSocket connection
+const RUST_WS   = RUST_BASE.replace(/^http(s?)/, "ws$1")
 
 const ENGINE_OFFLINE = "[FATAL] ENGINE OFFLINE. CONNECTION REFUSED."
 
@@ -117,30 +119,59 @@ export default function DashboardPage() {
     return () => clearInterval(id)
   }, [fetchStatus])
 
-  // ── Rust HFT metrics polling (every 1.5 s) ───────────────────────────────
-  const fetchHftMetrics = useCallback(async () => {
-    try {
-      const res = await fetch(`${RUST_BASE}/api/engine/metrics`, {
-        signal: AbortSignal.timeout(1_000),
-      })
-      if (res.ok) {
-        const data: HftMetrics = await res.json()
-        setHftMetrics(data)
-        setRustOnline(true)
-        if (data.credentials_loaded) setRustArmed(true)
-      } else {
-        setRustOnline(false)
-      }
-    } catch {
-      setRustOnline(false)
-    }
-  }, [])
+  // ── Rust HFT metrics — true push via WebSocket (4 Hz from Rust server) ──────
+  const hftWsRef        = useRef<WebSocket | null>(null)
+  const hftReconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    fetchHftMetrics()
-    const id = setInterval(fetchHftMetrics, 1_500)
-    return () => clearInterval(id)
-  }, [fetchHftMetrics])
+    let backoff = 1_000 // start at 1 s, cap at 8 s
+
+    const connect = () => {
+      // Clean up any existing socket before opening a new one
+      hftWsRef.current?.close()
+
+      const ws = new WebSocket(`${RUST_WS}/ws`)
+      hftWsRef.current = ws
+
+      ws.onopen = () => {
+        backoff = 1_000 // reset backoff on successful connection
+        setRustOnline(true)
+      }
+
+      ws.onmessage = (e: MessageEvent) => {
+        try {
+          const data: HftMetrics = JSON.parse(e.data as string)
+          setHftMetrics(data)
+          setRustOnline(true)
+          if (data.credentials_loaded) setRustArmed(true)
+        } catch {
+          // ignore unparseable frames
+        }
+      }
+
+      ws.onerror = () => {
+        setRustOnline(false)
+      }
+
+      ws.onclose = () => {
+        hftWsRef.current = null
+        setRustOnline(false)
+        // Reconnect with capped exponential backoff
+        hftReconnectRef.current = setTimeout(() => {
+          backoff = Math.min(backoff * 2, 8_000)
+          connect()
+        }, backoff)
+      }
+    }
+
+    connect()
+
+    return () => {
+      hftReconnectRef.current && clearTimeout(hftReconnectRef.current)
+      hftWsRef.current?.close()
+      hftWsRef.current = null
+    }
+  }, []) // intentionally empty – connect once on mount, reconnect internally
 
   // ── Python backend log WebSocket ─────────────────────────────────────────
   useEffect(() => {
