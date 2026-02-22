@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { X, Cpu, Wallet, TrendingUp, ChevronRight } from "lucide-react"
 
 const TOUR_KEY = "be_tour_v1"
