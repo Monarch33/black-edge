@@ -119,6 +119,38 @@ pub fn dollar_to_shares(dollar_amount: f64, yes_price: f64) -> u64 {
     (shares * 1_000_000.0) as u64 // 6-decimal fixed point
 }
 
+// ── Microstructure ────────────────────────────────────────────────────────────
+
+/// Apply a Binance L2 orderbook imbalance adjustment to the Black-Scholes
+/// fair value, capturing micro-trend pressure before the Kelly calculation.
+///
+/// When the top-of-book is heavily skewed toward bids (positive imbalance),
+/// buy-side pressure is building and we boost the risk-neutral probability
+/// slightly to front-run the expected price move.
+///
+/// # Formula
+/// ```text
+/// adjusted_fv = clamp(bs_fv + boost, 0, 1)
+/// boost       = MAX_BOOST × excess × sign(imbalance)
+/// excess      = (|I| − THRESHOLD) / (1 − THRESHOLD)   if |I| > THRESHOLD
+///             = 0                                       otherwise
+/// ```
+///
+/// THRESHOLD = 0.6 — only react to strong orderbook skew.
+/// MAX_BOOST = ±2 % — conservative to avoid over-fitting noise.
+pub fn apply_ob_imbalance(bs_fv: f64, imbalance: f64) -> f64 {
+    const THRESHOLD: f64 = 0.6;
+    const MAX_BOOST: f64 = 0.02;
+
+    let abs_imb = imbalance.abs();
+    if abs_imb < THRESHOLD {
+        return bs_fv;
+    }
+    let excess = (abs_imb - THRESHOLD) / (1.0 - THRESHOLD);
+    let boost  = MAX_BOOST * excess * imbalance.signum();
+    (bs_fv + boost).clamp(0.0, 1.0)
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -172,5 +204,33 @@ mod tests {
         // Market is priced above our model → do NOT bet
         let f = kelly_fraction(0.40, 0.50, 0.05);
         assert_eq!(f, 0.0, "Negative-edge Kelly should be 0");
+    }
+
+    #[test]
+    fn ob_imbalance_below_threshold_no_change() {
+        // Imbalance of 0.5 is below threshold of 0.6 → no adjustment
+        let fv = apply_ob_imbalance(0.50, 0.5);
+        assert!((fv - 0.50).abs() < 1e-10, "Below threshold: no change, got {fv}");
+    }
+
+    #[test]
+    fn ob_imbalance_strong_bid_boosts_fv() {
+        // Imbalance of 1.0 (all bids) → maximum positive boost (+2%)
+        let fv = apply_ob_imbalance(0.50, 1.0);
+        assert!((fv - 0.52).abs() < 1e-6, "Full bid imbalance → +2%, got {fv}");
+    }
+
+    #[test]
+    fn ob_imbalance_strong_ask_reduces_fv() {
+        // Imbalance of -1.0 (all asks) → maximum negative boost (−2%)
+        let fv = apply_ob_imbalance(0.50, -1.0);
+        assert!((fv - 0.48).abs() < 1e-6, "Full ask imbalance → −2%, got {fv}");
+    }
+
+    #[test]
+    fn ob_imbalance_clamps_at_zero() {
+        // Even a large negative boost cannot push FV below 0
+        let fv = apply_ob_imbalance(0.005, -1.0);
+        assert!(fv >= 0.0, "FV must not go negative, got {fv}");
     }
 }

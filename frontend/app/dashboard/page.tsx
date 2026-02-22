@@ -17,17 +17,24 @@ const ENGINE_OFFLINE = "[FATAL] ENGINE OFFLINE. CONNECTION REFUSED."
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface HftMetrics {
-  btc_price:              number
-  yes_price:              number
-  bs_fair_value:          number
-  kelly_fraction:         number
-  edge:                   number
-  sigma:                  number
-  bankroll_usdc_dollars:  number
-  active_token_id:        string | null
-  active_market_id:       string | null
-  credentials_loaded:     boolean
-  active_orders_count:    number
+  btc_price:               number
+  yes_price:               number
+  bs_fair_value:           number
+  kelly_fraction:          number
+  edge:                    number
+  sigma:                   number
+  strike:                  number
+  bankroll_usdc_dollars:   number
+  active_token_id:         string | null
+  active_market_id:        string | null
+  credentials_loaded:      boolean
+  active_orders_count:     number
+  // microstructure
+  ob_imbalance:            number
+  // inventory / take-profit
+  current_position_shares: number
+  average_entry_price:     number
+  unrealized_pnl:          number
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -503,6 +510,59 @@ export default function DashboardPage() {
                   <span className={`text-[11px] tabular-nums ${(hftMetrics?.active_orders_count ?? 0) > 0 ? "text-amber-400" : "text-white/40"}`}>
                     {hftMetrics?.active_orders_count ?? 0}
                   </span>
+                </div>
+                {/* ── Microstructure row ── */}
+                <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
+                  <span className="text-[9px] tracking-wider text-white/40">OB IMBALANCE</span>
+                  <div className="flex items-center gap-2">
+                    {/* Directional bar: green = bid pressure, red = ask pressure */}
+                    <div className="relative w-16 h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className={`absolute top-0 h-full rounded-full transition-all duration-300 ${
+                          (hftMetrics?.ob_imbalance ?? 0) >= 0 ? "bg-[#10b981]" : "bg-[#ef4444]"
+                        }`}
+                        style={{
+                          width:  `${Math.abs((hftMetrics?.ob_imbalance ?? 0)) * 50}%`,
+                          left:   (hftMetrics?.ob_imbalance ?? 0) >= 0 ? "50%" : undefined,
+                          right:  (hftMetrics?.ob_imbalance ?? 0) <  0 ? "50%" : undefined,
+                        }}
+                      />
+                      {/* centre line */}
+                      <div className="absolute left-1/2 top-0 w-px h-full bg-white/20" />
+                    </div>
+                    <span className={`text-[10px] font-mono tabular-nums ${
+                      (hftMetrics?.ob_imbalance ?? 0) > 0.6
+                        ? "text-[#10b981]"
+                        : (hftMetrics?.ob_imbalance ?? 0) < -0.6
+                          ? "text-[#ef4444]"
+                          : "text-white/50"
+                    }`}>
+                      {hftMetrics ? (hftMetrics.ob_imbalance >= 0 ? "+" : "") + hftMetrics.ob_imbalance.toFixed(3) : "—"}
+                    </span>
+                  </div>
+                </div>
+                {/* ── Inventory / take-profit row ── */}
+                <div className="flex justify-between items-center px-3 py-2">
+                  <span className="text-[9px] tracking-wider text-white/40">INVENTORY</span>
+                  <div className="text-right">
+                    {(hftMetrics?.current_position_shares ?? 0) > 0 ? (
+                      <>
+                        <div className="text-[11px] text-white tabular-nums">
+                          {hftMetrics!.current_position_shares.toFixed(4)} YES
+                        </div>
+                        <div className={`text-[9px] tabular-nums ${
+                          (hftMetrics?.unrealized_pnl ?? 0) >= 0 ? "text-[#10b981]" : "text-[#ef4444]"
+                        }`}>
+                          {(hftMetrics?.unrealized_pnl ?? 0) >= 0 ? "+" : ""}
+                          {(hftMetrics?.unrealized_pnl ?? 0).toFixed(2)} USDC
+                          {" · TP@"}
+                          {hftMetrics ? (hftMetrics.average_entry_price * 1.20).toFixed(4) : "—"}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-white/20">FLAT</span>
+                    )}
+                  </div>
                 </div>
                 {/* Armed indicator */}
                 <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">

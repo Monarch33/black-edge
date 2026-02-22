@@ -195,32 +195,45 @@ async fn post_credentials(
 
 #[derive(Serialize, Clone)]
 pub struct MetricsResponse {
-    pub btc_price:             f64,
-    pub yes_price:             f64,
-    pub bs_fair_value:         f64,
-    pub kelly_fraction:        f64,
-    pub edge:                  f64,
-    pub sigma:                 f64,
-    pub bankroll_usdc_dollars: f64,
-    pub active_token_id:       Option<String>,
-    pub active_market_id:      Option<String>,
-    pub credentials_loaded:    bool,
-    pub active_orders_count:   usize,
+    pub btc_price:               f64,
+    pub yes_price:               f64,
+    pub bs_fair_value:           f64,
+    pub kelly_fraction:          f64,
+    pub edge:                    f64,
+    pub sigma:                   f64,
+    pub strike:                  f64,
+    pub bankroll_usdc_dollars:   f64,
+    pub active_token_id:         Option<String>,
+    pub active_market_id:        Option<String>,
+    pub credentials_loaded:      bool,
+    pub active_orders_count:     usize,
+    // ── Microstructure ────────────────────────────────────────────────────────
+    /// Binance L2 orderbook imbalance: (bid_qty − ask_qty) / (bid_qty + ask_qty).
+    pub ob_imbalance:            f64,
+    // ── Inventory ─────────────────────────────────────────────────────────────
+    pub current_position_shares: f64,
+    pub average_entry_price:     f64,
+    pub unrealized_pnl:          f64,
 }
 
 fn metrics_snapshot(s: &HftState) -> MetricsResponse {
     MetricsResponse {
-        btc_price:             s.btc_price,
-        yes_price:             s.yes_price,
-        bs_fair_value:         s.bs_fair_value,
-        kelly_fraction:        s.kelly_fraction,
-        edge:                  s.edge,
-        sigma:                 s.sigma,
-        bankroll_usdc_dollars: s.bankroll_dollars(),
-        active_token_id:       s.active_token_id.clone(),
-        active_market_id:      s.active_market_id.clone(),
-        credentials_loaded:    s.credentials.is_some(),
-        active_orders_count:   s.active_orders.len(),
+        btc_price:               s.btc_price,
+        yes_price:               s.yes_price,
+        bs_fair_value:           s.bs_fair_value,
+        kelly_fraction:          s.kelly_fraction,
+        edge:                    s.edge,
+        sigma:                   s.sigma,
+        strike:                  s.strike,
+        bankroll_usdc_dollars:   s.bankroll_dollars(),
+        active_token_id:         s.active_token_id.clone(),
+        active_market_id:        s.active_market_id.clone(),
+        credentials_loaded:      s.credentials.is_some(),
+        active_orders_count:     s.active_orders.len(),
+        ob_imbalance:            s.ob_imbalance,
+        current_position_shares: s.current_position_shares,
+        average_entry_price:     s.average_entry_price,
+        unrealized_pnl:          s.unrealized_pnl(),
     }
 }
 

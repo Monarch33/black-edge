@@ -926,23 +926,23 @@ export default function Home() {
                 </button>
               </div>
               <div className="pcard featured reveal reveal-delay-15">
-                <div className="pcard-badge">MOST POPULAR</div>
+                <div className="pcard-badge">RUNNER_NODE</div>
                 <div className="pcard-tier">RUNNER</div>
                 <div className="pcard-price">
                   <sup>$</sup>29
                 </div>
                 <div className="pcard-per">/ MONTH</div>
-                <p className="pcard-subtext">Limited slots available at this rate</p>
+                <p className="pcard-subtext">Allocation limited — node slots fill fast</p>
                 <div className="pcard-features">
-                  <div className="pfeature">Real-time market data</div>
-                  <div className="pfeature">Full Council vote breakdown</div>
-                  <div className="pfeature">Kelly criterion position sizing</div>
-                  <div className="pfeature">Real-time terminal + bot</div>
-                  <div className="pfeature">Polymarket API integration</div>
-                  <div className="pfeature no">Full API access</div>
+                  <div className="pfeature">Direct Binance L2 WS Feed</div>
+                  <div className="pfeature">EIP-712 Cryptographic Signing</div>
+                  <div className="pfeature">Half-Kelly Position Sizing</div>
+                  <div className="pfeature">Real-time CLOB Execution</div>
+                  <div className="pfeature">Black-Scholes Binary Pricing</div>
+                  <div className="pfeature no">Full API + WS Access</div>
                 </div>
                 <button type="button" className="btn-tier em-btn" onClick={() => handleGetAccess("runner")}>
-                  GET STARTED — $29
+                  &gt; DEPLOY_RUNNER_NODE — $29
                 </button>
               </div>
               <div className="pcard pcard-edge reveal reveal-delay-2">
@@ -952,15 +952,15 @@ export default function Home() {
                 </div>
                 <div className="pcard-per">/ MONTH</div>
                 <div className="pcard-features">
-                  <div className="pfeature">Everything in Runner</div>
+                  <div className="pfeature">Everything in RUNNER_NODE</div>
                   <div className="pfeature">Full REST + WebSocket API</div>
-                  <div className="pfeature">Webhook alerts</div>
-                  <div className="pfeature">Priority signal delivery</div>
-                  <div className="pfeature">Portfolio integration</div>
-                  <div className="pfeature">Dedicated support</div>
+                  <div className="pfeature">Autonomous Γ-API Discovery</div>
+                  <div className="pfeature">OB Imbalance Microstructure</div>
+                  <div className="pfeature">Take-Profit Inventory Mgmt</div>
+                  <div className="pfeature">Dedicated Config Support</div>
                 </div>
                 <button type="button" className="btn-tier" onClick={() => handleGetAccess("whale")}>
-                  GET ACCESS — $999
+                  &gt; SECURE_EDGE_ACCESS — $999
                 </button>
               </div>
             </div>

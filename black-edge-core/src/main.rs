@@ -83,16 +83,19 @@ async fn quant_loop(state: state::SharedState, interval_ms: u64, risk_free_rate:
     loop {
         tokio::time::sleep(interval).await;
 
-        let (btc_price, yes_price, sigma, t, strike) = {
+        let (btc_price, yes_price, sigma, t, strike, ob_imbalance) = {
             let s = state.read().await;
-            (s.btc_price, s.yes_price, s.sigma, s.time_to_expiry_years, s.strike)
+            (s.btc_price, s.yes_price, s.sigma, s.time_to_expiry_years, s.strike, s.ob_imbalance)
         };
 
         if btc_price == 0.0 || yes_price == 0.0 || strike == 0.0 {
             continue; // waiting for first data from discovery + WS ingestors
         }
 
-        let bs_fv  = math::bs_binary_call(btc_price, strike, risk_free_rate, sigma, t);
+        // Raw Black-Scholes fair value (risk-neutral probability)
+        let bs_fv_raw = math::bs_binary_call(btc_price, strike, risk_free_rate, sigma, t);
+        // L2 microstructure adjustment: boost/discount based on orderbook pressure
+        let bs_fv  = math::apply_ob_imbalance(bs_fv_raw, ob_imbalance);
         let edge   = math::compute_edge(bs_fv, yes_price);
         let kelly  = math::kelly_fraction(bs_fv, yes_price, 0.02) * 0.5; // half-Kelly
 
