@@ -519,6 +519,72 @@ export default function Home() {
           <div className="ticker-inner" id="ticker-inner" />
         </div>
 
+        {/* ── Market Partners Marquee ── */}
+        <div className="partners-track">
+          <div className="partners-label">LIVE DATA FEEDS:</div>
+          <div className="partners-fade-l" />
+          <div className="partners-fade-r" />
+          <div className="partners-inner">
+            {/* Set duplicated for seamless loop */}
+            {[0, 1].map((dupe) => (
+              <div key={dupe} style={{ display: "flex", gap: 72, alignItems: "center" }}>
+
+                {/* Polymarket */}
+                <div className="partner-item">
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                    <circle cx="11" cy="11" r="9" stroke="white" strokeWidth="1.2" strokeOpacity=".9"/>
+                    <polyline points="5,14 8,9 11,12 14,7 17,10" fill="none" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" strokeOpacity=".9"/>
+                  </svg>
+                  <span style={{ fontFamily:"var(--t-mono)", fontSize:11, letterSpacing:".18em", color:"rgba(255,255,255,.9)" }}>POLYMARKET</span>
+                </div>
+                <div className="partner-sep" />
+
+                {/* Kalshi */}
+                <div className="partner-item">
+                  <svg width="20" height="22" viewBox="0 0 20 22" fill="none" aria-hidden="true">
+                    <rect x="1" y="1" width="4" height="20" fill="white" fillOpacity=".9" rx="1"/>
+                    <path d="M5 11 L19 3" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeOpacity=".9"/>
+                    <path d="M5 11 L19 19" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeOpacity=".9"/>
+                  </svg>
+                  <span style={{ fontFamily:"var(--t-mono)", fontSize:11, letterSpacing:".18em", color:"rgba(255,255,255,.9)" }}>KALSHI</span>
+                </div>
+                <div className="partner-sep" />
+
+                {/* dYdX */}
+                <div className="partner-item">
+                  <svg width="24" height="22" viewBox="0 0 24 22" fill="none" aria-hidden="true">
+                    <path d="M2 2 L10 11 L2 20" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" strokeOpacity=".9" fill="none"/>
+                    <path d="M14 2 L22 11 L14 20" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" strokeOpacity=".6" fill="none"/>
+                  </svg>
+                  <span style={{ fontFamily:"var(--t-mono)", fontSize:11, letterSpacing:".18em", color:"rgba(255,255,255,.9)" }}>dYdX</span>
+                </div>
+                <div className="partner-sep" />
+
+                {/* Ethereum */}
+                <div className="partner-item">
+                  <svg width="16" height="24" viewBox="0 0 16 24" fill="none" aria-hidden="true">
+                    <polygon points="8,0 0,12 8,15 16,12" fill="white" fillOpacity=".9"/>
+                    <polygon points="8,17 0,13 8,24 16,13" fill="white" fillOpacity=".55"/>
+                  </svg>
+                  <span style={{ fontFamily:"var(--t-mono)", fontSize:11, letterSpacing:".18em", color:"rgba(255,255,255,.9)" }}>ETHEREUM</span>
+                </div>
+                <div className="partner-sep" />
+
+                {/* Polygon */}
+                <div className="partner-item">
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                    <polygon points="11,1 21,6.5 21,15.5 11,21 1,15.5 1,6.5" stroke="white" strokeWidth="1.2" strokeOpacity=".9" fill="none"/>
+                    <polygon points="11,5 17,8.5 17,13.5 11,17 5,13.5 5,8.5" fill="white" fillOpacity=".35"/>
+                  </svg>
+                  <span style={{ fontFamily:"var(--t-mono)", fontSize:11, letterSpacing:".18em", color:"rgba(255,255,255,.9)" }}>POLYGON</span>
+                </div>
+                <div className="partner-sep" />
+
+              </div>
+            ))}
+          </div>
+        </div>
+
         <section id="markets">
           <div className="section-inner">
             <div className="section-tag reveal">LIVE MARKETS</div>

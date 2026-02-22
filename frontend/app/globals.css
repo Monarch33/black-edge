@@ -827,6 +827,60 @@ section { position: relative; z-index: 10; }
 .hr-z { position: relative; z-index: 10; }
 .accent-em { color: var(--em); }
 
+/* MARKET PARTNERS MARQUEE */
+.partners-track {
+  overflow: hidden;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 24px 0;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(8px);
+  position: relative; z-index: 10;
+}
+.partners-fade-l {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 180px;
+  background: linear-gradient(to right, #000 0%, transparent 100%);
+  z-index: 2; pointer-events: none;
+}
+.partners-fade-r {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 180px;
+  background: linear-gradient(to left, #000 0%, transparent 100%);
+  z-index: 2; pointer-events: none;
+}
+.partners-label {
+  position: absolute; left: clamp(20px,4vw,64px); top: 50%;
+  transform: translateY(-50%); font-size: 7px; letter-spacing: .3em;
+  color: rgba(255,255,255,.18); font-family: var(--t-mono); z-index: 3;
+  white-space: nowrap;
+}
+.partners-inner {
+  display: flex; gap: 72px; align-items: center;
+  width: max-content; padding-left: 220px;
+  animation: partnersScroll 32s linear infinite;
+}
+.partners-inner:hover { animation-play-state: paused; }
+.partner-item {
+  display: flex; align-items: center; gap: 10px;
+  opacity: .32; transition: opacity .4s; cursor: default; user-select: none;
+}
+.partner-item:hover { opacity: .6; }
+.partner-sep {
+  width: 1px; height: 20px; background: rgba(255,255,255,.08); flex-shrink: 0;
+}
+@keyframes partnersScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* SCANLINE BUTTON EFFECT */
+.btn-scanline { position: relative; overflow: hidden; }
+.btn-scanline::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 35%;
+  background: linear-gradient(to bottom, transparent, rgba(255,255,255,.07), transparent);
+  animation: scanline 2.8s linear infinite; pointer-events: none; top: -35%;
+}
+@keyframes scanline { from { top: -35%; } to { top: 120%; } }
+
 /* FOOTER */
 footer {
   position: relative; z-index: 10;

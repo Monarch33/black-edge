@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Info } from "lucide-react"
+import { Info, ExternalLink } from "lucide-react"
 import { toast } from "sonner"
 import { AlephLogo } from "@/components/AlephLogo"
 import { AlephStatus } from "@/components/AlephStatus"
@@ -59,6 +59,8 @@ function Tooltip({ text }: { text: string }) {
 export default function DashboardPage() {
   const [proxyKey, setProxyKey] = useState("")
   const [secret, setSecret] = useState("")
+  const [passphrase, setPassphrase] = useState("")
+  const [polygonKey, setPolygonKey] = useState("")
   const [hasCredentials, setHasCredentials] = useState(false)
   const [isBotActive, setIsBotActive] = useState(false)
   const [currentPnl, setCurrentPnl] = useState<number | null>(null)
@@ -155,7 +157,7 @@ export default function DashboardPage() {
       const res = await fetch(`${API_BASE}/api/engine/keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proxy_key: proxyKey, secret }),
+        body: JSON.stringify({ proxy_key: proxyKey, secret, passphrase, polygon_private_key: polygonKey }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -163,6 +165,8 @@ export default function DashboardPage() {
       } else {
         setProxyKey("")
         setSecret("")
+        setPassphrase("")
+        setPolygonKey("")
         setHasCredentials(true)
         toast.success("Credentials secured in Aleph vault")
       }
@@ -256,10 +260,25 @@ export default function DashboardPage() {
             </h2>
 
             <div className="space-y-3">
+
+              {/* Magic link to Polymarket API settings */}
+              <a
+                href="https://polymarket.com/settings/api"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between w-full px-3 py-2.5 border border-emerald-500/30 rounded-lg bg-emerald-500/[0.04] hover:border-emerald-500/60 hover:bg-emerald-500/[0.08] transition-all group"
+              >
+                <span className="text-[10px] tracking-wider text-zinc-300 group-hover:text-white transition-colors">
+                  Generate Polymarket API Keys
+                </span>
+                <ExternalLink size={13} className="text-emerald-500 flex-shrink-0" />
+              </a>
+
+              {/* Proxy Key */}
               <div>
                 <label className="flex items-center text-[10px] tracking-wider text-zinc-400 mb-1.5 font-medium">
                   Proxy Key
-                  <Tooltip text="Your Polymarket CLOB proxy key. Find it in your Polymarket account under Profile → API Keys." />
+                  <Tooltip text="Your L2 Authentication API Key. Generated automatically when you click 'Create API Key' in your Polymarket settings." />
                 </label>
                 <input
                   type="password"
@@ -270,10 +289,11 @@ export default function DashboardPage() {
                 />
               </div>
 
+              {/* API Secret */}
               <div>
                 <label className="flex items-center text-[10px] tracking-wider text-zinc-400 mb-1.5 font-medium">
                   API Secret
-                  <Tooltip text="The CLOB API secret paired with your proxy key. This is shown only once when you create the key." />
+                  <Tooltip text="Your L2 HMAC-SHA256 Secret Key. Polymarket only shows this once when you create the key. Copy it carefully." />
                 </label>
                 <input
                   type="password"
@@ -282,6 +302,45 @@ export default function DashboardPage() {
                   placeholder="••••••••••••"
                   className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-3 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all"
                 />
+              </div>
+
+              {/* Passphrase */}
+              <div>
+                <label className="flex items-center text-[10px] tracking-wider text-zinc-400 mb-1.5 font-medium">
+                  Passphrase
+                  <Tooltip text="The unique passphrase tied to your L2 API Key. Also shown only once upon creation — do not lose it." />
+                </label>
+                <input
+                  type="password"
+                  value={passphrase}
+                  onChange={(e) => setPassphrase(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-3 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                />
+              </div>
+
+              {/* Polygon Private Key */}
+              <div>
+                <label className="flex items-center text-[10px] tracking-wider text-zinc-400 mb-1 font-medium">
+                  Polygon Private Key
+                  <Tooltip text="Your L1 Wallet Private Key. Used locally to sign EIP-712 trading messages on Polygon. It is NEVER transmitted to our servers." />
+                </label>
+                <input
+                  type="password"
+                  value={polygonKey}
+                  onChange={(e) => setPolygonKey(e.target.value)}
+                  placeholder="0x••••••••••••"
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-3 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                />
+                <a
+                  href="https://support.metamask.io/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-1.5 text-[9px] tracking-wider text-zinc-600 hover:text-emerald-500 transition-colors"
+                >
+                  How to export from MetaMask
+                  <ExternalLink size={9} />
+                </a>
               </div>
 
               <button

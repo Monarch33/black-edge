@@ -63,7 +63,7 @@ export function AlephStatus({ isActive }: AlephStatusProps) {
   }, [visibleLines])
 
   return (
-    <div className="border border-white/10 bg-zinc-950 p-5 flex flex-col gap-4">
+    <div className="border border-white/[0.08] bg-black/40 backdrop-blur-sm rounded-2xl p-5 flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <span className="text-[9px] tracking-[0.3em] text-white/40 uppercase">
@@ -73,7 +73,7 @@ export function AlephStatus({ isActive }: AlephStatusProps) {
           <span
             className={`w-1.5 h-1.5 rounded-full ${
               isActive
-                ? "bg-emerald-500 animate-pulse"
+                ? "bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]"
                 : "bg-white/20"
             }`}
           />
