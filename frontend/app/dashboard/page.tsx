@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { Info } from "lucide-react"
 import { toast } from "sonner"
 import { AlephLogo } from "@/components/AlephLogo"
 import { AlephStatus } from "@/components/AlephStatus"
@@ -27,6 +28,32 @@ function getLogClassName(line: string): string {
 function formatTimestamp(): string {
   const n = new Date()
   return `[${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}:${String(n.getSeconds()).padStart(2, "0")}]`
+}
+
+/** Hoverable info tooltip — pure Tailwind, zero dependencies beyond lucide. */
+function Tooltip({ text }: { text: string }) {
+  return (
+    <span className="relative group inline-flex items-center ml-1.5 align-middle">
+      <Info
+        size={12}
+        className="text-zinc-600 cursor-help group-hover:text-zinc-400 transition-colors"
+      />
+      <span
+        className="
+          absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50
+          w-60 p-3 bg-zinc-900 border border-white/10 rounded-lg
+          text-[11px] text-zinc-300 leading-relaxed font-normal tracking-normal
+          opacity-0 group-hover:opacity-100
+          pointer-events-none
+          transition-opacity duration-150
+          shadow-[0_8px_32px_rgba(0,0,0,0.6)]
+          whitespace-normal
+        "
+      >
+        {text}
+      </span>
+    </span>
+  )
 }
 
 export default function DashboardPage() {
@@ -170,8 +197,6 @@ export default function DashboardPage() {
     }
   }
 
-  const showVaultOnly = !hasCredentials && !proxyKey && !secret
-
   return (
     <div className="min-h-screen bg-black text-white font-mono w-full max-w-[100vw] overflow-x-hidden">
 
@@ -230,65 +255,41 @@ export default function DashboardPage() {
               Polymarket API Vault
             </h2>
 
-            {showVaultOnly && (
-              <div className="mb-5 p-5 border border-emerald-500/20 bg-emerald-500/[0.03] text-center">
-                <p className="text-emerald-400 text-[10px] font-bold tracking-[0.2em] uppercase">
-                  Vault Encryption Required
-                </p>
-                <p className="text-white/30 text-[9px] mt-2 leading-relaxed">
-                  Paste your Polymarket CLOB keys below to unlock the terminal and authorise Aleph.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
-                <label className="block text-[9px] tracking-wider text-white/30 mb-2">
+                <label className="flex items-center text-[10px] tracking-wider text-zinc-400 mb-1.5 font-medium">
                   Proxy Key
+                  <Tooltip text="Your Polymarket CLOB proxy key. Find it in your Polymarket account under Profile → API Keys." />
                 </label>
                 <input
                   type="password"
                   value={proxyKey}
                   onChange={(e) => setProxyKey(e.target.value)}
                   placeholder="••••••••••••"
-                  className="
-                    w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10
-                    text-white text-sm placeholder-white/15
-                    focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20
-                    transition-colors
-                  "
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-3 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all"
                 />
               </div>
+
               <div>
-                <label className="block text-[9px] tracking-wider text-white/30 mb-2">
-                  Secret
+                <label className="flex items-center text-[10px] tracking-wider text-zinc-400 mb-1.5 font-medium">
+                  API Secret
+                  <Tooltip text="The CLOB API secret paired with your proxy key. This is shown only once when you create the key." />
                 </label>
                 <input
                   type="password"
                   value={secret}
                   onChange={(e) => setSecret(e.target.value)}
                   placeholder="••••••••••••"
-                  className="
-                    w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10
-                    text-white text-sm placeholder-white/15
-                    focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20
-                    transition-colors
-                  "
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-3 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all"
                 />
               </div>
+
               <button
                 onClick={handleSaveCredentials}
                 disabled={saving}
-                className="
-                  w-full py-3 border border-emerald-500/40 text-emerald-400
-                  text-[10px] tracking-[0.25em]
-                  hover:bg-emerald-500/10 hover:border-emerald-400
-                  hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]
-                  transition-all duration-200
-                  disabled:opacity-40 disabled:cursor-not-allowed
-                "
+                className="w-full py-3 bg-emerald-500 text-black font-bold text-xs uppercase tracking-wide rounded-lg hover:bg-emerald-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? "ENCRYPTING..." : "SECURE CREDENTIALS"}
+                {saving ? "Encrypting..." : "Seal Vault"}
               </button>
             </div>
           </div>
@@ -299,16 +300,16 @@ export default function DashboardPage() {
               onClick={toggleBot}
               disabled={toggling}
               className={`
-                w-full py-5 border text-[10px] tracking-[0.2em] font-bold
-                transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed
+                w-full py-4 font-bold text-xs uppercase tracking-wide rounded-lg
+                transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
                 ${
                   isBotActive
-                    ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.25)]"
-                    : "border-white/15 text-white/50 hover:border-emerald-500/40 hover:text-emerald-400/70 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                    ? "bg-zinc-900 border border-emerald-500 text-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.2)] hover:bg-red-500/10 hover:border-red-500 hover:text-red-400"
+                    : "bg-zinc-900 border border-zinc-700 text-white hover:border-emerald-500 hover:text-emerald-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]"
                 }
               `}
             >
-              {toggling ? "···" : isBotActive ? "[ ALEPH ACTIVE — CLICK TO HALT ]" : "[ DEPLOY ALEPH ]"}
+              {toggling ? "···" : isBotActive ? "Halt Aleph" : "Deploy Aleph"}
             </button>
           </div>
         </aside>
