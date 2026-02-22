@@ -51,36 +51,54 @@ class TradeExecutor:
     """
     Executes real trades on Polymarket via CLOB.
 
-    Usage:
-        executor = TradeExecutor(private_key="0x...")
-        await executor.initialize()
-        tx_hash = await executor.market_buy(token_id="0x123...", amount=50.0)
+    Supports two authentication modes:
+      L1 (private key):  TradeExecutor(private_key="0x...")
+      L2 (CLOB HMAC):    TradeExecutor(api_key="...", secret="...", passphrase="...")
+
+    L2 credentials come from the Polymarket UI "API Keys" section and are the
+    same proxy_key/secret/passphrase stored in the Black Edge vault.
     """
 
     def __init__(
         self,
         private_key: Optional[str] = None,
-        chain_id: int = CHAIN_ID,
-        test_mode: Optional[bool] = None
+        api_key:     Optional[str] = None,   # L2 CLOB proxy key (from Polymarket vault)
+        secret:      Optional[str] = None,   # L2 CLOB secret
+        passphrase:  Optional[str] = None,   # L2 CLOB passphrase
+        chain_id:    int = CHAIN_ID,
+        test_mode:   Optional[bool] = None,
     ):
         """
-        Initialize trade executor (Phase 6).
+        Initialize trade executor.
 
         Args:
-            private_key: Ethereum private key (without 0x prefix)
-            chain_id: 137 for mainnet, 80002 for testnet
-            test_mode: If True, logs trades but doesn't execute
-                      If None (default), uses DRY_RUN env variable
+            private_key: Ethereum L1 private key (without 0x prefix).
+                         Ignored if api_key/secret/passphrase are provided.
+            api_key:     Polymarket L2 proxy key (preferred over private_key).
+            secret:      Polymarket L2 API secret.
+            passphrase:  Polymarket L2 API passphrase.
+            chain_id:    137 for mainnet, 80002 for testnet.
+            test_mode:   If True, simulates all trades.
+                         If None, reads POLYMARKET_DRY_RUN env var.
         """
-        self.private_key = private_key or PRIVATE_KEY
-        self.chain_id = chain_id
-        self.test_mode = test_mode if test_mode is not None else DRY_RUN
-        self.client: Optional[ClobClient] = None
-        self.address: Optional[str] = None
+        # L2 credentials take priority (they come from the user vault)
+        self.api_key    = api_key
+        self.secret     = secret
+        self.passphrase = passphrase
+        # L1 private key as fallback
+        self.private_key = private_key or (PRIVATE_KEY if not api_key else None)
+
+        self.chain_id   = chain_id
+        self.test_mode  = test_mode if test_mode is not None else DRY_RUN
+        self.client:    Optional[ClobClient] = None
+        self.address:   Optional[str] = None
         self.initialized = False
 
-        if not self.private_key and not self.test_mode:
-            logger.warning("⚠️ No private key configured. Real trades will fail.")
+        has_l2 = bool(self.api_key and self.secret and self.passphrase)
+        has_l1 = bool(self.private_key)
+
+        if not has_l2 and not has_l1 and not self.test_mode:
+            logger.warning("⚠️ No credentials configured. Real trades will fail.")
 
         if self.test_mode:
             logger.info("🧪 DRY_RUN mode enabled - all trades will be simulated")
@@ -90,18 +108,31 @@ class TradeExecutor:
         Initialize CLOB client and check wallet.
 
         Must be called before executing trades.
+        L2 credentials (api_key/secret/passphrase) are preferred over L1 private key.
         """
-        if not self.private_key:
-            raise ValueError("Private key required for trade execution")
+        has_l2 = bool(self.api_key and self.secret and self.passphrase)
+        has_l1 = bool(self.private_key)
+
+        if not has_l2 and not has_l1:
+            raise ValueError("CLOB credentials required: provide (api_key + secret + passphrase) or private_key")
 
         try:
-            # Create client
-            host = CLOB_API_URL
-            self.client = ClobClient(
-                host=host,
-                key=self.private_key,
-                chain_id=self.chain_id,
-            )
+            if has_l2:
+                # L2 HMAC auth — uses Polymarket proxy key / secret / passphrase
+                self.client = ClobClient(
+                    host=CLOB_API_URL,
+                    key=self.api_key,
+                    secret=self.secret,
+                    passphrase=self.passphrase,
+                    chain_id=self.chain_id,
+                )
+            else:
+                # L1 private key — derives L2 keys from Ethereum key
+                self.client = ClobClient(
+                    host=CLOB_API_URL,
+                    key=self.private_key,
+                    chain_id=self.chain_id,
+                )
 
             # Get address
             self.address = self.client.get_address()

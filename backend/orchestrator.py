@@ -85,6 +85,14 @@ async def _fetch_markets(limit: int = 50) -> list[MarketSummary]:
             prices = json.loads(raw_prices) if isinstance(raw_prices, str) else (raw_prices or [])
             yes_price = float(prices[0]) if prices else 0.5
 
+            # Extract YES outcome token ID for CLOB execution
+            tokens = m.get("tokens", [])
+            yes_token_id = ""
+            for t in tokens:
+                if isinstance(t, dict) and str(t.get("outcome", "")).lower() in ("yes", "true", "1"):
+                    yes_token_id = str(t.get("tokenId", t.get("token_id", "")))
+                    break
+
             markets.append(MarketSummary(
                 market_id=m.get("conditionId", m.get("id", "")),
                 question=m.get("question", ""),
@@ -92,6 +100,7 @@ async def _fetch_markets(limit: int = 50) -> list[MarketSummary]:
                 yes_price=yes_price,
                 volume24hr=float(m.get("volume24hr", 0) or 0),
                 liquidity=float(m.get("liquidityNum", m.get("liquidity", 0)) or 0),
+                yes_token_id=yes_token_id,
             ))
         except (json.JSONDecodeError, ValueError, TypeError):
             continue
@@ -184,14 +193,50 @@ async def _execute_for_user(user_id: int, decision: CouncilDecision) -> None:
                     market_id=decision.market_id[:16],
                 )
             else:
-                await _log(user_id, f"[EXECUTION] Order sent to Polymarket CLOB.")
-                # ── TODO: real CLOB execution with py-clob-client ─────────────
-                # from py_clob_client.client import ClobClient
-                # clob = ClobClient(host="https://clob.polymarket.com",
-                #                   key=proxy_key, secret=secret, passphrase=passphrase,
-                #                   chain_id=137)
-                # clob.create_order(...)
-                logger.info("[EXECUTION] Live trade stub", user_id=user_id, side=decision.recommended_side)
+                # ── Live CLOB execution via py-clob-client (EIP-712 signed) ──
+                from engine.trade_executor import TradeExecutor
+
+                # Determine which outcome token to buy
+                if decision.recommended_side == "YES":
+                    token_id = decision.yes_token_id
+                else:
+                    # NO trade: currently unsupported without NO token ID
+                    await _log(user_id, "[SKIP] NO-side execution not yet supported — use YES markets only")
+                    del proxy_key, secret, passphrase
+                    return
+
+                if not token_id:
+                    await _log(user_id, "[ERROR] Token ID missing for this market — cannot execute")
+                    logger.error("[EXECUTION] Missing token_id", market_id=decision.market_id[:16])
+                    del proxy_key, secret, passphrase
+                    return
+
+                executor = TradeExecutor(
+                    api_key=proxy_key,
+                    secret=secret,
+                    passphrase=passphrase,
+                    test_mode=False,
+                )
+                await executor.initialize()
+
+                await _log(
+                    user_id,
+                    f"[EXECUTION] Placing ${size:.2f} market buy — {decision.question[:50]}",
+                )
+                order_id = await executor.market_buy(token_id=token_id, amount_usdc=size)
+
+                if order_id:
+                    await _log(user_id, f"[EXECUTION] Order placed: {order_id[:20]}...")
+                    logger.info(
+                        "[EXECUTION] Live order placed",
+                        user_id=user_id,
+                        order_id=order_id[:20],
+                        side=decision.recommended_side,
+                        size=size,
+                    )
+                else:
+                    await _log(user_id, "[ERROR] Order placement failed — check executor logs")
+                    logger.error("[EXECUTION] Order failed", user_id=user_id, market_id=decision.market_id[:16])
 
             # Purge keys immediately after use
             del proxy_key, secret, passphrase
