@@ -73,22 +73,15 @@ body {
 }
 
 /* CANVAS LAYERS */
+/* #grain animation removed — was the single biggest CPU hog (35ms rAF loop
+   across 100vw × 100vh). Static grain texture retained for the aesthetic. */
 #grain {
   position: fixed; inset: 0; z-index: 800;
   pointer-events: none;
-  opacity: .028;
+  opacity: .022;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 180px;
-  animation: grainAnim .35s steps(1) infinite;
-  /* GPU layer — prevents full-screen CPU repaint on every grain frame */
   transform: translateZ(0);
-  will-change: transform;
-}
-@keyframes grainAnim {
-  0%  { background-position: 0 0 }
-  25% { background-position: -50px -20px }
-  50% { background-position: 20px -60px }
-  75% { background-position: -30px 40px }
 }
 #grid-bg {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -99,30 +92,31 @@ body {
   /* Isolate on its own compositing layer */
   transform: translateZ(0);
 }
+/* Ambient orbs: reduced from 700px/blur(140px) to 320px/blur(50px).
+   Heavy blur on large elements is the #2 GPU compositor cost after grain. */
 .ambient {
   position: fixed; border-radius: 50%;
   pointer-events: none; z-index: 0;
-  filter: blur(140px); opacity: 0;
+  filter: blur(50px); opacity: 0;
   animation: ambPulse var(--dur, 8s) ease-in-out infinite alternate;
-  /* Promote early so blur is cached on GPU layer before first paint */
   will-change: opacity, transform;
 }
 .amb-em {
-  width: 700px; height: 700px;
+  width: 320px; height: 320px;
   background: var(--em);
-  top: 10%; left: -20%;
+  top: 10%; left: -8%;
   --dur: 9s;
   animation-name: ambPulse;
 }
 .amb-vi {
-  width: 600px; height: 600px;
+  width: 280px; height: 280px;
   background: var(--vi);
-  top: 55%; right: -18%;
+  top: 55%; right: -6%;
   --dur: 11s;
   animation-delay: -4s;
 }
 .amb-em2 {
-  width: 400px; height: 400px;
+  width: 200px; height: 200px;
   background: var(--em);
   bottom: 10%; left: 30%;
   --dur: 13s;
@@ -130,8 +124,8 @@ body {
   opacity: 0;
 }
 @keyframes ambPulse {
-  0%   { opacity: .04; transform: scale(1) translate(0,0); }
-  100% { opacity: .09; transform: scale(1.12) translate(15px,-20px); }
+  0%   { opacity: .05; transform: scale(1) translate(0,0); }
+  100% { opacity: .1; transform: scale(1.08) translate(8px,-10px); }
 }
 
 /* PRELOADER */
@@ -186,8 +180,7 @@ nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 500;
   padding: 22px clamp(20px,4vw,64px);
   display: flex; align-items: center; justify-content: space-between;
-  background: linear-gradient(to bottom, rgba(0,0,0,.85) 0%, transparent 100%);
-  backdrop-filter: blur(10px);
+  background: rgba(0,0,0,.92);
 }
 .nav-logo {
   font-family: var(--t-syne); font-weight: 900; font-size: 16px;
@@ -219,13 +212,11 @@ nav {
 .btn-connect {
   padding: 8px 18px; border: 1px solid var(--border2);
   font-family: var(--t-mono); font-size: 8px; letter-spacing: .2em;
-  color: var(--white); background: var(--glass); cursor: none;
+  color: var(--white); background: rgba(255,255,255,.03); cursor: none;
   border-radius: 2px; transition: border-color .2s, background .2s;
-  backdrop-filter: blur(8px);
 }
 .btn-connect:hover { border-color: var(--em); background: rgba(16,185,129,.08); }
 .btn-connect-glass {
-  backdrop-filter: blur(12px);
   background: rgba(255,255,255,.03);
   border-color: rgba(255,255,255,.12);
 }
@@ -414,7 +405,7 @@ section { position: relative; z-index: 10; }
 #ticker-bar {
   border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
   overflow: hidden; padding: 10px 0;
-  background: rgba(0,0,0,.6); backdrop-filter: blur(8px);
+  background: rgba(0,0,0,.85);
 }
 .ticker-inner {
   display: flex; gap: 48px; white-space: nowrap;
@@ -621,7 +612,7 @@ section { position: relative; z-index: 10; }
 #terminal-section { background: transparent; }
 .terminal-frame {
   border: 1px solid var(--border); border-radius: 4px;
-  overflow: hidden; background: rgba(0,0,0,.4); backdrop-filter: blur(16px);
+  overflow: hidden; background: rgba(0,0,0,.85);
 }
 .terminal-titlebar {
   display: flex; align-items: center; gap: 8px; padding: 12px 20px;
@@ -855,7 +846,7 @@ section { position: relative; z-index: 10; }
 footer {
   position: relative; z-index: 10;
   border-top: 1px solid var(--border); padding: 64px clamp(20px,5vw,80px) 40px;
-  background: rgba(0,0,0,.5); backdrop-filter: blur(10px);
+  background: rgba(0,0,0,.95);
 }
 .footer-grid {
   display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 60px;

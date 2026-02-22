@@ -87,8 +87,7 @@ export function TerminalWelcomeTour() {
     <div className="fixed inset-0 z-[300]">
       {/* Dim backdrop — click to skip */}
       <div
-        className="absolute inset-0 bg-black/70"
-        style={{ backdropFilter: "blur(2px)" }}
+        className="absolute inset-0 bg-black/75"
         onClick={dismiss}
       />
 

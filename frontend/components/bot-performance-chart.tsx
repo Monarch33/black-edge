@@ -109,8 +109,7 @@ export function BotPerformanceChart() {
             stroke="#10b981"
             strokeWidth={2.5}
             fill="url(#pnlGrad)"
-            animationDuration={2200}
-            animationEasing="ease-out"
+            isAnimationActive={false}
             dot={false}
             activeDot={{
               r: 5,

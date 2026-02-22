@@ -81,6 +81,12 @@ export default function Home() {
 
   const handleOpenAccessTerminal = async () => {
     if (!address) return
+    // ── Admin bypass: skip paywall entirely ──────────────────────────────────
+    if (adminWallet && address.toLowerCase() === adminWallet.toLowerCase()) {
+      setPageFadeOut(true)
+      setTimeout(() => router.push("/dashboard"), 400)
+      return
+    }
     setAccessTerminalLoading(true)
     try {
       const res = await fetch(`/api/user/status?address=${encodeURIComponent(address)}`)

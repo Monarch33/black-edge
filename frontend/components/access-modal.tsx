@@ -88,7 +88,7 @@ export function AccessModal({ isOpen, onClose, defaultTier = "runner" }: AccessM
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8"
-      style={{ background: "rgba(0,0,0,0.95)", backdropFilter: "blur(18px)" }}
+      style={{ background: "rgba(0,0,0,0.97)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
