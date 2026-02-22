@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import Link from "next/link"
 import { AccessModal } from "@/components/access-modal"
+import { WalletOnboardingModal } from "@/components/wallet-onboarding-modal"
+import { BotPerformanceChart } from "@/components/bot-performance-chart"
 
 const MARKETS = [
   { name: "Federal Reserve Rate Cut — Q3 2025", cat: "economy", prob: 67, delta: 3.2, vol: "$4.2M", kelly: "+8.1%", badge: "live" },
@@ -48,6 +50,7 @@ export default function Home() {
   const [accessModalTier, setAccessModalTier] = useState<"runner" | "whale">("runner")
   const [accessTerminalLoading, setAccessTerminalLoading] = useState(false)
   const [pageFadeOut, setPageFadeOut] = useState(false)
+  const [walletModalOpen, setWalletModalOpen] = useState(false)
 
   const adminWallet = (typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS ?? "") : "") || ""
 
@@ -424,7 +427,7 @@ export default function Home() {
               GET ACCESS
             </button>
             <ConnectButton.Custom>
-              {({ openConnectModal, account }) =>
+              {({ account }) =>
                 isConnecting ? (
                   <button type="button" className="btn-connect btn-connect-pulse" disabled>
                     <span className="btn-pulse-dot" />
@@ -443,7 +446,7 @@ export default function Home() {
                     {accessTerminalLoading ? "CHECKING..." : "OPEN ACCESS TERMINAL"}
                   </button>
                 ) : (
-                  <button type="button" className="btn-connect btn-connect-glass" onClick={openConnectModal}>
+                  <button type="button" className="btn-connect btn-connect-glass" onClick={() => setWalletModalOpen(true)}>
                     CONNECT WALLET
                   </button>
                 )
@@ -591,6 +594,57 @@ export default function Home() {
                   Edge %, Kelly-criterion sizing, composite score 0–100. Every prediction logged publicly. Every result published. Zero exceptions.
                 </div>
                 <div className="hiw-tag">KELLY CRITERION</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="hr hr-z" />
+
+        {/* ── BTC 5-Min Bot Performance Showcase ── */}
+        <section id="bot-performance">
+          <div className="section-inner">
+            <div className="section-tag reveal">LIVE PERFORMANCE</div>
+            <div className="markets-header">
+              <div>
+                <h2 className="section-title reveal reveal-delay-1">
+                  BTC 5-Minute
+                  <br />
+                  <em>Bot</em>
+                </h2>
+                <p className="reveal reveal-delay-2" style={{ fontSize: 11, color: "rgba(255,255,255,.35)", lineHeight: 1.8, maxWidth: 480, marginTop: 16 }}>
+                  Autonomous execution on Polymarket binary markets. The AI Council scans every 5 minutes, debates the edge, and executes when the math is right. Hover the chart to see real trade decisions.
+                </p>
+              </div>
+              <div className="reveal reveal-delay-2" style={{ display: "flex", gap: 20, alignItems: "center" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "var(--t-syne)", fontSize: 28, fontWeight: 900, color: "var(--em)", letterSpacing: "-.03em" }}>+$28.40</div>
+                  <div style={{ fontSize: 8, letterSpacing: ".2em", color: "rgba(255,255,255,.3)", marginTop: 4 }}>SESSION P&L</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "var(--t-syne)", fontSize: 28, fontWeight: 900, color: "var(--white)", letterSpacing: "-.03em" }}>85%</div>
+                  <div style={{ fontSize: 8, letterSpacing: ".2em", color: "rgba(255,255,255,.3)", marginTop: 4 }}>WIN RATE</div>
+                </div>
+              </div>
+            </div>
+            <div className="reveal reveal-delay-2" style={{ marginTop: 40, border: "1px solid rgba(255,255,255,.07)", borderRadius: 3, padding: "24px 16px 8px", background: "rgba(255,255,255,.015)" }}>
+              <BotPerformanceChart />
+            </div>
+            <div className="reveal reveal-delay-3" style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" as const }}>
+              <div className="ksig" style={{ flex: 1, minWidth: 160 }}>
+                <div className="ksig-label">STRATEGY</div>
+                <div className="ksig-val" style={{ fontSize: 18 }}>5-MIN BTC</div>
+                <div className="ksig-desc">Binary option on BTC price direction</div>
+              </div>
+              <div className="ksig" style={{ flex: 1, minWidth: 160 }}>
+                <div className="ksig-label">AGENTS ACTIVE</div>
+                <div className="ksig-val" style={{ fontSize: 18, color: "var(--white)" }}>5/5</div>
+                <div className="ksig-desc">Full Council consensus required</div>
+              </div>
+              <div className="ksig" style={{ flex: 1, minWidth: 160 }}>
+                <div className="ksig-label">RISK MANAGEMENT</div>
+                <div className="ksig-val" style={{ fontSize: 18, color: "var(--vi)" }}>KELLY</div>
+                <div className="ksig-desc">Half-Kelly criterion position sizing</div>
               </div>
             </div>
           </div>
@@ -1023,6 +1077,7 @@ export default function Home() {
         </footer>
 
         <AccessModal isOpen={accessModalOpen} onClose={() => setAccessModalOpen(false)} defaultTier={accessModalTier} />
+        <WalletOnboardingModal isOpen={walletModalOpen} onClose={() => setWalletModalOpen(false)} />
       </div>
     </>
   )

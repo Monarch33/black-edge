@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback, startTransition, useMemo } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { Power, Bot } from "lucide-react"
+import { MetricTooltip } from "@/components/metric-tooltip"
 
 // ── Backend endpoints ─────────────────────────────────────────────────────────
 const API_BASE  = process.env.NEXT_PUBLIC_API_URL  || "http://localhost:8000"
@@ -329,11 +331,11 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-black text-white font-mono w-full max-w-[100vw] overflow-x-hidden">
       {/* ── Header ── */}
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 bg-black/90 border-b border-white/10 backdrop-blur-sm">
-        <Link href="/" className="font-bold text-base tracking-tight flex items-center gap-2">
-          <span className="flex items-baseline gap-1">
-            BLACK<span className="font-serif italic text-[#10b981]">EDGE</span>
+        <Link href="/" className="flex items-center gap-3">
+          <span className="font-mono tracking-[0.2em] text-white font-bold text-xl drop-shadow-md">
+            BLACK EDGE
           </span>
-          <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
+          <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.9)]" />
         </Link>
         <div className="flex items-center gap-4 sm:gap-6">
           {/* Rust engine status indicator */}
@@ -441,13 +443,14 @@ export default function DashboardPage() {
             <button
               onClick={toggleBot}
               disabled={toggling}
-              className={`w-full py-6 border text-[10px] tracking-widest transition-all disabled:opacity-50 ${
+              className={`w-full py-5 border text-[10px] tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-3 ${
                 isBotActive
                   ? "bg-[#10b981]/20 border-[#10b981] text-[#10b981] shadow-[0_0_24px_rgba(16,185,129,0.3)]"
-                  : "border-white/20 text-white/60 hover:border-white/40 hover:text-white"
+                  : "border-white/20 text-white/60 hover:border-emerald-500/50 hover:text-emerald-400"
               }`}
             >
-              {toggling ? "..." : isBotActive ? "[ AGENT ACTIVE ]" : "[ ACTIVATE AUTONOMOUS AGENT ]"}
+              <Power size={16} className={isBotActive ? "text-[#10b981]" : ""} />
+              {toggling ? "SWITCHING..." : isBotActive ? "AGENT ACTIVE — CLICK TO STOP" : "ACTIVATE AUTONOMOUS AGENT"}
             </button>
           </div>
 
@@ -482,14 +485,14 @@ export default function DashboardPage() {
                 </div>
                 {/* BS Fair Value */}
                 <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
-                  <span className="text-[9px] tracking-wider text-white/40">BS FAIR VALUE</span>
+                  <MetricTooltip label="BS FAIR VALUE" tip="Black-Scholes fair value — the mathematically correct price of this binary option based on current BTC volatility and time to expiry." />
                   <span className="text-[11px] text-white tabular-nums">
                     {hftMetrics ? fmt(hftMetrics.bs_fair_value) : "—"}
                   </span>
                 </div>
                 {/* Edge */}
                 <div className="flex justify-between items-center px-3 py-2">
-                  <span className="text-[9px] tracking-wider text-white/40">EDGE</span>
+                  <MetricTooltip label="EDGE" tip="The difference between our calculated fair value and the current market price. A positive edge means the market is mispriced in our favor." />
                   <span className={`text-[11px] tabular-nums font-bold ${edgeColor}`}>
                     {hftMetrics
                       ? `${hftMetrics.edge >= 0 ? "+" : ""}${(hftMetrics.edge * 100).toFixed(2)}%`
@@ -498,14 +501,14 @@ export default function DashboardPage() {
                 </div>
                 {/* Kelly */}
                 <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
-                  <span className="text-[9px] tracking-wider text-white/40">½-KELLY SIZE</span>
+                  <MetricTooltip label="½-KELLY SIZE" tip="The mathematically safest amount to invest on this trade to grow your bankroll without risking ruin. Half-Kelly is more conservative than full Kelly for safety." />
                   <span className="text-[11px] text-[#10b981] tabular-nums">
                     {hftMetrics ? `${(hftMetrics.kelly_fraction * 100).toFixed(2)}%` : "—"}
                   </span>
                 </div>
                 {/* Sigma */}
                 <div className="flex justify-between items-center px-3 py-2">
-                  <span className="text-[9px] tracking-wider text-white/40">σ (VOL)</span>
+                  <MetricTooltip label="σ (VOL)" tip="Implied volatility — how much BTC price is expected to move. Higher σ means bigger potential swings and wider option pricing." />
                   <span className="text-[11px] text-white/70 tabular-nums">
                     {hftMetrics ? `${(hftMetrics.sigma * 100).toFixed(0)}%` : "—"}
                   </span>
@@ -528,7 +531,7 @@ export default function DashboardPage() {
                 </div>
                 {/* ── Microstructure row ── */}
                 <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
-                  <span className="text-[9px] tracking-wider text-white/40">OB IMBALANCE</span>
+                  <MetricTooltip label="OB IMBALANCE" tip="Orderbook imbalance — measures whether buyers or sellers dominate. Positive (green) = more buy pressure. Negative (red) = more sell pressure." />
                   <div className="flex items-center gap-2">
                     {/* Directional bar: green = bid pressure, red = ask pressure */}
                     <div className="relative w-16 h-1 bg-white/10 rounded-full overflow-hidden">
@@ -581,10 +584,13 @@ export default function DashboardPage() {
                 </div>
                 {/* Armed indicator */}
                 <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
-                  <span className="text-[9px] tracking-wider text-white/40">EXECUTION</span>
-                  <span className={`text-[9px] tracking-widest ${hftMetrics?.credentials_loaded ? "text-[#10b981]" : "text-white/20"}`}>
-                    {hftMetrics?.credentials_loaded ? "ARMED" : "DISARMED"}
-                  </span>
+                  <MetricTooltip label="EXECUTION" tip="Whether the bot has valid API credentials loaded and is authorized to place real trades on Polymarket." />
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${hftMetrics?.credentials_loaded ? "bg-[#10b981] animate-pulse" : "bg-red-500/50"}`} />
+                    <span className={`text-[9px] tracking-widest font-bold ${hftMetrics?.credentials_loaded ? "text-[#10b981]" : "text-red-400/60"}`}>
+                      {hftMetrics?.credentials_loaded ? "ARMED" : "DISARMED"}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -610,7 +616,20 @@ export default function DashboardPage() {
               className="flex-1 overflow-y-auto p-4 font-mono text-xs"
             >
               {logs.length === 0 && !isBotActive && !engineOffline && (
-                <p className="text-white/30">Agent inactive. Activate to see logs.</p>
+                <div className="flex flex-col items-center justify-center h-full gap-4 py-16">
+                  <Bot size={36} className="text-emerald-500/40 animate-bounce" />
+                  <p className="text-white/40 text-sm text-center max-w-xs leading-relaxed">
+                    The Oracle is scanning the market.<br />
+                    <span className="text-white/25 text-xs">It will execute when the mathematical edge is perfect.</span>
+                  </p>
+                  <button
+                    onClick={toggleBot}
+                    disabled={toggling}
+                    className="mt-2 px-6 py-2 border border-emerald-500/30 text-emerald-400 text-[10px] tracking-widest hover:bg-emerald-500/10 transition-all flex items-center gap-2"
+                  >
+                    <Power size={12} /> ACTIVATE AGENT
+                  </button>
+                </div>
               )}
               {logs.map((line, i) => (
                 <div key={`${i}-${line}`} className={`py-0.5 ${getLogClassName(line)}`}>
