@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 
 import httpx
 import structlog
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
@@ -79,6 +81,8 @@ class ActivateResponse(BaseModel):
 class KeysRequest(BaseModel):
     proxy_key: str = Field(..., min_length=1)
     secret: str = Field(..., min_length=1)
+    passphrase: str = Field("", description="Polymarket L2 API passphrase")
+    polygon_private_key: str = Field("", description="L1 wallet private key for EIP-712 signing")
 
 
 class KeysResponse(BaseModel):
@@ -93,7 +97,10 @@ class ToggleResponse(BaseModel):
 
 class StatusResponse(BaseModel):
     status: str = Field(..., description="RUNNING or STOPPED")
+    active: bool = Field(False, description="True if bot is RUNNING (armed)")
     current_pnl: float = Field(0.0)
+    pnl: float = Field(0.0)
+    usdc_balance: Optional[float] = Field(None, description="Vault liquidity if known")
     total_trades_count: int = Field(0)
     last_log: str = Field("")
 
@@ -210,6 +217,8 @@ def store_polymarket_keys(
             user_id=user_id,
             polymarket_proxy_key=request.proxy_key,
             polymarket_secret=request.secret,
+            polymarket_passphrase=request.passphrase,
+            polygon_private_key=request.polygon_private_key,
         )
 
     logger.info("Polymarket keys stored", user_id=user_id)
@@ -269,11 +278,14 @@ def get_engine_status(
             return StatusResponse(status="STOPPED", current_pnl=0.0, total_trades_count=0, last_log="")
 
         total_trades = session.query(TradeLog).filter(TradeLog.user_id == user_id).count()
-        status_str = "RUNNING" if bot.status == BotStatus.RUNNING else "STOPPED"
+        is_running = bot.status == BotStatus.RUNNING
+        status_str = "RUNNING" if is_running else "STOPPED"
 
         return StatusResponse(
             status=status_str,
+            active=is_running,
             current_pnl=bot.current_pnl,
+            pnl=bot.current_pnl,
             total_trades_count=total_trades,
             last_log=bot.last_log or "",
         )

@@ -160,6 +160,7 @@ class UserCredentials(Base):
     polymarket_proxy_key: Mapped[str] = mapped_column(Text, nullable=False)  # Encrypted
     polymarket_secret: Mapped[str] = mapped_column(Text, nullable=False)  # Encrypted
     polymarket_passphrase: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Encrypted
+    polygon_private_key: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Encrypted — L1 signing key
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

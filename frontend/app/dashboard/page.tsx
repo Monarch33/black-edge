@@ -63,7 +63,9 @@ export default function DashboardPage() {
   const [polygonKey, setPolygonKey] = useState("")
   const [hasCredentials, setHasCredentials] = useState(false)
   const [isBotActive, setIsBotActive] = useState(false)
+  const [isThinking, setIsThinking] = useState(false)
   const [currentPnl, setCurrentPnl] = useState<number | null>(null)
+  const [usdcBalance, setUsdcBalance] = useState<number | null>(null)
   const [logs, setLogs] = useState<string[]>([])
   const [engineOffline, setEngineOffline] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -125,6 +127,17 @@ export default function DashboardPage() {
     ws.onmessage = (e) => {
       try {
         const data = JSON.parse(e.data)
+
+        // Engine status events (HUNTING_ALPHA / SCANNING_NOISE)
+        if (data.type === "status") {
+          setIsThinking(!!data.isThinking)
+          if (typeof data.usdcBalance === "number") {
+            setUsdcBalance(data.usdcBalance)
+          }
+          return
+        }
+
+        // Regular log messages
         const msg = typeof data.message === "string" ? data.message : String(data.message ?? "")
         if (msg) {
           const ts = formatTimestamp()
@@ -251,7 +264,7 @@ export default function DashboardPage() {
         <aside className="w-full lg:w-[30%] lg:min-w-[300px] border-r border-white/[0.07] p-4 sm:p-6 flex flex-col gap-6 bg-zinc-950/50">
 
           {/* Aleph Status Widget */}
-          <AlephStatus isActive={isBotActive} />
+          <AlephStatus isActive={isBotActive} isThinking={isThinking} />
 
           {/* Vault credentials */}
           <div>
@@ -353,7 +366,15 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Deploy / halt Aleph */}
+          {/* Vault Liquidity */}
+          {usdcBalance !== null && (
+            <div className="flex items-center justify-between px-3 py-2.5 border border-white/[0.06] rounded-lg bg-black/30">
+              <span className="text-[9px] tracking-[0.2em] text-white/30 uppercase">Vault Liquidity</span>
+              <span className="text-sm font-bold font-mono text-emerald-500">${usdcBalance.toFixed(2)}</span>
+            </div>
+          )}
+
+          {/* Armed / Disarmed toggle */}
           <div>
             <button
               onClick={toggleBot}
@@ -363,12 +384,16 @@ export default function DashboardPage() {
                 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
                 ${
                   isBotActive
-                    ? "bg-zinc-900 border border-emerald-500 text-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.2)] hover:bg-red-500/10 hover:border-red-500 hover:text-red-400"
-                    : "bg-zinc-900 border border-zinc-700 text-white hover:border-emerald-500 hover:text-emerald-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                    ? "bg-emerald-500/10 border border-emerald-500 text-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.3)] hover:bg-red-500/10 hover:border-red-500 hover:text-red-400 hover:shadow-[0_0_24px_rgba(239,68,68,0.2)]"
+                    : "bg-red-500/5 border border-red-500/30 text-red-400/70 hover:border-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/5 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]"
                 }
               `}
             >
-              {toggling ? "···" : isBotActive ? "Halt Aleph" : "Deploy Aleph"}
+              {toggling
+                ? "···"
+                : isBotActive
+                ? "Aleph Armed & Scanning"
+                : "System Disarmed"}
             </button>
           </div>
         </aside>

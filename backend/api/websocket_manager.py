@@ -72,6 +72,56 @@ class EngineLogsManager:
             self.disconnect(user_id)
             return False
 
+    async def send_status(
+        self,
+        user_id: int,
+        status: str,
+        is_thinking: bool,
+        extra: dict | None = None,
+    ) -> bool:
+        """
+        Send engine status event to a user's WebSocket.
+        Used to sync the frontend Aleph glow state.
+
+        Args:
+            user_id: Target user
+            status: e.g. "HUNTING_ALPHA", "SCANNING_NOISE"
+            is_thinking: True when engine is actively querying/computing
+            extra: Optional extra payload (e.g. usdc_balance)
+        """
+        ws = self._connections.get(user_id)
+        if not ws:
+            return False
+
+        try:
+            payload: dict = {
+                "type": "status",
+                "status": status,
+                "isThinking": is_thinking,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            if extra:
+                payload.update(extra)
+            await ws.send_text(json.dumps(payload))
+            return True
+        except Exception as e:
+            logger.warning("Failed to send status to user", user_id=user_id, error=str(e))
+            self.disconnect(user_id)
+            return False
+
+    async def broadcast_status(
+        self,
+        user_ids: list[int],
+        status: str,
+        is_thinking: bool,
+        extra: dict | None = None,
+    ) -> None:
+        """Broadcast engine status to multiple users."""
+        await asyncio.gather(
+            *[self.send_status(uid, status, is_thinking, extra) for uid in user_ids],
+            return_exceptions=True,
+        )
+
     def is_connected(self, user_id: int) -> bool:
         """Check if user has an active connection."""
         return user_id in self._connections

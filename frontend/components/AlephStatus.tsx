@@ -34,9 +34,10 @@ const FEED_LINES = [
 
 interface AlephStatusProps {
   isActive: boolean
+  isThinking?: boolean
 }
 
-export function AlephStatus({ isActive }: AlephStatusProps) {
+export function AlephStatus({ isActive, isThinking = false }: AlephStatusProps) {
   const [visibleLines, setVisibleLines] = useState<string[]>([
     FEED_LINES[0],
     FEED_LINES[1],
@@ -71,33 +72,43 @@ export function AlephStatus({ isActive }: AlephStatusProps) {
         </span>
         <div className="flex items-center gap-2">
           <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              isActive
+            className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+              isThinking
+                ? "bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(16,185,129,1)]"
+                : isActive
                 ? "bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]"
                 : "bg-white/20"
             }`}
           />
           <span
-            className={`text-[8px] tracking-widest ${
-              isActive ? "text-emerald-500" : "text-white/25"
+            className={`text-[8px] tracking-widest transition-colors duration-300 ${
+              isThinking ? "text-emerald-400" : isActive ? "text-emerald-500" : "text-white/25"
             }`}
           >
-            {isActive ? "ACTIVE" : "STANDBY"}
+            {isThinking ? "HUNTING ALPHA" : isActive ? "ARMED" : "DISARMED"}
           </span>
         </div>
       </div>
 
-      {/* Singularity — breathing SVG */}
+      {/* Singularity — breathing SVG, intensifies when HUNTING */}
       <div className="flex justify-center py-2">
         <div
-          className={`relative ${isActive ? "animate-aleph-breathe" : "opacity-40"}`}
+          className={`relative transition-all duration-300 ${
+            isThinking
+              ? "animate-pulse scale-110"
+              : isActive
+              ? "animate-aleph-breathe"
+              : "opacity-40"
+          }`}
           style={{
-            filter: isActive
+            filter: isThinking
+              ? "drop-shadow(0 0 40px rgba(16,185,129,1)) drop-shadow(0 0 80px rgba(16,185,129,0.5))"
+              : isActive
               ? "drop-shadow(0 0 16px rgba(16,185,129,0.6)) drop-shadow(0 0 32px rgba(16,185,129,0.2))"
               : "none",
           }}
         >
-          <AlephSingularitySVG size={64} animate={isActive} />
+          <AlephSingularitySVG size={64} animate={isActive || isThinking} />
         </div>
       </div>
 
