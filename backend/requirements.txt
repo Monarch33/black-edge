@@ -41,6 +41,10 @@ pandas==2.2.3
 scipy==1.12.0
 cvxpy==1.4.0
 
+# ── LLM SDKs ─────────────────────────────────────────────────────────────────
+anthropic>=0.40.0       # Oracle: Claude-based market probability evaluation
+openai>=1.30.0          # Oracle: OpenAI fallback (optional)
+
 # ── Logging ──────────────────────────────────────────────────────────────────
 structlog==24.1.0
 
