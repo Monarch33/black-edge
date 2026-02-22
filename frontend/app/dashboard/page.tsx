@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, startTransition, useMemo } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -127,6 +127,10 @@ export default function DashboardPage() {
   }, [fetchStatus])
 
   // ── Rust HFT metrics — true push via WebSocket (4 Hz from Rust server) ──────
+  // Raw incoming data is stored in a ref; React state is only updated via
+  // startTransition so user interactions (wallet modal, input focus) are never
+  // blocked by background metric refreshes.
+  const hftDataRef      = useRef<HftMetrics | null>(null)
   const hftWsRef        = useRef<WebSocket | null>(null)
   const hftReconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -148,9 +152,16 @@ export default function DashboardPage() {
       ws.onmessage = (e: MessageEvent) => {
         try {
           const data: HftMetrics = JSON.parse(e.data as string)
-          setHftMetrics(data)
-          setRustOnline(true)
+          // Store raw data immediately (no re-render)
+          hftDataRef.current = data
+          // Urgent one-time flag — update synchronously
           if (data.credentials_loaded) setRustArmed(true)
+          // Non-urgent display update: deferred so wallet/input interactions
+          // are never blocked by the 4 Hz metric stream
+          startTransition(() => {
+            setHftMetrics(hftDataRef.current)
+            setRustOnline(true)
+          })
         } catch {
           // ignore unparseable frames
         }
@@ -307,18 +318,22 @@ export default function DashboardPage() {
   const showVaultOnly = !hasCredentials && !proxyKey && !secret && !passphrase && !polygonKey
 
   // ── Derived display values ─────────────────────────────────────────────────
-  const edgeColor = hftMetrics && hftMetrics.edge >= 0.02
-    ? "text-[#10b981]"
-    : hftMetrics && hftMetrics.edge > 0
-      ? "text-amber-400"
-      : "text-[#6b7280]"
+  const edgeColor = useMemo(() => {
+    if (!hftMetrics) return "text-[#6b7280]"
+    if (hftMetrics.edge >= 0.02) return "text-[#10b981]"
+    if (hftMetrics.edge > 0) return "text-amber-400"
+    return "text-[#6b7280]"
+  }, [hftMetrics])
 
   return (
     <div className="min-h-screen bg-black text-white font-mono w-full max-w-[100vw] overflow-x-hidden">
       {/* ── Header ── */}
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 bg-black/90 border-b border-white/10 backdrop-blur-sm">
-        <Link href="/" className="font-bold text-base tracking-tight flex items-baseline gap-1">
-          BLACK<span className="font-serif italic text-[#10b981]">EDGE</span>
+        <Link href="/" className="font-bold text-base tracking-tight flex items-center gap-2">
+          <span className="flex items-baseline gap-1">
+            BLACK<span className="font-serif italic text-[#10b981]">EDGE</span>
+          </span>
+          <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
         </Link>
         <div className="flex items-center gap-4 sm:gap-6">
           {/* Rust engine status indicator */}
