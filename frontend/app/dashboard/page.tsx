@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, startTransition, useMemo } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { Power, Bot } from "lucide-react"
+import { Power, Bot, Lock, Shield, Key } from "lucide-react"
 import { MetricTooltip } from "@/components/metric-tooltip"
 import { TerminalWelcomeTour } from "@/components/terminal-welcome-tour"
 
@@ -130,37 +130,29 @@ export default function DashboardPage() {
   }, [fetchStatus])
 
   // ── Rust HFT metrics — true push via WebSocket (4 Hz from Rust server) ──────
-  // Raw incoming data is stored in a ref; React state is only updated via
-  // startTransition so user interactions (wallet modal, input focus) are never
-  // blocked by background metric refreshes.
   const hftDataRef      = useRef<HftMetrics | null>(null)
   const hftWsRef        = useRef<WebSocket | null>(null)
   const hftReconnectRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    let backoff = 1_000 // start at 1 s, cap at 8 s
+    let backoff = 1_000
 
     const connect = () => {
-      // Clean up any existing socket before opening a new one
       hftWsRef.current?.close()
 
       const ws = new WebSocket(`${RUST_WS}/ws`)
       hftWsRef.current = ws
 
       ws.onopen = () => {
-        backoff = 1_000 // reset backoff on successful connection
+        backoff = 1_000
         setRustOnline(true)
       }
 
       ws.onmessage = (e: MessageEvent) => {
         try {
           const data: HftMetrics = JSON.parse(e.data as string)
-          // Store raw data immediately (no re-render)
           hftDataRef.current = data
-          // Urgent one-time flag — update synchronously
           if (data.credentials_loaded) setRustArmed(true)
-          // Non-urgent display update: deferred so wallet/input interactions
-          // are never blocked by the 4 Hz metric stream
           startTransition(() => {
             setHftMetrics(hftDataRef.current)
             setRustOnline(true)
@@ -170,14 +162,11 @@ export default function DashboardPage() {
         }
       }
 
-      ws.onerror = () => {
-        setRustOnline(false)
-      }
+      ws.onerror = () => { setRustOnline(false) }
 
       ws.onclose = () => {
         hftWsRef.current = null
         setRustOnline(false)
-        // Reconnect with capped exponential backoff
         hftReconnectRef.current = setTimeout(() => {
           backoff = Math.min(backoff * 2, 8_000)
           connect()
@@ -192,7 +181,7 @@ export default function DashboardPage() {
       hftWsRef.current?.close()
       hftWsRef.current = null
     }
-  }, []) // intentionally empty – connect once on mount, reconnect internally
+  }, [])
 
   // ── Python backend log WebSocket ─────────────────────────────────────────
   useEffect(() => {
@@ -240,7 +229,6 @@ export default function DashboardPage() {
     setEngineOffline(false)
 
     try {
-      // Step 1 – save to existing Python backend
       const res = await fetch(`${API_BASE}/api/engine/keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -252,17 +240,16 @@ export default function DashboardPage() {
         return
       }
 
-      // Step 2 – arm the Rust HFT execution engine
       if (polygonKey) {
         try {
           const rustRes = await fetch(`${RUST_BASE}/api/engine/credentials`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              polymarket_api_key:   proxyKey,
-              polymarket_secret:    secret,
+              polymarket_api_key:    proxyKey,
+              polymarket_secret:     secret,
               polymarket_passphrase: passphrase,
-              polygon_private_key:  polygonKey,
+              polygon_private_key:   polygonKey,
             }),
           })
           if (rustRes.ok) {
@@ -273,14 +260,12 @@ export default function DashboardPage() {
             toast.warning(rustData?.message || "Python backend saved. Rust engine rejected credentials.")
           }
         } catch {
-          // Rust engine not running — credentials still saved to Python backend
           toast.warning("Credentials saved. Rust HFT engine is offline (paper-trade mode).")
         }
       } else {
         toast.success("Credentials secured in vault")
       }
 
-      // Clear all sensitive fields from React state after submission
       setProxyKey("")
       setSecret("")
       setPassphrase("")
@@ -318,8 +303,6 @@ export default function DashboardPage() {
     }
   }
 
-  const showVaultOnly = !hasCredentials && !proxyKey && !secret && !passphrase && !polygonKey
-
   // ── Derived display values ─────────────────────────────────────────────────
   const edgeColor = useMemo(() => {
     if (!hftMetrics) return "text-[#6b7280]"
@@ -329,7 +312,13 @@ export default function DashboardPage() {
   }, [hftMetrics])
 
   return (
-    <div className="min-h-screen bg-black text-white font-mono w-full max-w-[100vw] overflow-x-hidden">
+    // FIX 1: style={{ cursor: "default" }} overrides the global body { cursor: none }
+    // that comes from globals.css — the dashboard has no custom cursor JS, so
+    // without this the pointer is invisible the whole time.
+    <div
+      className="min-h-screen bg-black text-white font-mono w-full max-w-[100vw] overflow-x-hidden"
+      style={{ cursor: "default" }}
+    >
       {/* ── Header ── */}
       <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 bg-black/90 border-b border-white/10 backdrop-blur-sm">
         <Link href="/" className="flex items-center gap-3">
@@ -339,7 +328,7 @@ export default function DashboardPage() {
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.9)]" />
         </Link>
         <div className="flex items-center gap-4 sm:gap-6">
-          {/* Rust engine status indicator */}
+          {/* Rust engine status */}
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${rustOnline ? "bg-[#10b981] animate-pulse" : "bg-white/20"}`} />
             <span className={`text-[10px] tracking-[0.2em] hidden sm:inline ${rustOnline ? "text-[#10b981]" : "text-white/30"}`}>
@@ -352,321 +341,414 @@ export default function DashboardPage() {
           </div>
           <Link
             href="/"
-            className="px-4 py-2 border border-white/20 text-white/70 hover:border-red-500/50 hover:text-red-400 text-[10px] tracking-widest transition-colors"
+            className="px-4 py-2 border border-white/20 rounded-lg text-white/70 hover:border-red-500/50 hover:text-red-400 text-[10px] tracking-widest transition-colors"
           >
             LOGOUT
           </Link>
         </div>
       </header>
 
-      <main className="pt-[72px] flex min-h-screen flex-col lg:flex-row w-full">
-        {/* ── Sidebar ── */}
-        <aside className="w-full lg:w-[30%] lg:min-w-[300px] border-r border-white/10 p-4 sm:p-6 flex flex-col gap-8">
+      {/* ── Main Grid ──
+          FIX 2: pt-24 (96px) ensures content clears the fixed header.
+          FIX 3: CSS grid replaces the rigid flex sidebar layout. */}
+      <main className="pt-24 min-h-screen p-4 sm:p-6 lg:p-8">
+        <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-          {/* ── Vault / Credentials ── */}
-          <div>
-            <h2 className="text-[10px] tracking-[0.3em] text-[#10b981] mb-4">POLYMARKET API CREDENTIALS</h2>
-            {showVaultOnly && (
-              <div className="mb-6 p-6 border border-[#10b981]/30 bg-black text-center">
-                <p className="text-[#10b981] text-sm font-bold tracking-widest">VAULT ENCRYPTION REQUIRED</p>
-                <p className="text-white/40 text-[10px] mt-2">
-                  Paste your Polymarket CLOB keys and Polygon signer key to arm the HFT engine.
-                </p>
+          {/* ══ LEFT COLUMN ══ */}
+          <div className="lg:col-span-1 flex flex-col gap-5">
+
+            {/* ── FIX 4: Secure Vault card — onboarding-first credential form ── */}
+            <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
+
+              {/* Card header */}
+              <div className="flex items-start gap-3 mb-6">
+                <div className="p-2 bg-emerald-500/10 rounded-xl mt-0.5 flex-shrink-0">
+                  <Lock className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold tracking-[0.15em] text-white">SECURE VAULT</h2>
+                  <p className="text-[9px] text-zinc-600 mt-0.5 leading-relaxed">
+                    Credentials live in browser memory only — never persisted to disk or transmitted in plaintext
+                  </p>
+                </div>
               </div>
-            )}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[9px] tracking-wider text-white/40 mb-2">Proxy Key</label>
-                <input
-                  type="password"
-                  value={proxyKey}
-                  onChange={(e) => setProxyKey(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10 text-white text-sm placeholder-white/20 focus:border-[#10b981] focus:outline-none focus:ring-1 focus:ring-[#10b981]/30 transition-colors"
-                />
+
+              {/* ── Polymarket API Keys section ── */}
+              <div className="mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Key className="w-3 h-3 text-zinc-500" />
+                  <span className="text-[9px] tracking-widest text-zinc-500 uppercase">Polymarket Trading Keys</span>
+                </div>
+
+                {/* Contextual guide */}
+                <div className="mb-4 p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl">
+                  <p className="text-[9px] text-zinc-500 leading-relaxed">
+                    Generate these in your{" "}
+                    <span className="text-zinc-300">Polymarket account → Settings → API Keys</span>.
+                    You will receive a Proxy Key, Secret, and Passphrase — paste all three below.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Proxy Key */}
+                  <div>
+                    <label className="block text-[9px] tracking-wider text-zinc-500 mb-1.5 uppercase">
+                      Proxy Key
+                    </label>
+                    <input
+                      type="password"
+                      value={proxyKey}
+                      onChange={(e) => setProxyKey(e.target.value)}
+                      placeholder="Paste your Polymarket proxy key"
+                      className="w-full px-3.5 py-2.5 bg-black/50 border border-white/[0.08] rounded-xl text-white text-[11px] placeholder-zinc-700 focus:border-emerald-500/40 focus:outline-none focus:ring-1 focus:ring-emerald-500/[0.15] transition-colors"
+                    />
+                  </div>
+
+                  {/* Secret */}
+                  <div>
+                    <label className="block text-[9px] tracking-wider text-zinc-500 mb-1.5 uppercase">
+                      Secret
+                    </label>
+                    <input
+                      type="password"
+                      value={secret}
+                      onChange={(e) => setSecret(e.target.value)}
+                      placeholder="Paste your API secret"
+                      className="w-full px-3.5 py-2.5 bg-black/50 border border-white/[0.08] rounded-xl text-white text-[11px] placeholder-zinc-700 focus:border-emerald-500/40 focus:outline-none focus:ring-1 focus:ring-emerald-500/[0.15] transition-colors"
+                    />
+                  </div>
+
+                  {/* Passphrase */}
+                  <div>
+                    <label className="block text-[9px] tracking-wider text-zinc-500 mb-1.5 uppercase">
+                      Passphrase
+                    </label>
+                    <input
+                      type="password"
+                      value={passphrase}
+                      onChange={(e) => setPassphrase(e.target.value)}
+                      placeholder="The passphrase you chose on Polymarket"
+                      className="w-full px-3.5 py-2.5 bg-black/50 border border-white/[0.08] rounded-xl text-white text-[11px] placeholder-zinc-700 focus:border-emerald-500/40 focus:outline-none focus:ring-1 focus:ring-emerald-500/[0.15] transition-colors"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-[9px] tracking-wider text-white/40 mb-2">Secret</label>
-                <input
-                  type="password"
-                  value={secret}
-                  onChange={(e) => setSecret(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10 text-white text-sm placeholder-white/20 focus:border-[#10b981] focus:outline-none focus:ring-1 focus:ring-[#10b981]/30 transition-colors"
-                />
+
+              {/* Divider */}
+              <div className="h-px bg-white/[0.06] my-5" />
+
+              {/* ── Polygon Private Key section ── */}
+              <div className="mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="w-3 h-3 text-amber-500/70" />
+                  <span className="text-[9px] tracking-widest text-amber-500/60 uppercase">Polygon Execution Signer</span>
+                </div>
+
+                {/* Warning + guide box */}
+                <div className="mb-3 p-3 bg-amber-500/[0.05] border border-amber-500/[0.18] rounded-xl">
+                  <p className="text-[9px] text-amber-400/70 leading-relaxed">
+                    <span className="text-amber-400 font-semibold">Your Web3 wallet export key.</span>{" "}
+                    The bot needs this to cryptographically sign trades on Polygon L2.{" "}
+                    <span className="text-amber-300">Never transmitted over the network</span>{" "}
+                    — held in browser process memory only and cleared on page close.
+                  </p>
+                  <p className="text-[9px] text-amber-500/50 mt-1.5 leading-relaxed">
+                    Export from MetaMask: Account → ··· → Account Details → Show Private Key
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] tracking-wider text-zinc-500 mb-1.5 uppercase">
+                    Polygon Private Key
+                  </label>
+                  <input
+                    type="password"
+                    value={polygonKey}
+                    onChange={(e) => setPolygonKey(e.target.value)}
+                    placeholder="0x… (64 hex characters)"
+                    className="w-full px-3.5 py-2.5 bg-black/50 border border-amber-500/20 rounded-xl text-white text-[11px] placeholder-zinc-700 focus:border-amber-500/40 focus:outline-none focus:ring-1 focus:ring-amber-500/[0.15] transition-colors"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-[9px] tracking-wider text-white/40 mb-2">Passphrase</label>
-                <input
-                  type="password"
-                  value={passphrase}
-                  onChange={(e) => setPassphrase(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10 text-white text-sm placeholder-white/20 focus:border-[#10b981] focus:outline-none focus:ring-1 focus:ring-[#10b981]/30 transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-[9px] tracking-wider text-white/40 mb-2">
-                  Polygon Private Key
-                  <span className="ml-2 text-amber-500/60">(L2 execution signer)</span>
-                </label>
-                <input
-                  type="password"
-                  value={polygonKey}
-                  onChange={(e) => setPolygonKey(e.target.value)}
-                  placeholder="0x••••••••••••"
-                  className="w-full px-4 py-3 bg-transparent border border-transparent border-b-amber-500/20 text-white text-sm placeholder-white/20 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/20 transition-colors"
-                />
-                <p className="mt-1 text-[8px] text-white/20">
-                  Never transmitted over the network. Held in process RAM only.
-                </p>
-              </div>
+
+              {/* Arm button */}
               <button
                 onClick={handleSaveCredentials}
                 disabled={saving}
-                className={`w-full py-3 border text-[10px] tracking-widest transition-colors disabled:opacity-50 ${
+                className={`w-full py-3 rounded-xl text-[10px] tracking-widest transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2.5 font-semibold ${
                   rustArmed
-                    ? "border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
-                    : "border-[#10b981]/50 text-[#10b981] hover:bg-[#10b981]/10"
+                    ? "bg-amber-500/10 border border-amber-500/40 text-amber-400 hover:bg-amber-500/[0.15]"
+                    : "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/[0.15]"
                 }`}
               >
+                <Lock className="w-3.5 h-3.5" />
                 {saving
-                  ? "ARMING ENGINE..."
+                  ? "SEALING VAULT…"
                   : rustArmed
-                    ? "[ ENGINE ARMED ]"
-                    : "SAVE & ARM ENGINE"}
+                    ? "VAULT SEALED · RE-ARM"
+                    : "SEAL VAULT & ARM ENGINE"}
               </button>
             </div>
-          </div>
 
-          {/* ── Bot toggle ── */}
-          <div>
-            <button
-              onClick={toggleBot}
-              disabled={toggling}
-              className={`w-full py-5 border text-[10px] tracking-widest transition-all disabled:opacity-50 flex items-center justify-center gap-3 ${
-                isBotActive
-                  ? "bg-[#10b981]/20 border-[#10b981] text-[#10b981] shadow-[0_0_24px_rgba(16,185,129,0.3)]"
-                  : "border-white/20 text-white/60 hover:border-emerald-500/50 hover:text-emerald-400"
-              }`}
-            >
-              <Power size={16} className={isBotActive ? "text-[#10b981]" : ""} />
-              {toggling ? "SWITCHING..." : isBotActive ? "AGENT ACTIVE — CLICK TO STOP" : "ACTIVATE AUTONOMOUS AGENT"}
-            </button>
-          </div>
-
-          {/* ── Rust HFT live metrics ── */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[10px] tracking-[0.3em] text-white/40">HFT ENGINE METRICS</h2>
-              <span className={`text-[8px] tracking-widest ${rustOnline ? "text-[#10b981]" : "text-white/20"}`}>
-                {rustOnline ? "● LIVE" : "○ OFFLINE"}
-              </span>
-            </div>
-
-            {!rustOnline ? (
-              <p className="text-[10px] text-white/20 border border-white/5 p-4">
-                Start the Rust engine: <span className="text-white/40">cargo run</span>
-              </p>
-            ) : (
-              <div className="space-y-px border border-white/10">
-                {/* BTC Price */}
-                <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
-                  <span className="text-[9px] tracking-wider text-white/40">BTC SPOT</span>
-                  <span className="text-[11px] text-white tabular-nums">
-                    ${hftMetrics ? hftMetrics.btc_price.toLocaleString("en-US", { maximumFractionDigits: 0 }) : "—"}
-                  </span>
-                </div>
-                {/* YES Price */}
-                <div className="flex justify-between items-center px-3 py-2">
-                  <span className="text-[9px] tracking-wider text-white/40">YES PRICE</span>
-                  <span className="text-[11px] text-amber-400 tabular-nums">
-                    {hftMetrics ? fmt(hftMetrics.yes_price) : "—"}
-                  </span>
-                </div>
-                {/* BS Fair Value */}
-                <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
-                  <MetricTooltip label="BS FAIR VALUE" tip="Black-Scholes fair value — the mathematically correct price of this binary option based on current BTC volatility and time to expiry." />
-                  <span className="text-[11px] text-white tabular-nums">
-                    {hftMetrics ? fmt(hftMetrics.bs_fair_value) : "—"}
-                  </span>
-                </div>
-                {/* Edge */}
-                <div className="flex justify-between items-center px-3 py-2">
-                  <MetricTooltip label="EDGE" tip="The difference between our calculated fair value and the current market price. A positive edge means the market is mispriced in our favor." />
-                  <span className={`text-[11px] tabular-nums font-bold ${edgeColor}`}>
-                    {hftMetrics
-                      ? `${hftMetrics.edge >= 0 ? "+" : ""}${(hftMetrics.edge * 100).toFixed(2)}%`
-                      : "—"}
-                  </span>
-                </div>
-                {/* Kelly */}
-                <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
-                  <MetricTooltip label="½-KELLY SIZE" tip="The mathematically safest amount to invest on this trade to grow your bankroll without risking ruin. Half-Kelly is more conservative than full Kelly for safety." />
-                  <span className="text-[11px] text-[#10b981] tabular-nums">
-                    {hftMetrics ? `${(hftMetrics.kelly_fraction * 100).toFixed(2)}%` : "—"}
-                  </span>
-                </div>
-                {/* Sigma */}
-                <div className="flex justify-between items-center px-3 py-2">
-                  <MetricTooltip label="σ (VOL)" tip="Implied volatility — how much BTC price is expected to move. Higher σ means bigger potential swings and wider option pricing." />
-                  <span className="text-[11px] text-white/70 tabular-nums">
-                    {hftMetrics ? `${(hftMetrics.sigma * 100).toFixed(0)}%` : "—"}
-                  </span>
-                </div>
-                {/* Bankroll */}
-                <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
-                  <span className="text-[9px] tracking-wider text-white/40">BANKROLL</span>
-                  <span className="text-[11px] text-white tabular-nums">
-                    {hftMetrics
-                      ? `$${hftMetrics.bankroll_usdc_dollars.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
-                      : "—"}
-                  </span>
-                </div>
-                {/* Orders */}
-                <div className="flex justify-between items-center px-3 py-2">
-                  <span className="text-[9px] tracking-wider text-white/40">ACTIVE ORDERS</span>
-                  <span className={`text-[11px] tabular-nums ${(hftMetrics?.active_orders_count ?? 0) > 0 ? "text-amber-400" : "text-white/40"}`}>
-                    {hftMetrics?.active_orders_count ?? 0}
-                  </span>
-                </div>
-                {/* ── Microstructure row ── */}
-                <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
-                  <MetricTooltip label="OB IMBALANCE" tip="Orderbook imbalance — measures whether buyers or sellers dominate. Positive (green) = more buy pressure. Negative (red) = more sell pressure." />
-                  <div className="flex items-center gap-2">
-                    {/* Directional bar: green = bid pressure, red = ask pressure */}
-                    <div className="relative w-16 h-1 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className={`absolute top-0 h-full rounded-full transition-all duration-300 ${
-                          (hftMetrics?.ob_imbalance ?? 0) >= 0 ? "bg-[#10b981]" : "bg-[#ef4444]"
-                        }`}
-                        style={{
-                          width:  `${Math.abs((hftMetrics?.ob_imbalance ?? 0)) * 50}%`,
-                          left:   (hftMetrics?.ob_imbalance ?? 0) >= 0 ? "50%" : undefined,
-                          right:  (hftMetrics?.ob_imbalance ?? 0) <  0 ? "50%" : undefined,
-                        }}
-                      />
-                      {/* centre line */}
-                      <div className="absolute left-1/2 top-0 w-px h-full bg-white/20" />
-                    </div>
-                    <span className={`text-[10px] font-mono tabular-nums ${
-                      (hftMetrics?.ob_imbalance ?? 0) > 0.6
-                        ? "text-[#10b981]"
-                        : (hftMetrics?.ob_imbalance ?? 0) < -0.6
-                          ? "text-[#ef4444]"
-                          : "text-white/50"
-                    }`}>
-                      {hftMetrics ? (hftMetrics.ob_imbalance >= 0 ? "+" : "") + hftMetrics.ob_imbalance.toFixed(3) : "—"}
-                    </span>
-                  </div>
-                </div>
-                {/* ── Inventory / take-profit row ── */}
-                <div className="flex justify-between items-center px-3 py-2">
-                  <span className="text-[9px] tracking-wider text-white/40">INVENTORY</span>
-                  <div className="text-right">
-                    {(hftMetrics?.current_position_shares ?? 0) > 0 ? (
-                      <>
-                        <div className="text-[11px] text-white tabular-nums">
-                          {hftMetrics!.current_position_shares.toFixed(4)} YES
-                        </div>
-                        <div className={`text-[9px] tabular-nums ${
-                          (hftMetrics?.unrealized_pnl ?? 0) >= 0 ? "text-[#10b981]" : "text-[#ef4444]"
-                        }`}>
-                          {(hftMetrics?.unrealized_pnl ?? 0) >= 0 ? "+" : ""}
-                          {(hftMetrics?.unrealized_pnl ?? 0).toFixed(2)} USDC
-                          {" · TP@"}
-                          {hftMetrics ? (hftMetrics.average_entry_price * 1.20).toFixed(4) : "—"}
-                        </div>
-                      </>
-                    ) : (
-                      <span className="text-[10px] text-white/20">FLAT</span>
-                    )}
-                  </div>
-                </div>
-                {/* Armed indicator */}
-                <div className="flex justify-between items-center px-3 py-2 bg-white/[0.02]">
-                  <MetricTooltip label="EXECUTION" tip="Whether the bot has valid API credentials loaded and is authorized to place real trades on Polymarket." />
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${hftMetrics?.credentials_loaded ? "bg-[#10b981] animate-pulse" : "bg-red-500/50"}`} />
-                    <span className={`text-[9px] tracking-widest font-bold ${hftMetrics?.credentials_loaded ? "text-[#10b981]" : "text-red-400/60"}`}>
-                      {hftMetrics?.credentials_loaded ? "ARMED" : "DISARMED"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </aside>
-
-        {/* ── Main panel ── */}
-        <div className="flex-1 flex flex-col p-4 sm:p-6 gap-6 min-w-0 min-h-0">
-          {/* Log terminal */}
-          <div className="flex-1 flex flex-col min-h-[50vh] lg:min-h-[calc(100vh-88px-120px)] border border-white/10 bg-black overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-500/80" />
-              <div className="w-2 h-2 rounded-full bg-amber-500/80" />
-              <div className="w-2 h-2 rounded-full bg-[#10b981]/80" />
-              <span className="text-[9px] tracking-widest text-white/30 ml-3">LIVE EXECUTION LOGS</span>
-              {!autoScroll && (
-                <span className="text-[8px] text-white/30 ml-auto">Scroll to bottom to auto-follow</span>
-              )}
-            </div>
-            <div
-              ref={logsContainerRef}
-              onScroll={handleScroll}
-              className="flex-1 overflow-y-auto p-4 font-mono text-xs"
-            >
-              {logs.length === 0 && !isBotActive && !engineOffline && (
-                <div className="flex flex-col items-center justify-center h-full gap-4 py-16">
-                  <Bot size={36} className="text-emerald-500/40 animate-bounce" />
-                  <p className="text-white/40 text-sm text-center max-w-xs leading-relaxed">
-                    The Oracle is scanning the market.<br />
-                    <span className="text-white/25 text-xs">It will execute when the mathematical edge is perfect.</span>
-                  </p>
-                  <button
-                    onClick={toggleBot}
-                    disabled={toggling}
-                    className="mt-2 px-6 py-2 border border-emerald-500/30 text-emerald-400 text-[10px] tracking-widest hover:bg-emerald-500/10 transition-all flex items-center gap-2"
-                  >
-                    <Power size={12} /> ACTIVATE AGENT
-                  </button>
-                </div>
-              )}
-              {logs.map((line, i) => (
-                <div key={`${i}-${line}`} className={`py-0.5 ${getLogClassName(line)}`}>
-                  {line}
-                </div>
-              ))}
-              <div ref={logsEndRef} />
-            </div>
-          </div>
-
-          {/* Bottom metrics bar */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Python P&L */}
-            <div className="border border-white/10 p-6 flex items-center justify-between">
-              <span className="text-[10px] tracking-widest text-white/40">LIVE PnL</span>
-              <span
-                className={`text-3xl sm:text-4xl font-bold tracking-tight ${
-                  currentPnl !== null && currentPnl >= 0 ? "text-[#10b981]" : "text-red-400"
+            {/* ── Engine Control card ── */}
+            <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-5">
+              <button
+                onClick={toggleBot}
+                disabled={toggling}
+                className={`w-full py-4 rounded-xl text-[10px] tracking-widest transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-3 ${
+                  isBotActive
+                    ? "bg-emerald-500/[0.15] border border-emerald-500/40 text-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.15)]"
+                    : "border border-white/[0.08] text-zinc-500 hover:border-emerald-500/30 hover:text-emerald-400 hover:bg-emerald-500/[0.05]"
                 }`}
               >
-                {currentPnl !== null ? `$${currentPnl.toFixed(2)}` : "—"}
-              </span>
+                <Power size={14} className={isBotActive ? "text-emerald-400" : ""} />
+                {toggling ? "SWITCHING…" : isBotActive ? "AGENT ACTIVE — CLICK TO STOP" : "ACTIVATE AUTONOMOUS AGENT"}
+              </button>
             </div>
 
-            {/* Rust edge callout */}
-            <div className="border border-white/10 p-6 flex items-center justify-between">
-              <span className="text-[10px] tracking-widest text-white/40">HFT EDGE</span>
-              <span className={`text-3xl sm:text-4xl font-bold tracking-tight ${edgeColor}`}>
-                {hftMetrics
-                  ? `${hftMetrics.edge >= 0 ? "+" : ""}${(hftMetrics.edge * 100).toFixed(2)}%`
-                  : "—"}
-              </span>
+            {/* ── HFT Metrics card ── */}
+            <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[11px] tracking-[0.2em] text-zinc-400 font-semibold">HFT ENGINE METRICS</h2>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${rustOnline ? "bg-[#10b981] animate-pulse" : "bg-white/15"}`} />
+                  <span className={`text-[9px] tracking-wider ${rustOnline ? "text-[#10b981]" : "text-zinc-700"}`}>
+                    {rustOnline ? "LIVE" : "OFFLINE"}
+                  </span>
+                </div>
+              </div>
+
+              {!rustOnline ? (
+                <div className="p-4 rounded-xl bg-black/30 border border-white/[0.04]">
+                  <p className="text-[10px] text-zinc-600 leading-relaxed">
+                    Start the Rust engine: <span className="text-zinc-400">cargo run</span>
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-0">
+                  {/* BTC SPOT */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04]">
+                    <span className="text-[9px] tracking-wider text-zinc-500">BTC SPOT</span>
+                    <span className="text-[11px] text-white tabular-nums">
+                      ${hftMetrics ? hftMetrics.btc_price.toLocaleString("en-US", { maximumFractionDigits: 0 }) : "—"}
+                    </span>
+                  </div>
+
+                  {/* YES PRICE */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04]">
+                    <span className="text-[9px] tracking-wider text-zinc-500">YES PRICE</span>
+                    <span className="text-[11px] text-amber-400 tabular-nums">
+                      {hftMetrics ? fmt(hftMetrics.yes_price) : "—"}
+                    </span>
+                  </div>
+
+                  {/* BS FAIR VALUE */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04]">
+                    <MetricTooltip label="BS FAIR VALUE" tip="Black-Scholes fair value — the mathematically correct price of this binary option based on current BTC volatility and time to expiry." />
+                    <span className="text-[11px] text-white tabular-nums">
+                      {hftMetrics ? fmt(hftMetrics.bs_fair_value) : "—"}
+                    </span>
+                  </div>
+
+                  {/* EDGE */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04]">
+                    <MetricTooltip label="EDGE" tip="The difference between our calculated fair value and the current market price. A positive edge means the market is mispriced in our favor." />
+                    <span className={`text-[11px] tabular-nums font-bold ${edgeColor}`}>
+                      {hftMetrics
+                        ? `${hftMetrics.edge >= 0 ? "+" : ""}${(hftMetrics.edge * 100).toFixed(2)}%`
+                        : "—"}
+                    </span>
+                  </div>
+
+                  {/* ½-KELLY SIZE */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04]">
+                    <MetricTooltip label="½-KELLY SIZE" tip="The mathematically safest amount to invest on this trade to grow your bankroll without risking ruin. Half-Kelly is more conservative than full Kelly for safety." />
+                    <span className="text-[11px] text-[#10b981] tabular-nums">
+                      {hftMetrics ? `${(hftMetrics.kelly_fraction * 100).toFixed(2)}%` : "—"}
+                    </span>
+                  </div>
+
+                  {/* σ (VOL) */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04]">
+                    <MetricTooltip label="σ (VOL)" tip="Implied volatility — how much BTC price is expected to move. Higher σ means bigger potential swings and wider option pricing." />
+                    <span className="text-[11px] text-zinc-400 tabular-nums">
+                      {hftMetrics ? `${(hftMetrics.sigma * 100).toFixed(0)}%` : "—"}
+                    </span>
+                  </div>
+
+                  {/* BANKROLL */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04]">
+                    <span className="text-[9px] tracking-wider text-zinc-500">BANKROLL</span>
+                    <span className="text-[11px] text-white tabular-nums">
+                      {hftMetrics
+                        ? `$${hftMetrics.bankroll_usdc_dollars.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+                        : "—"}
+                    </span>
+                  </div>
+
+                  {/* ACTIVE ORDERS */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04]">
+                    <span className="text-[9px] tracking-wider text-zinc-500">ACTIVE ORDERS</span>
+                    <span className={`text-[11px] tabular-nums ${(hftMetrics?.active_orders_count ?? 0) > 0 ? "text-amber-400" : "text-zinc-700"}`}>
+                      {hftMetrics?.active_orders_count ?? 0}
+                    </span>
+                  </div>
+
+                  {/* OB IMBALANCE */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04]">
+                    <MetricTooltip label="OB IMBALANCE" tip="Orderbook imbalance — measures whether buyers or sellers dominate. Positive (green) = more buy pressure. Negative (red) = more sell pressure." />
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-14 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className={`absolute top-0 h-full rounded-full transition-all duration-300 ${
+                            (hftMetrics?.ob_imbalance ?? 0) >= 0 ? "bg-[#10b981]" : "bg-[#ef4444]"
+                          }`}
+                          style={{
+                            width: `${Math.abs((hftMetrics?.ob_imbalance ?? 0)) * 50}%`,
+                            left:  (hftMetrics?.ob_imbalance ?? 0) >= 0 ? "50%" : undefined,
+                            right: (hftMetrics?.ob_imbalance ?? 0) <  0 ? "50%" : undefined,
+                          }}
+                        />
+                        <div className="absolute left-1/2 top-0 w-px h-full bg-white/20" />
+                      </div>
+                      <span className={`text-[10px] font-mono tabular-nums ${
+                        (hftMetrics?.ob_imbalance ?? 0) > 0.6
+                          ? "text-[#10b981]"
+                          : (hftMetrics?.ob_imbalance ?? 0) < -0.6
+                            ? "text-[#ef4444]"
+                            : "text-zinc-500"
+                      }`}>
+                        {hftMetrics ? (hftMetrics.ob_imbalance >= 0 ? "+" : "") + hftMetrics.ob_imbalance.toFixed(3) : "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* INVENTORY */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/[0.04]">
+                    <span className="text-[9px] tracking-wider text-zinc-500">INVENTORY</span>
+                    <div className="text-right">
+                      {(hftMetrics?.current_position_shares ?? 0) > 0 ? (
+                        <>
+                          <div className="text-[11px] text-white tabular-nums">
+                            {hftMetrics!.current_position_shares.toFixed(4)} YES
+                          </div>
+                          <div className={`text-[9px] tabular-nums ${
+                            (hftMetrics?.unrealized_pnl ?? 0) >= 0 ? "text-[#10b981]" : "text-[#ef4444]"
+                          }`}>
+                            {(hftMetrics?.unrealized_pnl ?? 0) >= 0 ? "+" : ""}
+                            {(hftMetrics?.unrealized_pnl ?? 0).toFixed(2)} USDC
+                            {" · TP@"}
+                            {hftMetrics ? (hftMetrics.average_entry_price * 1.20).toFixed(4) : "—"}
+                          </div>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-zinc-700">FLAT</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* EXECUTION STATUS */}
+                  <div className="flex justify-between items-center py-2.5">
+                    <MetricTooltip label="EXECUTION" tip="Whether the bot has valid API credentials loaded and is authorized to place real trades on Polymarket." />
+                    <div className="flex items-center gap-2">
+                      <span className={`w-1.5 h-1.5 rounded-full ${hftMetrics?.credentials_loaded ? "bg-[#10b981] animate-pulse" : "bg-red-500/50"}`} />
+                      <span className={`text-[9px] tracking-widest font-bold ${hftMetrics?.credentials_loaded ? "text-[#10b981]" : "text-red-400/60"}`}>
+                        {hftMetrics?.credentials_loaded ? "ARMED" : "DISARMED"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ══ RIGHT COLUMN ══ */}
+          <div className="lg:col-span-2 flex flex-col gap-5">
+
+            {/* ── Logs Terminal card ── */}
+            <div
+              className="bg-zinc-900/50 border border-white/5 rounded-2xl overflow-hidden flex flex-col"
+              style={{ minHeight: "calc(100vh - 280px)" }}
+            >
+              {/* Terminal titlebar */}
+              <div className="px-5 py-3.5 border-b border-white/[0.06] flex items-center gap-2 flex-shrink-0">
+                <div className="flex gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500/70" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#10b981]/70" />
+                </div>
+                <span className="text-[9px] tracking-widest text-zinc-600 ml-3">LIVE EXECUTION LOGS</span>
+                {!autoScroll && (
+                  <span className="text-[8px] text-zinc-700 ml-auto">↓ scroll to auto-follow</span>
+                )}
+              </div>
+
+              {/* Log lines */}
+              <div
+                ref={logsContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-5 font-mono text-xs leading-6"
+              >
+                {logs.length === 0 && !isBotActive && !engineOffline && (
+                  <div className="flex flex-col items-center justify-center h-full gap-4 py-16">
+                    <Bot size={32} className="text-emerald-500/30 animate-bounce" />
+                    <p className="text-zinc-600 text-sm text-center max-w-xs leading-relaxed">
+                      The Oracle is scanning the market.
+                      <span className="block text-zinc-700 text-xs mt-1">
+                        It executes only when the mathematical edge is statistically significant.
+                      </span>
+                    </p>
+                    <button
+                      onClick={toggleBot}
+                      disabled={toggling}
+                      className="mt-2 px-6 py-2.5 border border-emerald-500/25 rounded-xl text-emerald-500/60 text-[10px] tracking-widest hover:bg-emerald-500/[0.08] hover:text-emerald-400 transition-all flex items-center gap-2"
+                    >
+                      <Power size={11} /> ACTIVATE AGENT
+                    </button>
+                  </div>
+                )}
+                {logs.map((line, i) => (
+                  <div key={`${i}-${line}`} className={`py-0.5 leading-5 ${getLogClassName(line)}`}>
+                    {line}
+                  </div>
+                ))}
+                <div ref={logsEndRef} />
+              </div>
+            </div>
+
+            {/* ── Bottom stats row ── */}
+            <div className="grid grid-cols-2 gap-5">
+
+              {/* Live P&L card */}
+              <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
+                <span className="text-[9px] tracking-widest text-zinc-600 block mb-3">LIVE P&L</span>
+                <span
+                  className={`text-4xl sm:text-5xl font-bold tracking-tight block leading-none ${
+                    currentPnl !== null && currentPnl >= 0 ? "text-[#10b981]" : "text-red-400"
+                  }`}
+                >
+                  {currentPnl !== null ? `$${currentPnl.toFixed(2)}` : "—"}
+                </span>
+                <span className="text-[9px] text-zinc-700 mt-2.5 block">Python execution engine</span>
+              </div>
+
+              {/* HFT Edge card */}
+              <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-6">
+                <span className="text-[9px] tracking-widest text-zinc-600 block mb-3">HFT EDGE</span>
+                <span className={`text-4xl sm:text-5xl font-bold tracking-tight block leading-none ${edgeColor}`}>
+                  {hftMetrics
+                    ? `${hftMetrics.edge >= 0 ? "+" : ""}${(hftMetrics.edge * 100).toFixed(2)}%`
+                    : "—"}
+                </span>
+                <span className="text-[9px] text-zinc-700 mt-2.5 block">
+                  Rust HFT engine · {rustOnline ? "live" : "offline"}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </main>
+
       <TerminalWelcomeTour />
     </div>
   )
