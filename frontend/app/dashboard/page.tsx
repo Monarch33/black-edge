@@ -5,6 +5,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { Power, Bot } from "lucide-react"
 import { MetricTooltip } from "@/components/metric-tooltip"
+import { TerminalWelcomeTour } from "@/components/terminal-welcome-tour"
 
 // ── Backend endpoints ─────────────────────────────────────────────────────────
 const API_BASE  = process.env.NEXT_PUBLIC_API_URL  || "http://localhost:8000"
@@ -666,6 +667,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+      <TerminalWelcomeTour />
     </div>
   )
 }

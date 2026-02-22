@@ -6,9 +6,24 @@ import { useAccount, useDisconnect } from "wagmi"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { AccessModal } from "@/components/access-modal"
 import { WalletOnboardingModal } from "@/components/wallet-onboarding-modal"
-import { BotPerformanceChart } from "@/components/bot-performance-chart"
+
+// Dynamic import keeps recharts out of the initial JS bundle → faster FCP
+const BotPerformanceChart = dynamic(
+  () => import("@/components/bot-performance-chart").then((m) => ({ default: m.BotPerformanceChart })),
+  {
+    ssr: false,
+    loading: () => (
+      <div style={{ height: 360, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ fontSize: 9, letterSpacing: ".2em", color: "rgba(255,255,255,.2)" }}>
+          LOADING CHART...
+        </span>
+      </div>
+    ),
+  }
+)
 
 const MARKETS = [
   { name: "Federal Reserve Rate Cut — Q3 2025", cat: "economy", prob: 67, delta: 3.2, vol: "$4.2M", kelly: "+8.1%", badge: "live" },
@@ -603,48 +618,57 @@ export default function Home() {
 
         {/* ── BTC 5-Min Bot Performance Showcase ── */}
         <section id="bot-performance">
-          <div className="section-inner">
+          <div className="section-inner" style={{ paddingTop: "clamp(100px,14vh,160px)", paddingBottom: "clamp(100px,14vh,160px)" }}>
             <div className="section-tag reveal">LIVE PERFORMANCE</div>
-            <div className="markets-header">
+            <div className="markets-header" style={{ marginBottom: 56 }}>
               <div>
                 <h2 className="section-title reveal reveal-delay-1">
                   BTC 5-Minute
                   <br />
                   <em>Bot</em>
                 </h2>
-                <p className="reveal reveal-delay-2" style={{ fontSize: 11, color: "rgba(255,255,255,.35)", lineHeight: 1.8, maxWidth: 480, marginTop: 16 }}>
-                  Autonomous execution on Polymarket binary markets. The AI Council scans every 5 minutes, debates the edge, and executes when the math is right. Hover the chart to see real trade decisions.
+                <p className="reveal reveal-delay-2" style={{ fontSize: 12, color: "rgba(255,255,255,.35)", lineHeight: 1.9, maxWidth: 500, marginTop: 20 }}>
+                  Autonomous execution on Polymarket binary markets. The AI Council scans every 5 minutes, debates the edge, and executes when the math is right.{" "}
+                  <span style={{ color: "rgba(255,255,255,.55)", fontStyle: "italic" }}>Hover the chart to see each trade decision.</span>
+                </p>
+                <p className="reveal reveal-delay-3" style={{ fontSize: 11, color: "rgba(16,185,129,.6)", letterSpacing: ".15em", marginTop: 14 }}>
+                  Steady, automated compound growth.
                 </p>
               </div>
-              <div className="reveal reveal-delay-2" style={{ display: "flex", gap: 20, alignItems: "center" }}>
+              <div className="reveal reveal-delay-2" style={{ display: "flex", gap: 32, alignItems: "center", flexShrink: 0 }}>
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: "var(--t-syne)", fontSize: 28, fontWeight: 900, color: "var(--em)", letterSpacing: "-.03em" }}>+$28.40</div>
-                  <div style={{ fontSize: 8, letterSpacing: ".2em", color: "rgba(255,255,255,.3)", marginTop: 4 }}>SESSION P&L</div>
+                  <div style={{ fontFamily: "var(--t-syne)", fontSize: 36, fontWeight: 900, color: "var(--em)", letterSpacing: "-.03em", textShadow: "0 0 32px rgba(16,185,129,.4)" }}>+$1,240.50</div>
+                  <div style={{ fontSize: 8, letterSpacing: ".2em", color: "rgba(255,255,255,.3)", marginTop: 6 }}>30-DAY P&L</div>
                 </div>
                 <div style={{ textAlign: "center" }}>
-                  <div style={{ fontFamily: "var(--t-syne)", fontSize: 28, fontWeight: 900, color: "var(--white)", letterSpacing: "-.03em" }}>85%</div>
-                  <div style={{ fontSize: 8, letterSpacing: ".2em", color: "rgba(255,255,255,.3)", marginTop: 4 }}>WIN RATE</div>
+                  <div style={{ fontFamily: "var(--t-syne)", fontSize: 36, fontWeight: 900, color: "var(--white)", letterSpacing: "-.03em" }}>85%</div>
+                  <div style={{ fontSize: 8, letterSpacing: ".2em", color: "rgba(255,255,255,.3)", marginTop: 6 }}>WIN RATE</div>
                 </div>
               </div>
             </div>
-            <div className="reveal reveal-delay-2" style={{ marginTop: 40, border: "1px solid rgba(255,255,255,.07)", borderRadius: 3, padding: "24px 16px 8px", background: "rgba(255,255,255,.015)" }}>
+            <div className="reveal reveal-delay-2" style={{ border: "1px solid rgba(16,185,129,.1)", borderRadius: 3, padding: "28px 20px 12px", background: "linear-gradient(180deg, rgba(16,185,129,.025) 0%, rgba(0,0,0,0) 60%)", boxShadow: "0 0 40px rgba(16,185,129,.04) inset" }}>
               <BotPerformanceChart />
             </div>
-            <div className="reveal reveal-delay-3" style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" as const }}>
-              <div className="ksig" style={{ flex: 1, minWidth: 160 }}>
+            <div className="reveal reveal-delay-3" style={{ marginTop: 20, display: "flex", gap: 12, flexWrap: "wrap" as const }}>
+              <div className="ksig" style={{ flex: 1, minWidth: 180 }}>
                 <div className="ksig-label">STRATEGY</div>
                 <div className="ksig-val" style={{ fontSize: 18 }}>5-MIN BTC</div>
                 <div className="ksig-desc">Binary option on BTC price direction</div>
               </div>
-              <div className="ksig" style={{ flex: 1, minWidth: 160 }}>
+              <div className="ksig" style={{ flex: 1, minWidth: 180 }}>
                 <div className="ksig-label">AGENTS ACTIVE</div>
                 <div className="ksig-val" style={{ fontSize: 18, color: "var(--white)" }}>5/5</div>
                 <div className="ksig-desc">Full Council consensus required</div>
               </div>
-              <div className="ksig" style={{ flex: 1, minWidth: 160 }}>
+              <div className="ksig" style={{ flex: 1, minWidth: 180 }}>
                 <div className="ksig-label">RISK MANAGEMENT</div>
                 <div className="ksig-val" style={{ fontSize: 18, color: "var(--vi)" }}>KELLY</div>
                 <div className="ksig-desc">Half-Kelly criterion position sizing</div>
+              </div>
+              <div className="ksig" style={{ flex: 1, minWidth: 180 }}>
+                <div className="ksig-label">COMPOUND RETURN</div>
+                <div className="ksig-val" style={{ fontSize: 18, color: "var(--em)" }}>+124%</div>
+                <div className="ksig-desc">30-day period, starting $1,000 bankroll</div>
               </div>
             </div>
           </div>
@@ -957,70 +981,101 @@ export default function Home() {
         <div className="hr hr-z" />
 
         <section id="pricing">
-          <div className="section-inner">
-            <div className="section-tag reveal">PRICING</div>
-            <h2 className="section-title reveal reveal-delay-1">
-              Choose your
-              <br />
-              <em>Edge</em>
-            </h2>
-            <div className="pricing-grid">
-              <div className="pcard reveal reveal-delay-1">
-                <div className="pcard-tier">FREE</div>
-                <div className="pcard-price">
-                  <sup>$</sup>0
-                </div>
-                <div className="pcard-per">FOREVER</div>
-                <div className="pcard-features">
-                  <div className="pfeature">Top 5 market signals</div>
-                  <div className="pfeature">Basic probability view</div>
-                  <div className="pfeature">Public track record access</div>
-                  <div className="pfeature no">Council vote breakdown</div>
-                  <div className="pfeature no">Kelly criterion sizing</div>
-                  <div className="pfeature no">API access</div>
-                </div>
-                <button type="button" className="btn-tier" onClick={() => handleGetAccess("runner")}>
-                  GET STARTED
-                </button>
-              </div>
-              <div className="pcard featured reveal reveal-delay-15">
+          <div className="section-inner" style={{ paddingTop: "clamp(100px,14vh,160px)", paddingBottom: "clamp(100px,14vh,160px)" }}>
+            <div className="section-tag reveal">PROTOCOL ACCESS</div>
+            <div style={{ maxWidth: 680, marginBottom: 72 }}>
+              <h2 className="section-title reveal reveal-delay-1">
+                Access is strictly
+                <br />
+                <em>limited.</em>
+              </h2>
+              <p className="reveal reveal-delay-2" style={{ fontSize: 12, color: "rgba(255,255,255,.35)", lineHeight: 1.9, marginTop: 24, maxWidth: 520 }}>
+                Black Edge maintains its alpha by restricting the number of active nodes. When the pool is full, access closes. No exceptions.
+              </p>
+            </div>
+
+            {/* Tier cards — no prices shown */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 64 }} className="reveal reveal-delay-1">
+
+              {/* Runner Node */}
+              <div className="pcard featured" style={{ padding: "40px 36px" }}>
                 <div className="pcard-badge">RUNNER_NODE</div>
-                <div className="pcard-tier">RUNNER</div>
-                <div className="pcard-price">
-                  <sup>$</sup>29
-                </div>
-                <div className="pcard-per">/ MONTH</div>
-                <p className="pcard-subtext">Allocation limited — node slots fill fast</p>
-                <div className="pcard-features">
-                  <div className="pfeature">Direct Binance L2 WS Feed</div>
+                <div className="pcard-tier" style={{ marginBottom: 20 }}>RUNNER</div>
+                <div style={{ marginBottom: 8, fontFamily: "var(--t-syne)", fontSize: 22, fontWeight: 900, letterSpacing: "-.02em" }}>Protocol Node</div>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,.3)", lineHeight: 1.7, marginBottom: 32 }}>
+                  Autonomous trade execution. The full AI Council. Real-time edge, zero emotion.
+                </p>
+                <div className="pcard-features" style={{ marginBottom: 36 }}>
+                  <div className="pfeature">Direct Binance L2 WebSocket Feed</div>
                   <div className="pfeature">EIP-712 Cryptographic Signing</div>
                   <div className="pfeature">Half-Kelly Position Sizing</div>
                   <div className="pfeature">Real-time CLOB Execution</div>
                   <div className="pfeature">Black-Scholes Binary Pricing</div>
-                  <div className="pfeature no">Full API + WS Access</div>
+                  <div className="pfeature">5-Agent AI Council Access</div>
                 </div>
-                <button type="button" className="btn-tier em-btn" onClick={() => handleGetAccess("runner")}>
-                  &gt; DEPLOY_RUNNER_NODE — $29
+                <button type="button" className="btn-tier em-btn"
+                  onClick={() => isConnected ? handleGetAccess("runner") : setWalletModalOpen(true)}>
+                  REQUEST EDGE &rarr;
                 </button>
               </div>
-              <div className="pcard pcard-edge reveal reveal-delay-2">
-                <div className="pcard-tier">THE EDGE</div>
-                <div className="pcard-price">
-                  <sup>$</sup>999
-                </div>
-                <div className="pcard-per">/ MONTH</div>
-                <div className="pcard-features">
+
+              {/* The Edge */}
+              <div className="pcard pcard-edge" style={{ padding: "40px 36px" }}>
+                <div className="pcard-tier" style={{ marginBottom: 20 }}>THE EDGE</div>
+                <div style={{ marginBottom: 8, fontFamily: "var(--t-syne)", fontSize: 22, fontWeight: 900, letterSpacing: "-.02em" }}>Full Protocol</div>
+                <p style={{ fontSize: 11, color: "rgba(255,255,255,.3)", lineHeight: 1.7, marginBottom: 32 }}>
+                  Institutional-grade. Full API, microstructure data, and dedicated configuration support.
+                </p>
+                <div className="pcard-features" style={{ marginBottom: 36 }}>
                   <div className="pfeature">Everything in RUNNER_NODE</div>
                   <div className="pfeature">Full REST + WebSocket API</div>
                   <div className="pfeature">Autonomous Γ-API Discovery</div>
                   <div className="pfeature">OB Imbalance Microstructure</div>
-                  <div className="pfeature">Take-Profit Inventory Mgmt</div>
-                  <div className="pfeature">Dedicated Config Support</div>
+                  <div className="pfeature">Take-Profit Inventory Management</div>
+                  <div className="pfeature">Dedicated Configuration Support</div>
                 </div>
-                <button type="button" className="btn-tier" onClick={() => handleGetAccess("whale")}>
-                  &gt; SECURE_EDGE_ACCESS — $999
+                <button type="button" className="btn-tier"
+                  style={{ borderColor: "rgba(139,92,246,.5)", color: "rgba(139,92,246,.8)" }}
+                  onClick={() => isConnected ? handleGetAccess("whale") : setWalletModalOpen(true)}>
+                  REQUEST EDGE &rarr;
                 </button>
               </div>
+            </div>
+
+            {/* ── Primary CTA: Initiate Access Protocol ── */}
+            <div className="reveal reveal-delay-2" style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 20, textAlign: "center" as const }}>
+              <p style={{ fontSize: 10, letterSpacing: ".2em", color: "rgba(255,255,255,.2)" }}>
+                CONNECT YOUR WALLET TO REVEAL ACCESS TERMS
+              </p>
+              <button
+                type="button"
+                onClick={() => isConnected ? handleGetAccess("runner") : setWalletModalOpen(true)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 14,
+                  padding: "18px 48px",
+                  border: "1px solid rgba(16,185,129,.4)",
+                  background: "linear-gradient(135deg, rgba(16,185,129,.08) 0%, rgba(16,185,129,.03) 100%)",
+                  fontFamily: "var(--t-mono)", fontSize: 11, letterSpacing: ".25em",
+                  color: "#10b981", cursor: "none",
+                  boxShadow: "0 0 40px rgba(16,185,129,.12), 0 0 80px rgba(16,185,129,.06)",
+                  transition: "all .4s cubic-bezier(.23,1,.32,1)",
+                  position: "relative" as const,
+                }}
+                className="initiate-btn"
+              >
+                <span
+                  style={{
+                    display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                    background: "#10b981",
+                    boxShadow: "0 0 12px #10b981",
+                    animation: "blink 1.8s ease-in-out infinite",
+                  }}
+                />
+                &gt; INITIATE_ACCESS_PROTOCOL
+              </button>
+              <p style={{ fontSize: 9, letterSpacing: ".15em", color: "rgba(255,255,255,.15)" }}>
+                Node allocation is reviewed. Not all applications are accepted.
+              </p>
             </div>
           </div>
         </section>
