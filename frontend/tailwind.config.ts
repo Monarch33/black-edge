@@ -34,6 +34,10 @@ const config: Config = {
         "glitch": "glitch 0.3s ease-in-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "scan-line": "scan-line 4s linear infinite",
+        "spin-slow": "spin 12s linear infinite",
+        "spin-slow-reverse": "spin-reverse 18s linear infinite",
+        "aleph-breathe": "aleph-breathe 3s ease-in-out infinite",
+        "aleph-flicker": "aleph-flicker 6s ease-in-out infinite",
       },
       keyframes: {
         glitch: {
@@ -50,6 +54,21 @@ const config: Config = {
         "scan-line": {
           "0%": { transform: "translateY(-100%)" },
           "100%": { transform: "translateY(100%)" },
+        },
+        "spin-reverse": {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(-360deg)" },
+        },
+        "aleph-breathe": {
+          "0%, 100%": { opacity: "1", transform: "scale(1)" },
+          "50%": { opacity: "0.6", transform: "scale(0.92)" },
+        },
+        "aleph-flicker": {
+          "0%, 90%, 100%": { opacity: "1" },
+          "92%": { opacity: "0.4" },
+          "94%": { opacity: "1" },
+          "96%": { opacity: "0.2" },
+          "98%": { opacity: "1" },
         },
       },
       backgroundImage: {

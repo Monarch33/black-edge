@@ -1,22 +1,32 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import Link from "next/link"
 import { toast } from "sonner"
+import { AlephLogo } from "@/components/AlephLogo"
+import { AlephStatus } from "@/components/AlephStatus"
+import { TerminalWelcomeTour } from "@/components/TerminalWelcomeTour"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 const WS_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/^http/, "ws")
 const ENGINE_OFFLINE = "[FATAL] ENGINE OFFLINE. CONNECTION REFUSED."
 
 function getLogClassName(line: string): string {
-  if (line.includes("[ERROR]") || line.includes("[VETO]") || line.includes("[FAIL]")) return "text-[#ef4444]"
-  if (line.includes("[SUCCESS]") || line.includes("[TRADE]") || line.includes("[ALPHA]") || line.includes("[EXECUTION]") || line.includes("[EDGE]") || line.includes("[P&L]")) return "text-[#10b981]"
-  return "text-[#6b7280]"
+  if (line.includes("[ERROR]") || line.includes("[VETO]") || line.includes("[FAIL]")) return "text-red-500"
+  if (
+    line.includes("[SUCCESS]") ||
+    line.includes("[TRADE]") ||
+    line.includes("[ALPHA]") ||
+    line.includes("[EXECUTION]") ||
+    line.includes("[EDGE]") ||
+    line.includes("[P&L]")
+  )
+    return "text-emerald-500"
+  return "text-white/35"
 }
 
 function formatTimestamp(): string {
   const n = new Date()
-  return `[${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}:${String(n.getSeconds()).padStart(2,"0")}]`
+  return `[${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}:${String(n.getSeconds()).padStart(2, "0")}]`
 }
 
 export default function DashboardPage() {
@@ -127,7 +137,7 @@ export default function DashboardPage() {
         setProxyKey("")
         setSecret("")
         setHasCredentials(true)
-        toast.success("Credentials secured in vault")
+        toast.success("Credentials secured in Aleph vault")
       }
     } catch {
       setEngineOffline(true)
@@ -164,99 +174,183 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-black text-white font-mono w-full max-w-[100vw] overflow-x-hidden">
-      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 bg-black/90 border-b border-white/10 backdrop-blur-sm">
-        <Link href="/" className="font-bold text-base tracking-tight flex items-baseline gap-1">
-          BLACK<span className="font-serif italic text-[#10b981]">EDGE</span>
-        </Link>
+
+      {/* ── Aleph Welcome Tour (first visit only) ── */}
+      <TerminalWelcomeTour />
+
+      {/* ── Navbar ── */}
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 bg-black/95 border-b border-white/[0.07] backdrop-blur-md">
+        <AlephLogo size="sm" href="/" />
+
         <div className="flex items-center gap-4 sm:gap-6">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
-            <span className="text-[10px] tracking-[0.2em] text-[#10b981] hidden sm:inline">STATUS: CONNECTED</span>
+          {/* Engine status badge */}
+          <div className="hidden sm:flex items-center gap-2">
+            <span
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                engineOffline ? "bg-red-500" : "bg-emerald-500 animate-pulse"
+              }`}
+            />
+            <span
+              className={`text-[9px] tracking-[0.25em] transition-colors ${
+                engineOffline ? "text-red-500/70" : "text-emerald-500/70"
+              }`}
+            >
+              {engineOffline ? "ENGINE OFFLINE" : "ALEPH ONLINE"}
+            </span>
           </div>
-          <Link
+
+          {/* Logout */}
+          <a
             href="/"
-            className="px-4 py-2 border border-white/20 text-white/70 hover:border-red-500/50 hover:text-red-400 text-[10px] tracking-widest transition-colors"
+            className="
+              px-4 py-2 border border-white/15 text-white/50
+              text-[9px] tracking-widest
+              hover:border-red-500/40 hover:text-red-400/80
+              hover:shadow-[0_0_12px_rgba(239,68,68,0.15)]
+              transition-all duration-200
+            "
           >
             LOGOUT
-          </Link>
+          </a>
         </div>
       </header>
 
-      <main className="pt-[72px] flex min-h-screen flex-col lg:flex-row w-full">
-        <aside className="w-full lg:w-[30%] lg:min-w-[280px] border-r border-white/10 p-4 sm:p-6 flex flex-col gap-8">
+      {/* ── Main layout ── */}
+      <main className="pt-[68px] flex min-h-screen flex-col lg:flex-row w-full">
+
+        {/* ── LEFT SIDEBAR ── */}
+        <aside className="w-full lg:w-[30%] lg:min-w-[300px] border-r border-white/[0.07] p-4 sm:p-6 flex flex-col gap-6 bg-zinc-950/50">
+
+          {/* Aleph Status Widget */}
+          <AlephStatus isActive={isBotActive} />
+
+          {/* Vault credentials */}
           <div>
-            <h2 className="text-[10px] tracking-[0.3em] text-[#10b981] mb-4">POLYMARKET API CREDENTIALS</h2>
+            <h2 className="text-[9px] tracking-[0.35em] text-emerald-500/60 mb-4 uppercase">
+              Polymarket API Vault
+            </h2>
+
             {showVaultOnly && (
-              <div className="mb-6 p-6 border border-[#10b981]/30 bg-black text-center">
-                <p className="text-[#10b981] text-sm font-bold tracking-widest">VAULT ENCRYPTION REQUIRED</p>
-                <p className="text-white/40 text-[10px] mt-2">Paste your Polymarket CLOB keys below to unlock the terminal.</p>
+              <div className="mb-5 p-5 border border-emerald-500/20 bg-emerald-500/[0.03] text-center">
+                <p className="text-emerald-400 text-[10px] font-bold tracking-[0.2em] uppercase">
+                  Vault Encryption Required
+                </p>
+                <p className="text-white/30 text-[9px] mt-2 leading-relaxed">
+                  Paste your Polymarket CLOB keys below to unlock the terminal and authorise Aleph.
+                </p>
               </div>
             )}
+
             <div className="space-y-4">
               <div>
-                <label className="block text-[9px] tracking-wider text-white/40 mb-2">Proxy Key</label>
+                <label className="block text-[9px] tracking-wider text-white/30 mb-2">
+                  Proxy Key
+                </label>
                 <input
                   type="password"
                   value={proxyKey}
                   onChange={(e) => setProxyKey(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10 text-white text-sm placeholder-white/20 focus:border-[#10b981] focus:outline-none focus:ring-1 focus:ring-[#10b981]/30 transition-colors"
+                  className="
+                    w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10
+                    text-white text-sm placeholder-white/15
+                    focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20
+                    transition-colors
+                  "
                 />
               </div>
               <div>
-                <label className="block text-[9px] tracking-wider text-white/40 mb-2">Secret</label>
+                <label className="block text-[9px] tracking-wider text-white/30 mb-2">
+                  Secret
+                </label>
                 <input
                   type="password"
                   value={secret}
                   onChange={(e) => setSecret(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10 text-white text-sm placeholder-white/20 focus:border-[#10b981] focus:outline-none focus:ring-1 focus:ring-[#10b981]/30 transition-colors"
+                  className="
+                    w-full px-4 py-3 bg-transparent border border-transparent border-b-white/10
+                    text-white text-sm placeholder-white/15
+                    focus:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/20
+                    transition-colors
+                  "
                 />
               </div>
               <button
                 onClick={handleSaveCredentials}
                 disabled={saving}
-                className="w-full py-3 border border-[#10b981]/50 text-[#10b981] text-[10px] tracking-widest hover:bg-[#10b981]/10 transition-colors disabled:opacity-50"
+                className="
+                  w-full py-3 border border-emerald-500/40 text-emerald-400
+                  text-[10px] tracking-[0.25em]
+                  hover:bg-emerald-500/10 hover:border-emerald-400
+                  hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]
+                  transition-all duration-200
+                  disabled:opacity-40 disabled:cursor-not-allowed
+                "
               >
-                {saving ? "SAVING..." : "SAVE CREDENTIALS"}
+                {saving ? "ENCRYPTING..." : "SECURE CREDENTIALS"}
               </button>
             </div>
           </div>
 
+          {/* Deploy / halt Aleph */}
           <div>
             <button
               onClick={toggleBot}
               disabled={toggling}
-              className={`w-full py-6 border text-[10px] tracking-widest transition-all disabled:opacity-50 ${
-                isBotActive
-                  ? "bg-[#10b981]/20 border-[#10b981] text-[#10b981] shadow-[0_0_24px_rgba(16,185,129,0.3)]"
-                  : "border-white/20 text-white/60 hover:border-white/40 hover:text-white"
-              }`}
+              className={`
+                w-full py-5 border text-[10px] tracking-[0.2em] font-bold
+                transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed
+                ${
+                  isBotActive
+                    ? "bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.25)]"
+                    : "border-white/15 text-white/50 hover:border-emerald-500/40 hover:text-emerald-400/70 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+                }
+              `}
             >
-              {toggling ? "..." : isBotActive ? "[ AGENT ACTIVE ]" : "[ ACTIVATE AUTONOMOUS AGENT ]"}
+              {toggling ? "···" : isBotActive ? "[ ALEPH ACTIVE — CLICK TO HALT ]" : "[ DEPLOY ALEPH ]"}
             </button>
           </div>
         </aside>
 
-        <div className="flex-1 flex flex-col p-4 sm:p-6 gap-6 min-w-0 min-h-0">
-          <div className="flex-1 flex flex-col min-h-[50vh] lg:min-h-[calc(100vh-88px)] border border-white/10 bg-black overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-500/80" />
-              <div className="w-2 h-2 rounded-full bg-amber-500/80" />
-              <div className="w-2 h-2 rounded-full bg-[#10b981]/80" />
-              <span className="text-[9px] tracking-widest text-white/30 ml-3">LIVE EXECUTION LOGS</span>
-              {!autoScroll && <span className="text-[8px] text-white/30 ml-auto">Scroll to bottom to auto-follow</span>}
+        {/* ── RIGHT PANEL ── */}
+        <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-w-0 min-h-0 bg-black">
+
+          {/* Live execution logs terminal */}
+          <div className="flex-1 flex flex-col min-h-[50vh] lg:min-h-[calc(100vh-140px)] border border-white/[0.07] bg-zinc-950 overflow-hidden">
+
+            {/* Terminal chrome bar */}
+            <div className="px-4 py-2.5 border-b border-white/[0.07] flex items-center gap-2 bg-zinc-950">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
+              <span className="text-[8px] tracking-[0.3em] text-white/20 ml-3 uppercase">
+                Aleph · Live Execution Feed
+              </span>
+              {isBotActive && (
+                <span className="ml-auto flex items-center gap-1.5 text-[8px] tracking-widest text-emerald-500/60">
+                  <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                  LIVE
+                </span>
+              )}
+              {!autoScroll && (
+                <span className="ml-auto text-[8px] text-white/20">↓ scroll to follow</span>
+              )}
             </div>
+
+            {/* Log lines */}
             <div
               ref={logsContainerRef}
               onScroll={handleScroll}
-              className="flex-1 overflow-y-auto p-4 font-mono text-xs"
+              className="flex-1 overflow-y-auto p-4 font-mono text-xs leading-relaxed"
             >
               {logs.length === 0 && !isBotActive && !engineOffline && (
-                <p className="text-white/30">Agent inactive. Activate to see logs.</p>
+                <p className="text-white/20 text-[10px] tracking-wider">
+                  Agent inactive. Deploy Aleph to begin execution feed.
+                </p>
               )}
               {logs.map((line, i) => (
-                <div key={`${i}-${line}`} className={`py-0.5 ${getLogClassName(line)}`}>
+                <div key={`${i}-${line}`} className={`py-[1px] ${getLogClassName(line)}`}>
                   {line}
                 </div>
               ))}
@@ -264,11 +358,17 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="border border-white/10 p-6 flex items-center justify-between">
-            <span className="text-[10px] tracking-widest text-white/40">LIVE PnL</span>
+          {/* Live PnL bar */}
+          <div className="border border-white/[0.07] bg-zinc-950 px-6 py-4 flex items-center justify-between">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[8px] tracking-[0.3em] text-white/25 uppercase">
+                Aleph · Realised P&L
+              </span>
+              <span className="text-[8px] tracking-wider text-white/15">Current session</span>
+            </div>
             <span
-              className={`text-3xl sm:text-4xl font-bold tracking-tight ${
-                currentPnl !== null && currentPnl >= 0 ? "text-[#10b981]" : "text-red-400"
+              className={`text-3xl sm:text-4xl font-bold tracking-tight tabular-nums ${
+                currentPnl !== null && currentPnl >= 0 ? "text-emerald-500" : "text-red-400"
               }`}
             >
               {currentPnl !== null ? `$${currentPnl.toFixed(2)}` : "—"}
