@@ -1,545 +1,879 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { Info, ExternalLink } from "lucide-react"
-import { toast } from "sonner"
-import { AlephLogo } from "@/components/AlephLogo"
-import { AlephStatus } from "@/components/AlephStatus"
-import { TerminalWelcomeTour } from "@/components/TerminalWelcomeTour"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-const WS_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/^http/, "ws")
-const ENGINE_OFFLINE = "[FATAL] ENGINE OFFLINE. CONNECTION REFUSED."
+// ── STATIC SIGNAL DATA ───────────────────────────────────────────
+const SIGNALS = [
+  { id: 1, q: "US Presidential Election 2028", edge: 12.4, sig: 87, tp: 74, po: 62, risk: "low", vol: "$2.1M", cat: "POLITICS", res: "Nov 2028", side: "YES" },
+  { id: 2, q: "Fed Rate Cut — March FOMC", edge: 15.2, sig: 94, tp: 60, po: 45, risk: "low", vol: "$3.4M", cat: "MACRO", res: "Mar 19", side: "YES" },
+  { id: 3, q: "BTC Above $150K by June", edge: 8.7, sig: 72, tp: 43, po: 34, risk: "med", vol: "$890K", cat: "CRYPTO", res: "Jun 30", side: "YES" },
+  { id: 4, q: "SpaceX IPO Filing 2026", edge: 6.9, sig: 61, tp: 35, po: 28, risk: "med", vol: "$1.2M", cat: "TECH", res: "Dec 31", side: "YES" },
+  { id: 5, q: "NATO Expansion — New Member", edge: 9.3, sig: 78, tp: 64, po: 55, risk: "low", vol: "$567K", cat: "GEO", res: "Dec 31", side: "YES" },
+  { id: 6, q: "Apple AI Chip Q2 Announcement", edge: 5.4, sig: 55, tp: 47, po: 42, risk: "low", vol: "$780K", cat: "TECH", res: "Jun 30", side: "YES" },
+  { id: 7, q: "ETH Flippening by 2027", edge: -3.1, sig: 28, tp: 15, po: 18, risk: "high", vol: "$445K", cat: "CRYPTO", res: "Dec 2027", side: "NO" },
+  { id: 8, q: "Nvidia Earnings Beat Q1", edge: 7.1, sig: 68, tp: 82, po: 75, risk: "low", vol: "$1.8M", cat: "EARNINGS", res: "May 28", side: "YES" },
+]
 
-function getLogClassName(line: string): string {
-  if (line.includes("[ERROR]") || line.includes("[VETO]") || line.includes("[FAIL]")) return "text-red-500"
-  if (
-    line.includes("[SUCCESS]") ||
-    line.includes("[TRADE]") ||
-    line.includes("[ALPHA]") ||
-    line.includes("[EXECUTION]") ||
-    line.includes("[EDGE]") ||
-    line.includes("[P&L]")
-  )
-    return "text-emerald-500"
-  return "text-white/35"
+// ── ALEPH CORE — Canvas ──────────────────────────────────────────
+function AlephCore({ isArmed, isThinking, size = 160 }: { isArmed: boolean; isThinking: boolean; size?: number }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+  const frame = useRef(0)
+
+  useEffect(() => {
+    const c = ref.current
+    if (!c) return
+    const ctx = c.getContext("2d")!
+    const dpr = window.devicePixelRatio || 1
+    c.width = size * dpr
+    c.height = size * dpr
+    ctx.scale(dpr, dpr)
+    let id: number
+
+    const draw = () => {
+      frame.current++
+      const t = frame.current * 0.012
+      ctx.clearRect(0, 0, size, size)
+      const cx = size / 2, cy = size / 2
+
+      if (isArmed) {
+        const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, size * 0.45)
+        g.addColorStop(0, `rgba(0,255,136,${0.08 + Math.sin(t * 1.2) * 0.06})`)
+        g.addColorStop(1, "rgba(0,0,0,0)")
+        ctx.fillStyle = g
+        ctx.fillRect(0, 0, size, size)
+      }
+
+      const rc = isArmed ? 5 : 2
+      for (let r = 0; r < rc; r++) {
+        const rad = 18 + r * 12
+        const sp = (r % 2 === 0 ? 1 : -1) * (0.2 + r * 0.08)
+        const al = isArmed ? 0.18 - r * 0.028 : 0.04
+        ctx.beginPath()
+        ctx.strokeStyle = isArmed
+          ? `rgba(0,255,136,${Math.max(al, 0.01)})`
+          : `rgba(255,255,255,${Math.max(al, 0.01)})`
+        ctx.lineWidth = 0.6
+        for (let a = 0; a < Math.PI * 2; a += 0.01) {
+          const w = Math.sin(a * (3 + r) + t * sp) * (isArmed ? 2.5 + r * 0.5 : 1)
+          const x = cx + Math.cos(a + t * sp * 0.2) * (rad + w)
+          const y = cy + Math.sin(a + t * sp * 0.2) * (rad + w)
+          a === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+        }
+        ctx.closePath()
+        ctx.stroke()
+      }
+
+      const cg = ctx.createRadialGradient(cx - 1, cy - 1, 0, cx, cy, isArmed ? 14 : 8)
+      cg.addColorStop(0, isArmed ? "rgba(0,255,136,0.85)" : "rgba(255,255,255,0.08)")
+      cg.addColorStop(0.5, isArmed ? "rgba(0,255,136,0.2)" : "rgba(255,255,255,0.02)")
+      cg.addColorStop(1, "rgba(0,0,0,0)")
+      ctx.fillStyle = cg
+      ctx.beginPath()
+      ctx.arc(cx, cy, isArmed ? 14 : 8, 0, Math.PI * 2)
+      ctx.fill()
+
+      if (isArmed) {
+        const pc = isThinking ? 14 : 6
+        for (let i = 0; i < pc; i++) {
+          const a = (Math.PI * 2 * i) / pc + t * 0.5
+          const d = 40 + Math.sin(t * 1.5 + i * 0.7) * 10
+          const alpha = 0.3 + Math.sin(t * 2 + i) * 0.25
+          ctx.fillStyle = `rgba(0,255,136,${alpha})`
+          ctx.beginPath()
+          ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 1 + Math.sin(t * 2.5 + i) * 0.4, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+
+      if (isThinking) {
+        for (let i = 0; i < 2; i++) {
+          const a = t * 0.4 + i * Math.PI
+          const grad = ctx.createLinearGradient(cx, cy, cx + Math.cos(a) * 70, cy + Math.sin(a) * 70)
+          grad.addColorStop(0, "rgba(0,255,136,0.1)")
+          grad.addColorStop(1, "rgba(0,0,0,0)")
+          ctx.strokeStyle = grad
+          ctx.lineWidth = 0.4
+          ctx.beginPath()
+          ctx.moveTo(cx + Math.cos(a) * 16, cy + Math.sin(a) * 16)
+          ctx.lineTo(cx + Math.cos(a) * 70, cy + Math.sin(a) * 70)
+          ctx.stroke()
+        }
+      }
+
+      id = requestAnimationFrame(draw)
+    }
+
+    draw()
+    return () => cancelAnimationFrame(id)
+  }, [isArmed, isThinking, size])
+
+  return <canvas ref={ref} style={{ width: size, height: size }} />
 }
 
-function formatTimestamp(): string {
-  const n = new Date()
-  return `[${String(n.getHours()).padStart(2, "0")}:${String(n.getMinutes()).padStart(2, "0")}:${String(n.getSeconds()).padStart(2, "0")}]`
-}
-
-/** Hoverable info tooltip — pure Tailwind, zero dependencies beyond lucide. */
-function Tooltip({ text }: { text: string }) {
+// ── TOOLTIP ──────────────────────────────────────────────────────
+function Tip({ text }: { text: string }) {
+  const [show, setShow] = useState(false)
   return (
-    <span className="relative group inline-flex items-center ml-1.5 align-middle">
-      <Info
-        size={12}
-        className="text-zinc-600 cursor-help group-hover:text-zinc-400 transition-colors"
-      />
-      <span
-        className="
-          absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50
-          w-60 p-3 bg-zinc-900 border border-white/10 rounded-lg
-          text-[11px] text-zinc-300 leading-relaxed font-normal tracking-normal
-          opacity-0 group-hover:opacity-100
-          pointer-events-none
-          transition-opacity duration-150
-          shadow-[0_8px_32px_rgba(0,0,0,0.6)]
-          whitespace-normal
-        "
-      >
-        {text}
-      </span>
+    <span style={{ position: "relative", display: "inline-flex" }}>
+      <button
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        style={{
+          width: 14, height: 14, borderRadius: "50%", border: "1px solid var(--t-border)",
+          background: "none", color: "var(--t-text-ghost)", fontSize: 7,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "help", transition: "all 0.2s", fontFamily: "'JetBrains Mono', monospace",
+        }}
+      >?</button>
+      {show && (
+        <div style={{
+          position: "absolute", left: 22, top: "50%", transform: "translateY(-50%)", zIndex: 200,
+          width: 240, padding: "12px 14px", borderRadius: 12, background: "#111",
+          border: "1px solid var(--t-border)",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.02)",
+          animation: "tFadeIn 0.12s ease-out",
+        }}>
+          <p style={{ fontSize: 11, color: "var(--t-text-secondary)", lineHeight: 1.6, fontFamily: "'DM Sans', sans-serif" }}>
+            {text}
+          </p>
+        </div>
+      )}
     </span>
   )
 }
 
-/** Premium strategy toggle switch — Tailwind only. */
-function StrategyToggle({
-  label,
-  sub,
-  enabled,
-  onToggle,
-  disabled,
-}: {
-  label: string
-  sub: string
-  enabled: boolean
-  onToggle: () => void
-  disabled?: boolean
-}) {
+// ── EDGE SPARKLINE ───────────────────────────────────────────────
+function EdgeSparkline({ value, max = 20 }: { value: number; max?: number }) {
+  const pct = Math.min(Math.abs(value) / max * 100, 100)
+  const positive = value > 0
   return (
-    <button
-      onClick={onToggle}
-      disabled={disabled}
-      className="flex items-center justify-between w-full py-2.5 px-3 rounded-lg border border-white/[0.06] bg-black/20 hover:bg-black/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed group"
-    >
-      <div className="text-left">
-        <div
-          className={`text-[10px] font-medium tracking-wider transition-colors ${
-            enabled ? "text-white" : "text-white/30"
-          }`}
-        >
-          {label}
-        </div>
-        <div className="text-[9px] text-white/20 mt-0.5">{sub}</div>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, width: 90 }}>
+      <div style={{ flex: 1, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.03)", overflow: "hidden", position: "relative" }}>
+        <div style={{
+          position: "absolute", top: 0, height: "100%", borderRadius: 2,
+          right: positive ? undefined : 0, left: positive ? 0 : undefined,
+          width: `${pct}%`,
+          background: positive ? "var(--t-phosphor)" : "#EF4444",
+          opacity: 0.6, transition: "width 0.6s cubic-bezier(0.16,1,0.3,1)",
+        }} />
       </div>
-      <div
-        className={`relative w-9 h-5 rounded-full transition-all duration-200 flex-shrink-0 ml-3 ${
-          enabled ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]" : "bg-zinc-800"
-        }`}
-      >
-        <div
-          className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all duration-200 ${
-            enabled ? "left-[18px]" : "left-0.5"
-          }`}
-        />
-      </div>
-    </button>
+      <span style={{
+        fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: "tabular-nums",
+        fontSize: 13, fontWeight: 600, letterSpacing: "-0.02em",
+        color: positive ? "var(--t-phosphor)" : "#EF4444", minWidth: 48, textAlign: "right",
+      }}>
+        {positive ? "+" : ""}{value}%
+      </span>
+    </div>
   )
 }
 
+// ── MAIN PAGE ────────────────────────────────────────────────────
 export default function DashboardPage() {
+  const [armed, setArmed] = useState(false)
+  const [thinking, setThinking] = useState(false)
+  const [vault, setVault] = useState(false)
+  const [strat, setStrat] = useState<"oracle" | "sniper">("oracle")
+  const [time, setTime] = useState("")
+  const [loaded, setLoaded] = useState(false)
+  const [hovRow, setHovRow] = useState<number | null>(null)
+  const [selectedSignal, setSelectedSignal] = useState<number | null>(null)
+  const [toggling, setToggling] = useState(false)
+  const [pnl, setPnl] = useState(0)
+  const [totalTrades, setTotalTrades] = useState(0)
+  const [armHovered, setArmHovered] = useState(false)
+  // Vault credentials
   const [proxyKey, setProxyKey] = useState("")
   const [secret, setSecret] = useState("")
   const [passphrase, setPassphrase] = useState("")
-  const [polygonKey, setPolygonKey] = useState("")
-  const [hasCredentials, setHasCredentials] = useState(false)
-  const [isBotActive, setIsBotActive] = useState(false)
-  const [isThinking, setIsThinking] = useState(false)
-  const [currentPnl, setCurrentPnl] = useState<number | null>(null)
-  const [usdcBalance, setUsdcBalance] = useState<number | null>(null)
-  const [logs, setLogs] = useState<string[]>([])
-  const [engineOffline, setEngineOffline] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [toggling, setToggling] = useState(false)
-  const [strategyNews, setStrategyNews] = useState(true)
-  const [strategyCrypto, setStrategyCrypto] = useState(true)
-  const [autoScroll, setAutoScroll] = useState(true)
-  const logsEndRef = useRef<HTMLDivElement>(null)
-  const logsContainerRef = useRef<HTMLDivElement>(null)
-  const wsRef = useRef<WebSocket | null>(null)
+  const [privateKey, setPrivateKey] = useState("")
+  const [savingVault, setSavingVault] = useState(false)
+  const [vaultSaved, setVaultSaved] = useState(false)
 
-  const scrollToBottom = useCallback(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  // Boot
+  useEffect(() => { setTimeout(() => setLoaded(true), 100) }, [])
+
+  // Clock
+  useEffect(() => {
+    const tick = () => setTime(new Date().toLocaleTimeString("en-US", { hour12: false }))
+    tick()
+    const i = setInterval(tick, 1000)
+    return () => clearInterval(i)
   }, [])
 
-  const handleScroll = useCallback(() => {
-    const el = logsContainerRef.current
-    if (!el) return
-    const { scrollTop, scrollHeight, clientHeight } = el
-    const atBottom = scrollHeight - scrollTop - clientHeight < 50
-    setAutoScroll(atBottom)
-  }, [])
-
+  // Thinking simulation while armed
   useEffect(() => {
-    if (autoScroll) scrollToBottom()
-  }, [logs, autoScroll, scrollToBottom])
+    if (!armed) { setThinking(false); return }
+    const trigger = () => { setThinking(true); setTimeout(() => setThinking(false), 3200) }
+    trigger()
+    const i = setInterval(trigger, 5500)
+    return () => clearInterval(i)
+  }, [armed])
 
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/engine/status`)
-      const data = await res.json()
-      setEngineOffline(false)
-      setIsBotActive(data.active ?? false)
-      setCurrentPnl(typeof data.pnl === "number" ? data.pnl : 0)
-    } catch {
-      setEngineOffline(true)
-      setIsBotActive(false)
-      setCurrentPnl(0)
-    }
-  }, [])
-
+  // Status polling every 10s
   useEffect(() => {
-    fetchStatus()
-    const id = setInterval(fetchStatus, 10000)
-    return () => clearInterval(id)
-  }, [fetchStatus])
-
-  useEffect(() => {
-    if (engineOffline) {
-      setLogs((prev) => (prev.includes(ENGINE_OFFLINE) ? prev : [...prev, ENGINE_OFFLINE]))
-      return
-    }
-    const wsUrl = `${WS_BASE}/api/engine/logs/1`
-    const ws = new WebSocket(wsUrl)
-    wsRef.current = ws
-
-    ws.onopen = () => {
-      setLogs((prev) => prev.filter((l) => l !== ENGINE_OFFLINE))
-    }
-
-    ws.onmessage = (e) => {
+    const poll = async () => {
       try {
-        const data = JSON.parse(e.data)
+        const res = await fetch("/api/engine/status")
+        const data = await res.json()
+        if (typeof data.active === "boolean") setArmed(data.active)
+        const pnlVal = data.current_pnl ?? data.pnl
+        if (typeof pnlVal === "number") setPnl(pnlVal)
+        if (typeof data.total_trades_count === "number") setTotalTrades(data.total_trades_count)
+      } catch { /* backend offline — keep local state */ }
+    }
+    poll()
+    const i = setInterval(poll, 10000)
+    return () => clearInterval(i)
+  }, [])
 
-        // Engine status events (HUNTING_ALPHA / SCANNING_NOISE)
-        if (data.type === "status") {
-          setIsThinking(!!data.isThinking)
-          if (typeof data.usdcBalance === "number") {
-            setUsdcBalance(data.usdcBalance)
-          }
-          return
+  // WebSocket — live status & thinking updates
+  useEffect(() => {
+    const backendUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000")
+      .replace("https://", "wss://")
+      .replace("http://", "ws://")
+    let ws: WebSocket | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout>
+
+    const connect = () => {
+      try {
+        ws = new WebSocket(`${backendUrl}/api/engine/logs/1`)
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data as string)
+            if (msg.type === "status") {
+              if (typeof msg.isActive === "boolean") setArmed(msg.isActive)
+              if (typeof msg.isThinking === "boolean") setThinking(msg.isThinking)
+            }
+          } catch { /* malformed message */ }
         }
-
-        // Regular log messages
-        const msg = typeof data.message === "string" ? data.message : String(data.message ?? "")
-        if (msg) {
-          const ts = formatTimestamp()
-          setLogs((prev) => [...prev.slice(-99), `${ts} ${msg}`])
-        }
-      } catch {
-        setLogs((prev) => [...prev.slice(-99), `${formatTimestamp()} ${e.data}`])
-      }
+        ws.onclose = () => { reconnectTimer = setTimeout(connect, 5000) }
+        ws.onerror = () => { /* silent — reconnect on close */ }
+      } catch { /* WS unavailable */ }
     }
 
-    ws.onerror = () => {
-      setEngineOffline(true)
-      setLogs((prev) => (prev.includes(ENGINE_OFFLINE) ? prev : [...prev, ENGINE_OFFLINE]))
-    }
-
-    ws.onclose = () => {
-      wsRef.current = null
-    }
-
+    connect()
     return () => {
-      ws.close()
-      wsRef.current = null
+      clearTimeout(reconnectTimer)
+      ws?.close()
     }
-  }, [engineOffline])
+  }, [])
 
-  const handleSaveCredentials = async () => {
-    setSaving(true)
-    setEngineOffline(false)
-    try {
-      const res = await fetch(`${API_BASE}/api/engine/keys`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proxy_key: proxyKey, secret, passphrase, polygon_private_key: polygonKey }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast.error(data?.error || "Failed to save credentials")
-      } else {
-        setProxyKey("")
-        setSecret("")
-        setPassphrase("")
-        setPolygonKey("")
-        setHasCredentials(true)
-        toast.success("Credentials secured in Aleph vault")
-      }
-    } catch {
-      setEngineOffline(true)
-      toast.error("Engine offline")
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const toggleBot = async () => {
+  // ARM / DISARM
+  const toggleBot = useCallback(async () => {
+    if (toggling) return
     setToggling(true)
-    setEngineOffline(false)
+    const nextArmed = !armed
     try {
-      const res = await fetch(`${API_BASE}/api/engine/toggle`, {
+      const res = await fetch("/api/engine/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          active: !isBotActive,
-          strategy_news: strategyNews,
-          strategy_crypto: strategyCrypto,
+          active: nextArmed,
+          strategy_news: strat === "oracle",
+          strategy_crypto: strat === "sniper",
         }),
       })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        toast.error(data?.error || "Failed to toggle")
-      } else {
-        setIsBotActive(data.active ?? !isBotActive)
-      }
+      const data = await res.json()
+      if (typeof data.active === "boolean") setArmed(data.active)
+      else setArmed(nextArmed)
+      if (nextArmed) setVault(false)
     } catch {
-      setEngineOffline(true)
-      toast.error("Engine offline")
+      setArmed(nextArmed) // optimistic on error
     } finally {
       setToggling(false)
     }
-  }
+  }, [armed, strat, toggling])
+
+  // SAVE VAULT
+  const saveVault = useCallback(async () => {
+    if (!proxyKey || !secret || savingVault) return
+    setSavingVault(true)
+    try {
+      await fetch("/api/engine/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ proxyKey, secret, passphrase, privateKey }),
+      })
+      setVaultSaved(true)
+      setTimeout(() => setVaultSaved(false), 3000)
+    } catch { /* silent */ } finally {
+      setSavingVault(false)
+    }
+  }, [proxyKey, secret, passphrase, privateKey, savingVault])
+
+  const sorted = [...SIGNALS].sort((a, b) => b.sig - a.sig)
+  const pnlAbs = Math.abs(pnl)
+  const pnlWhole = Math.floor(pnlAbs).toLocaleString()
+  const pnlDec = (pnlAbs % 1).toFixed(2).slice(1) // ".XX"
+
+  // ARM button computed styles
+  const armStyle: React.CSSProperties = armed
+    ? {
+        background: "#0F0F0F",
+        color: armHovered ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.2)",
+        border: `1px solid ${armHovered ? "rgba(239,68,68,0.35)" : "rgba(255,255,255,0.04)"}`,
+        boxShadow: "none",
+        transform: "none",
+      }
+    : {
+        background: armHovered ? "#00DD77" : "#00FF88",
+        color: "#000",
+        border: "1px solid #00FF88",
+        boxShadow: armHovered
+          ? "0 0 0 1px #00FF88, 0 0 48px rgba(0,255,136,0.35), 0 4px 24px rgba(0,0,0,0.5)"
+          : "0 0 0 1px #00FF88, 0 0 24px rgba(0,255,136,0.2), 0 4px 16px rgba(0,0,0,0.4)",
+        transform: armHovered ? "translateY(-1px)" : "none",
+      }
 
   return (
-    <div className="min-h-screen bg-black text-white font-mono w-full max-w-[100vw] overflow-x-hidden">
+    <>
+      {/* Terminal-scoped CSS variables + keyframes */}
+      <style>{`
+        .terminal-root {
+          --t-phosphor:       #00FF88;
+          --t-phosphor-dim:   rgba(0,255,136,0.5);
+          --t-phosphor-ghost: rgba(0,255,136,0.08);
+          --t-surface:        #0A0A0A;
+          --t-surface-raised: #0F0F0F;
+          --t-border:         rgba(255,255,255,0.04);
+          --t-text-primary:   rgba(255,255,255,0.88);
+          --t-text-secondary: rgba(255,255,255,0.45);
+          --t-text-tertiary:  rgba(255,255,255,0.2);
+          --t-text-ghost:     rgba(255,255,255,0.08);
+        }
+        @keyframes tFadeIn     { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes tBreathe    { 0%,100%{opacity:0.4} 50%{opacity:1} }
+        @keyframes tBorderGlow { 0%,100%{border-color:rgba(0,255,136,0.06)} 50%{border-color:rgba(0,255,136,0.18)} }
+        @keyframes tExpandLine { from{transform:scaleX(0)} to{transform:scaleX(1)} }
+        @keyframes tCountUp    { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes tPulseRing  { 0%{transform:scale(1);opacity:0.5} 100%{transform:scale(2.5);opacity:0} }
+      `}</style>
 
-      {/* ── Aleph Welcome Tour (first visit only) ── */}
-      <TerminalWelcomeTour />
-
-      {/* ── Navbar ── */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 bg-black/95 border-b border-white/[0.07] backdrop-blur-md">
-        <AlephLogo size="sm" href="/" />
-
-        <div className="flex items-center gap-4 sm:gap-6">
-          {/* Engine status badge */}
-          <div className="hidden sm:flex items-center gap-2">
-            <span
-              className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                engineOffline ? "bg-red-500" : "bg-emerald-500 animate-pulse"
-              }`}
-            />
-            <span
-              className={`text-[9px] tracking-[0.25em] transition-colors ${
-                engineOffline ? "text-red-500/70" : "text-emerald-500/70"
-              }`}
-            >
-              {engineOffline ? "ENGINE OFFLINE" : "ALEPH ONLINE"}
+      <div
+        className="terminal-root"
+        style={{ minHeight: "100vh", background: "#050505", color: "#fff", fontFamily: "'DM Sans', system-ui, sans-serif" }}
+      >
+        {/* ═══ HEADER ════════════════════════════════════════════════ */}
+        <header style={{
+          position: "sticky", top: 0, zIndex: 50,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "0 40px", height: 56,
+          borderBottom: "1px solid var(--t-border)",
+          background: "rgba(5,5,5,0.85)", backdropFilter: "blur(16px) saturate(140%)",
+          opacity: loaded ? 1 : 0, transform: loaded ? "none" : "translateY(-8px)",
+          transition: "all 0.6s cubic-bezier(0.16,1,0.3,1)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <span style={{ fontFamily: "'Syne', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.4em", color: "#fff" }}>
+              BLACK EDGE
+            </span>
+            <div style={{ width: 1, height: 16, background: "var(--t-border)" }} />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.15em", color: "var(--t-text-tertiary)" }}>
+              TERMINAL
             </span>
           </div>
-
-          {/* Logout */}
-          <a
-            href="/"
-            className="
-              px-4 py-2 border border-white/15 text-white/50
-              text-[9px] tracking-widest
-              hover:border-red-500/40 hover:text-red-400/80
-              hover:shadow-[0_0_12px_rgba(239,68,68,0.15)]
-              transition-all duration-200
-            "
-          >
-            LOGOUT
-          </a>
-        </div>
-      </header>
-
-      {/* ── Main layout ── */}
-      <main className="pt-[68px] flex min-h-screen flex-col lg:flex-row w-full">
-
-        {/* ── LEFT SIDEBAR ── */}
-        <aside className="w-full lg:w-[30%] lg:min-w-[300px] border-r border-white/[0.07] p-4 sm:p-6 flex flex-col gap-6 bg-zinc-950/50">
-
-          {/* Aleph Status Widget */}
-          <AlephStatus isActive={isBotActive} isThinking={isThinking} />
-
-          {/* Vault credentials */}
-          <div>
-            <h2 className="text-[9px] tracking-[0.35em] text-emerald-500/60 mb-4 uppercase">
-              Polymarket API Vault
-            </h2>
-
-            <div className="space-y-3">
-
-              {/* Magic link to Polymarket API settings */}
-              <a
-                href="https://polymarket.com/settings/api"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between w-full px-3 py-2.5 border border-emerald-500/30 rounded-lg bg-emerald-500/[0.04] hover:border-emerald-500/60 hover:bg-emerald-500/[0.08] transition-all group"
-              >
-                <span className="text-[10px] tracking-wider text-zinc-300 group-hover:text-white transition-colors">
-                  Generate Polymarket API Keys
-                </span>
-                <ExternalLink size={13} className="text-emerald-500 flex-shrink-0" />
-              </a>
-
-              {/* Proxy Key */}
-              <div>
-                <label className="flex items-center text-[10px] tracking-wider text-zinc-400 mb-1.5 font-medium">
-                  Proxy Key
-                  <Tooltip text="Your L2 Authentication API Key. Generated automatically when you click 'Create API Key' in your Polymarket settings." />
-                </label>
-                <input
-                  type="password"
-                  value={proxyKey}
-                  onChange={(e) => setProxyKey(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-3 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all"
-                />
+          <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ position: "relative" }}>
+                <div style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: armed ? "var(--t-phosphor)" : "rgba(255,255,255,0.1)",
+                  transition: "all 0.6s",
+                }} />
+                {armed && (
+                  <div style={{
+                    position: "absolute", inset: -3, borderRadius: "50%",
+                    border: "1px solid var(--t-phosphor)", opacity: 0.3,
+                    animation: "tPulseRing 2s ease-out infinite",
+                  }} />
+                )}
               </div>
+              <span style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10, letterSpacing: "0.12em",
+                color: armed ? "var(--t-phosphor)" : "var(--t-text-ghost)",
+                transition: "color 0.6s",
+              }}>
+                {armed ? "LIVE" : "IDLE"}
+              </span>
+            </div>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--t-text-ghost)", letterSpacing: "0.05em" }}>
+              {time}
+            </span>
+            <a
+              href="/"
+              style={{
+                fontSize: 11, color: "var(--t-text-tertiary)", cursor: "none",
+                fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.04em",
+                textDecoration: "none", transition: "color 0.2s",
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.color = "var(--t-text-secondary)")}
+              onMouseOut={(e) => (e.currentTarget.style.color = "var(--t-text-tertiary)")}
+            >
+              Sign out
+            </a>
+          </div>
+        </header>
 
-              {/* API Secret */}
-              <div>
-                <label className="flex items-center text-[10px] tracking-wider text-zinc-400 mb-1.5 font-medium">
-                  API Secret
-                  <Tooltip text="Your L2 HMAC-SHA256 Secret Key. Polymarket only shows this once when you create the key. Copy it carefully." />
-                </label>
-                <input
-                  type="password"
-                  value={secret}
-                  onChange={(e) => setSecret(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-3 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all"
-                />
+        {/* ═══ BODY ══════════════════════════════════════════════════ */}
+        <div style={{
+          maxWidth: 1480, margin: "0 auto", padding: "48px 40px 120px",
+          display: "grid", gridTemplateColumns: "360px 1fr", gap: 56, alignItems: "start",
+        }}>
+
+          {/* ─── LEFT COLUMN ─────────────────────────────────────── */}
+          <div style={{
+            position: "sticky", top: 80,
+            display: "flex", flexDirection: "column", gap: 32,
+            opacity: loaded ? 1 : 0, transform: loaded ? "none" : "translateY(16px)",
+            transition: "all 0.8s cubic-bezier(0.16,1,0.3,1) 0.1s",
+          }}>
+
+            {/* ALEPH SANCTUARY */}
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "center",
+              padding: "48px 32px 40px", borderRadius: 24,
+              background: "linear-gradient(180deg,#0C0C0C 0%,#060606 100%)",
+              border: thinking ? "1px solid rgba(0,255,136,0.12)" : "1px solid var(--t-border)",
+              boxShadow: armed ? "0 0 80px rgba(0,255,136,0.03)" : "none",
+              transition: "all 0.8s ease",
+              animation: thinking ? "tBorderGlow 2.5s ease-in-out infinite" : "none",
+            }}>
+              <AlephCore isArmed={armed} isThinking={thinking} size={160} />
+              <div style={{ marginTop: 20, textAlign: "center" }}>
+                <div style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 9, letterSpacing: "0.35em",
+                  color: armed ? (thinking ? "var(--t-phosphor)" : "var(--t-phosphor-dim)") : "var(--t-text-ghost)",
+                  transition: "color 0.6s",
+                }}>
+                  {armed ? (thinking ? "HUNTING" : "SCANNING") : "DORMANT"}
+                </div>
+                {armed && !thinking && (
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "var(--t-text-ghost)", marginTop: 8, letterSpacing: "0.1em" }}>
+                    {sorted.filter((s) => s.edge > 5).length} high-conviction signals
+                  </div>
+                )}
               </div>
+            </div>
 
-              {/* Passphrase */}
-              <div>
-                <label className="flex items-center text-[10px] tracking-wider text-zinc-400 mb-1.5 font-medium">
-                  Passphrase
-                  <Tooltip text="The unique passphrase tied to your L2 API Key. Also shown only once upon creation — do not lose it." />
-                </label>
-                <input
-                  type="password"
-                  value={passphrase}
-                  onChange={(e) => setPassphrase(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-3 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all"
-                />
+            {/* STRATEGY */}
+            <div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.2em", color: "var(--t-text-tertiary)", marginBottom: 14 }}>
+                STRATEGY
               </div>
-
-              {/* Polygon Private Key */}
-              <div>
-                <label className="flex items-center text-[10px] tracking-wider text-zinc-400 mb-1 font-medium">
-                  Polygon Private Key
-                  <Tooltip text="Your L1 Wallet Private Key. Used locally to sign EIP-712 trading messages on Polygon. It is NEVER transmitted to our servers." />
-                </label>
-                <input
-                  type="password"
-                  value={polygonKey}
-                  onChange={(e) => setPolygonKey(e.target.value)}
-                  placeholder="0x••••••••••••"
-                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-3 text-white text-sm placeholder:text-zinc-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-all"
-                />
-                <a
-                  href="https://support.metamask.io/hc/en-us/articles/360015289632-How-to-export-an-account-s-private-key"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-1.5 text-[9px] tracking-wider text-zinc-600 hover:text-emerald-500 transition-colors"
-                >
-                  How to export from MetaMask
-                  <ExternalLink size={9} />
-                </a>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["oracle", "sniper"] as const).map((id) => {
+                  const label = id === "oracle" ? "Oracle" : "Sniper"
+                  const desc  = id === "oracle" ? "News + sentiment cross-market" : "5-min crypto latency arb"
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => !armed && setStrat(id)}
+                      style={{
+                        flex: 1, padding: "14px 16px", borderRadius: 14, border: "1px solid", textAlign: "left",
+                        cursor: "none", fontFamily: "inherit",
+                        transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)",
+                        background: strat === id ? "rgba(0,255,136,0.04)" : "var(--t-surface)",
+                        borderColor: strat === id ? "rgba(0,255,136,0.12)" : "var(--t-border)",
+                        opacity: armed ? 0.5 : 1,
+                      }}
+                    >
+                      <div style={{
+                        fontFamily: "'Syne', sans-serif", fontSize: 13, fontWeight: 600,
+                        color: strat === id ? "#fff" : "var(--t-text-secondary)",
+                        transition: "color 0.2s",
+                      }}>{label}</div>
+                      <div style={{ fontSize: 10, color: "var(--t-text-tertiary)", marginTop: 4, lineHeight: 1.4 }}>{desc}</div>
+                    </button>
+                  )
+                })}
               </div>
+            </div>
 
+            {/* VAULT */}
+            <div>
               <button
-                onClick={handleSaveCredentials}
-                disabled={saving}
-                className="w-full py-3 bg-emerald-500 text-black font-bold text-xs uppercase tracking-wide rounded-lg hover:bg-emerald-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setVault(!vault)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%",
+                  background: "none", border: "none", cursor: "none", fontFamily: "inherit", padding: "4px 0",
+                }}
               >
-                {saving ? "Encrypting..." : "Seal Vault"}
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ opacity: vault ? 0.5 : 0.15, transition: "opacity 0.3s" }}>
+                  <rect x="2" y="6" width="10" height="7" rx="1.5" stroke="#fff" strokeWidth="1" />
+                  <path
+                    d={vault ? "M4.5 6V4.5a2.5 2.5 0 015 0" : "M4.5 6V4.5a2.5 2.5 0 015 0V6"}
+                    stroke="#fff" strokeWidth="1" strokeLinecap="round"
+                  />
+                </svg>
+                <span style={{ fontSize: 11, letterSpacing: "0.08em", color: vault ? "var(--t-text-secondary)" : "var(--t-text-tertiary)", transition: "color 0.3s" }}>
+                  {vault ? "Vault open" : "Vault sealed"}
+                </span>
+                <div style={{ flex: 1 }} />
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ transform: vault ? "rotate(180deg)" : "", transition: "transform 0.3s" }}>
+                  <path d="M2.5 4L5 6.5 7.5 4" stroke="rgba(255,255,255,0.12)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
-            </div>
-          </div>
 
-          {/* Vault Liquidity */}
-          {usdcBalance !== null && (
-            <div className="flex items-center justify-between px-3 py-2.5 border border-white/[0.06] rounded-lg bg-black/30">
-              <span className="text-[9px] tracking-[0.2em] text-white/30 uppercase">Vault Liquidity</span>
-              <span className="text-sm font-bold font-mono text-emerald-500">${usdcBalance.toFixed(2)}</span>
+              <div style={{
+                overflow: "hidden",
+                transition: "max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.4s, margin-top 0.4s",
+                maxHeight: vault ? 560 : 0, opacity: vault ? 1 : 0, marginTop: vault ? 20 : 0,
+              }}>
+                {([
+                  { l: "Proxy Key",   p: "pk_live_...", t: "text"     as const, info: "Polymarket → Settings → API Keys",          val: proxyKey,    set: setProxyKey },
+                  { l: "Secret",      p: "••••••••",    t: "password" as const, info: "API secret from Polymarket",                val: secret,      set: setSecret },
+                  { l: "Passphrase",  p: "••••••••",    t: "password" as const, info: "Passphrase from key creation",              val: passphrase,  set: setPassphrase },
+                  { l: "Private Key", p: "0x...",       t: "password" as const, info: "MetaMask → Account Details → Export",       val: privateKey,  set: setPrivateKey },
+                ]).map((inp, i) => (
+                  <div key={i} style={{ marginBottom: i < 3 ? 20 : 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "var(--t-text-tertiary)", letterSpacing: "0.1em" }}>
+                        {inp.l.toUpperCase()}
+                      </span>
+                      <Tip text={inp.info} />
+                    </div>
+                    <input
+                      type={inp.t}
+                      placeholder={inp.p}
+                      value={inp.val}
+                      onChange={(e) => inp.set(e.target.value)}
+                      style={{
+                        width: "100%", background: "none", border: "none",
+                        borderBottom: "1px solid var(--t-border)", borderRadius: 0,
+                        padding: "10px 0", color: "var(--t-text-primary)",
+                        fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
+                        outline: "none", transition: "border-color 0.3s",
+                      }}
+                      onFocus={(e) => (e.currentTarget.style.borderBottomColor = "rgba(0,255,136,0.35)")}
+                      onBlur={(e) => (e.currentTarget.style.borderBottomColor = "var(--t-border)")}
+                    />
+                  </div>
+                ))}
+                <button
+                  onClick={saveVault}
+                  disabled={!proxyKey || !secret || savingVault}
+                  style={{
+                    marginTop: 24, width: "100%", padding: "12px 0",
+                    borderRadius: 10, border: "1px solid",
+                    fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 12,
+                    letterSpacing: "0.12em", cursor: "none",
+                    transition: "all 0.25s",
+                    background: vaultSaved ? "rgba(0,255,136,0.06)" : "none",
+                    borderColor: vaultSaved ? "rgba(0,255,136,0.25)" : "rgba(255,255,255,0.06)",
+                    color: vaultSaved ? "var(--t-phosphor)" : "var(--t-text-secondary)",
+                    opacity: !proxyKey || !secret ? 0.4 : 1,
+                  }}
+                >
+                  {savingVault ? "Sealing…" : vaultSaved ? "Credentials sealed ✓" : "Seal vault"}
+                </button>
+              </div>
             </div>
-          )}
 
-          {/* Engine Strategy Selectors */}
-          <div>
-            <h2 className="text-[9px] tracking-[0.35em] text-emerald-500/60 mb-3 uppercase">
-              Engine Strategy
-            </h2>
-            <div className="space-y-2">
-              <StrategyToggle
-                label="Global News"
-                sub="Oracle / Low Volatility"
-                enabled={strategyNews}
-                onToggle={() => setStrategyNews((v) => !v)}
-                disabled={isBotActive}
-              />
-              <StrategyToggle
-                label="5-Min Crypto Arbitrage"
-                sub="High Volatility / BTC Math"
-                enabled={strategyCrypto}
-                onToggle={() => setStrategyCrypto((v) => !v)}
-                disabled={isBotActive}
-              />
-              {!strategyNews && !strategyCrypto && (
-                <p className="text-[9px] text-red-400/70 px-1 pt-1">
-                  Enable at least one engine before arming.
-                </p>
-              )}
-            </div>
-          </div>
+            <div style={{ flex: 1, minHeight: 24 }} />
 
-          {/* Armed / Disarmed toggle */}
-          <div>
+            {/* ARM / DISARM */}
             <button
               onClick={toggleBot}
-              disabled={toggling || (!isBotActive && !strategyNews && !strategyCrypto)}
-              className={`
-                w-full py-4 font-bold text-xs uppercase tracking-wide rounded-lg
-                transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-                ${
-                  isBotActive
-                    ? "bg-emerald-500/10 border border-emerald-500 text-emerald-400 shadow-[0_0_24px_rgba(16,185,129,0.3)] hover:bg-red-500/10 hover:border-red-500 hover:text-red-400 hover:shadow-[0_0_24px_rgba(239,68,68,0.2)]"
-                    : "bg-red-500/5 border border-red-500/30 text-red-400/70 hover:border-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/5 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]"
-                }
-              `}
+              disabled={toggling}
+              onMouseEnter={() => setArmHovered(true)}
+              onMouseLeave={() => setArmHovered(false)}
+              style={{
+                width: "100%", height: 56, borderRadius: 14,
+                fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 13,
+                letterSpacing: "0.18em", textTransform: "uppercase",
+                cursor: "none", position: "relative", overflow: "hidden",
+                transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)",
+                ...armStyle,
+              }}
             >
-              {toggling
-                ? "···"
-                : isBotActive
-                ? "Aleph Armed & Scanning"
-                : "System Disarmed"}
+              {toggling ? "…" : armed ? "Disarm" : "Arm Aleph"}
             </button>
           </div>
-        </aside>
 
-        {/* ── RIGHT PANEL ── */}
-        <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-w-0 min-h-0 bg-black">
+          {/* ─── RIGHT COLUMN ────────────────────────────────────── */}
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 40,
+            opacity: loaded ? 1 : 0, transform: loaded ? "none" : "translateY(16px)",
+            transition: "all 0.8s cubic-bezier(0.16,1,0.3,1) 0.25s",
+          }}>
 
-          {/* Live execution logs terminal */}
-          <div className="flex-1 flex flex-col min-h-[50vh] lg:min-h-[calc(100vh-140px)] border border-white/[0.07] bg-zinc-950 overflow-hidden">
-
-            {/* Terminal chrome bar */}
-            <div className="px-4 py-2.5 border-b border-white/[0.07] flex items-center gap-2 bg-zinc-950">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500/60" />
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/60" />
-              <span className="text-[8px] tracking-[0.3em] text-white/20 ml-3 uppercase">
-                Aleph · Live Execution Feed
-              </span>
-              {isBotActive && (
-                <span className="ml-auto flex items-center gap-1.5 text-[8px] tracking-widest text-emerald-500/60">
-                  <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                  LIVE
+            {/* P&L HERO */}
+            <div style={{ padding: "0 4px" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span style={{
+                  fontFamily: "'Syne', sans-serif",
+                  fontSize: 72, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 0.9,
+                  color: armed ? (pnl >= 0 ? "var(--t-phosphor)" : "#EF4444") : "rgba(255,255,255,0.06)",
+                  transition: "color 1s cubic-bezier(0.16,1,0.3,1)",
+                }}>
+                  {armed ? `${pnl < 0 ? "-" : ""}$${pnlWhole}` : "$0"}
                 </span>
-              )}
-              {!autoScroll && (
-                <span className="ml-auto text-[8px] text-white/20">↓ scroll to follow</span>
-              )}
+                <span style={{
+                  fontFamily: "'Syne', sans-serif",
+                  fontSize: 48, fontWeight: 300, letterSpacing: "-0.03em",
+                  color: armed
+                    ? pnl >= 0 ? "rgba(0,255,136,0.4)" : "rgba(239,68,68,0.4)"
+                    : "rgba(255,255,255,0.03)",
+                  transition: "color 1s cubic-bezier(0.16,1,0.3,1)",
+                }}>
+                  {armed ? pnlDec : ".00"}
+                </span>
+              </div>
+
+              <div style={{ marginTop: 20, display: "flex", gap: 40 }}>
+                {[
+                  { l: "Trades",   v: armed ? String(totalTrades) : "0" },
+                  { l: "Win rate", v: "—" },
+                  { l: "Avg edge", v: armed ? "+9.3%" : "—", g: true },
+                  { l: "Signals",  v: armed ? String(SIGNALS.length) : "—" },
+                  { l: "Sharpe",   v: "—" },
+                ].map((m, i) => (
+                  <div key={i} style={{ animation: loaded ? `tCountUp 0.4s ease-out ${0.4 + i * 0.06}s forwards` : "none", opacity: 0 }}>
+                    <div style={{ fontSize: 10, color: "var(--t-text-tertiary)", letterSpacing: "0.04em", marginBottom: 6 }}>{m.l}</div>
+                    <div style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: "tabular-nums",
+                      fontSize: 16, fontWeight: 500, letterSpacing: "-0.02em",
+                      color: (m as { g?: boolean }).g && armed ? "var(--t-phosphor)" : "var(--t-text-secondary)",
+                      transition: "color 0.6s",
+                    }}>{m.v}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{
+                height: 1, marginTop: 32, background: "var(--t-border)",
+                transformOrigin: "left",
+                animation: loaded ? "tExpandLine 0.8s cubic-bezier(0.16,1,0.3,1) 0.6s forwards" : "none",
+                transform: "scaleX(0)",
+              }} />
             </div>
 
-            {/* Log lines */}
-            <div
-              ref={logsContainerRef}
-              onScroll={handleScroll}
-              className="flex-1 overflow-y-auto p-4 font-mono text-xs leading-relaxed"
-            >
-              {logs.length === 0 && !isBotActive && !engineOffline && (
-                <p className="text-white/20 text-[10px] tracking-wider">
-                  Agent inactive. Deploy Aleph to begin execution feed.
-                </p>
-              )}
-              {logs.map((line, i) => (
-                <div key={`${i}-${line}`} className={`py-[1px] ${getLogClassName(line)}`}>
-                  {line}
+            {/* SIGNAL FEED */}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, padding: "0 4px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 600, color: "var(--t-text-primary)", letterSpacing: "-0.01em" }}>
+                    Signals
+                  </span>
+                  <div style={{
+                    padding: "3px 10px", borderRadius: 20,
+                    background: armed ? "var(--t-phosphor-ghost)" : "rgba(255,255,255,0.03)",
+                    border: "1px solid", borderColor: armed ? "rgba(0,255,136,0.1)" : "var(--t-border)",
+                    transition: "all 0.5s",
+                  }}>
+                    <span style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 10, fontWeight: 500,
+                      color: armed ? "var(--t-phosphor)" : "var(--t-text-ghost)",
+                      transition: "color 0.5s",
+                    }}>
+                      {sorted.filter((s) => s.edge > 5).length} actionable
+                    </span>
+                  </div>
+                </div>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--t-text-ghost)" }}>
+                  {armed ? "Refreshing live" : "Arm to activate"}
+                </span>
+              </div>
+
+              <div style={{ borderRadius: 20, border: "1px solid var(--t-border)", overflow: "hidden", background: "var(--t-surface)" }}>
+                {/* Column headers */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 80px 64px", gap: 8, padding: "14px 28px", borderBottom: "1px solid var(--t-border)" }}>
+                  {["Market", "Edge", "Probability", ""].map((h, i) => (
+                    <span key={`hdr-${i}`} style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 9, letterSpacing: "0.15em", color: "var(--t-text-ghost)",
+                      textAlign: i > 0 ? "right" : "left", textTransform: "uppercase",
+                    }}>{h}</span>
+                  ))}
+                </div>
+
+                {/* Signal rows */}
+                {sorted.map((s, i) => {
+                  const hov = hovRow === s.id
+                  const sel = selectedSignal === s.id
+                  return (
+                    <React.Fragment key={s.id}>
+                      <div
+                        onMouseEnter={() => setHovRow(s.id)}
+                        onMouseLeave={() => setHovRow(null)}
+                        onClick={() => setSelectedSignal(sel ? null : s.id)}
+                        style={{
+                          display: "grid", gridTemplateColumns: "1fr 100px 80px 64px",
+                          gap: 8, padding: "18px 28px",
+                          borderBottom: "1px solid", borderColor: sel ? "rgba(0,255,136,0.06)" : "var(--t-border)",
+                          background: sel ? "rgba(0,255,136,0.02)" : hov ? "rgba(255,255,255,0.01)" : "transparent",
+                          cursor: "none", transition: "all 0.15s ease",
+                          animation: `tFadeIn 0.35s ease-out ${0.1 + i * 0.04}s forwards`, opacity: 0,
+                        }}
+                      >
+                        {/* Market */}
+                        <div>
+                          <div style={{
+                            fontSize: 14, fontWeight: 500, lineHeight: 1.35,
+                            color: hov || sel ? "#fff" : "var(--t-text-primary)",
+                            transition: "color 0.15s",
+                          }}>{s.q}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "var(--t-text-ghost)", letterSpacing: "0.12em" }}>{s.cat}</span>
+                            <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--t-text-ghost)", display: "inline-block" }} />
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "var(--t-text-ghost)" }}>{s.vol}</span>
+                            <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--t-text-ghost)", display: "inline-block" }} />
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "var(--t-text-ghost)" }}>{s.res}</span>
+                          </div>
+                        </div>
+
+                        {/* Edge */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                          <EdgeSparkline value={s.edge} />
+                        </div>
+
+                        {/* Probability */}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--t-text-tertiary)", textDecoration: "line-through", textDecorationColor: "rgba(255,255,255,0.08)" }}>
+                              {s.po}¢
+                            </span>
+                            <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                              <path d="M1 4h8M6 1l3 3-3 3" stroke="rgba(0,255,136,0.3)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600, color: s.edge > 0 ? "var(--t-phosphor-dim)" : "var(--t-text-tertiary)" }}>
+                              {s.tp}¢
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Risk badge */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                          <span style={{
+                            fontFamily: "'JetBrains Mono', monospace",
+                            fontSize: 9, letterSpacing: "0.08em", padding: "4px 10px", borderRadius: 8,
+                            background: s.risk === "low" ? "rgba(0,255,136,0.06)" : s.risk === "med" ? "rgba(245,158,11,0.06)" : "rgba(239,68,68,0.06)",
+                            color: s.risk === "low" ? "rgba(0,255,136,0.6)" : s.risk === "med" ? "rgba(251,191,36,0.5)" : "rgba(248,113,113,0.5)",
+                            border: "1px solid",
+                            borderColor: s.risk === "low" ? "rgba(0,255,136,0.08)" : s.risk === "med" ? "rgba(245,158,11,0.08)" : "rgba(239,68,68,0.08)",
+                          }}>
+                            {s.risk === "med" ? "MED" : s.risk.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Expanded detail */}
+                      {sel && (
+                        <div style={{
+                          padding: "0 28px 20px", borderBottom: "1px solid var(--t-border)",
+                          background: "rgba(0,255,136,0.01)", animation: "tFadeIn 0.2s ease-out",
+                        }}>
+                          <div style={{ display: "flex", gap: 40, paddingTop: 4, flexWrap: "wrap" }}>
+                            <div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "var(--t-text-ghost)", letterSpacing: "0.1em", marginBottom: 6 }}>
+                                SIGNAL STRENGTH
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ width: 120, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.03)", overflow: "hidden" }}>
+                                  <div style={{
+                                    height: "100%", borderRadius: 2, width: `${s.sig}%`,
+                                    background: s.sig >= 70 ? "var(--t-phosphor)" : "rgba(255,255,255,0.15)",
+                                    transition: "width 0.6s cubic-bezier(0.16,1,0.3,1)",
+                                  }} />
+                                </div>
+                                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, color: s.sig >= 70 ? "var(--t-phosphor)" : "var(--t-text-secondary)" }}>
+                                  {s.sig}
+                                </span>
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "var(--t-text-ghost)", letterSpacing: "0.1em", marginBottom: 6 }}>
+                                RECOMMENDED
+                              </div>
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: "var(--t-phosphor-dim)" }}>
+                                {s.side} @ {s.po}¢
+                              </span>
+                            </div>
+                            <div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "var(--t-text-ghost)", letterSpacing: "0.1em", marginBottom: 6 }}>
+                                KELLY SIZE
+                              </div>
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: "var(--t-text-secondary)" }}>
+                                {(s.edge * 0.8).toFixed(1)}%
+                              </span>
+                            </div>
+                            <div style={{ marginLeft: "auto" }}>
+                              <button
+                                style={{
+                                  padding: "10px 24px", borderRadius: 10, border: "none",
+                                  background: "var(--t-phosphor)", color: "#000",
+                                  fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 12,
+                                  letterSpacing: "0.08em", cursor: "none",
+                                  transition: "all 0.2s",
+                                  boxShadow: "0 0 16px rgba(0,255,136,0.15)",
+                                }}
+                                onMouseOver={(e) => {
+                                  e.currentTarget.style.boxShadow = "0 0 32px rgba(0,255,136,0.3)"
+                                  e.currentTarget.style.transform = "translateY(-1px)"
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.boxShadow = "0 0 16px rgba(0,255,136,0.15)"
+                                  e.currentTarget.style.transform = "none"
+                                }}
+                              >
+                                Execute Trade
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
+
+                {/* Table footer */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 28px" }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: "var(--t-text-ghost)" }}>
+                    {armed
+                      ? `${strat === "oracle" ? "Cross-market analysis" : "Crypto latency scan"} active`
+                      : "Arm Aleph to stream signals"}
+                  </span>
+                  {armed && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 4, height: 4, borderRadius: "50%", background: "var(--t-phosphor)", animation: "tBreathe 2s ease-in-out infinite" }} />
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "var(--t-phosphor-dim)" }}>Live</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* SECONDARY METRICS */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+              {[
+                { l: "Markets scanned", v: "2,847",           sub: "Polymarket gamma-api" },
+                { l: "Latency",         v: "4ms",             sub: "WebSocket p50" },
+                { l: "Engine",          v: armed ? "Active" : "Idle",
+                  sub: armed ? `${strat === "oracle" ? "Oracle" : "Sniper"} strategy running` : "Awaiting activation" },
+              ].map((m, i) => (
+                <div key={i} style={{
+                  padding: "20px 24px", borderRadius: 16,
+                  border: "1px solid var(--t-border)", background: "var(--t-surface)",
+                  animation: `tFadeIn 0.4s ease-out ${0.8 + i * 0.08}s forwards`, opacity: 0,
+                }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.12em", color: "var(--t-text-ghost)", marginBottom: 10, textTransform: "uppercase" }}>
+                    {m.l}
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontVariantNumeric: "tabular-nums", fontSize: 20, fontWeight: 600, color: "var(--t-text-primary)", letterSpacing: "-0.02em" }}>
+                    {m.v}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--t-text-ghost)", marginTop: 6 }}>{m.sub}</div>
                 </div>
               ))}
-              <div ref={logsEndRef} />
             </div>
-          </div>
 
-          {/* Live PnL bar */}
-          <div className="border border-white/[0.07] bg-zinc-950 px-6 py-4 flex items-center justify-between">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[8px] tracking-[0.3em] text-white/25 uppercase">
-                Aleph · Realised P&L
-              </span>
-              <span className="text-[8px] tracking-wider text-white/15">Current session</span>
-            </div>
-            <span
-              className={`text-3xl sm:text-4xl font-bold tracking-tight tabular-nums ${
-                currentPnl !== null && currentPnl >= 0 ? "text-emerald-500" : "text-red-400"
-              }`}
-            >
-              {currentPnl !== null ? `$${currentPnl.toFixed(2)}` : "—"}
-            </span>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   )
 }
