@@ -1,5 +1,5 @@
 /* BLACK EDGE — Asymmetric Intelligence Terminal */
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
 @import 'tailwindcss';
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -886,4 +886,52 @@ footer {
   .tr-grid { grid-template-columns: 1fr; }
   .hero-stats { flex-direction: column; }
   .markets-grid { grid-template-columns: 1fr; }
+}
+
+/* ── DASHBOARD TERMINAL ─────────────────────────────────────────────────── */
+.dashboard-terminal {
+  --phosphor: #00FF88;
+  --phosphor-dim: rgba(0,255,136,0.5);
+  --phosphor-ghost: rgba(0,255,136,0.08);
+  --surface: #0A0A0A;
+  --surface-raised: #0F0F0F;
+  --surface-elevated: #141414;
+  --border: rgba(255,255,255,0.04);
+  --border-hover: rgba(255,255,255,0.08);
+  --text-primary: rgba(255,255,255,0.88);
+  --text-secondary: rgba(255,255,255,0.45);
+  --text-tertiary: rgba(255,255,255,0.2);
+  --text-ghost: rgba(255,255,255,0.08);
+  cursor: none;
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+.font-display { font-family: 'Syne', sans-serif }
+.font-body { font-family: 'DM Sans', system-ui, sans-serif }
+
+.dash-grain {
+  position: fixed; inset: 0; z-index: 9990; pointer-events: none;
+  opacity: 0.025; mix-blend-mode: overlay;
+}
+.dash-grain::before {
+  content: ''; position: absolute; inset: -200%; width: 400%; height: 400%;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 256px;
+  animation: grainDrift 8s steps(10) infinite;
+}
+@keyframes grainDrift {
+  0%{transform:translate(0,0)}10%{transform:translate(-5%,-10%)}20%{transform:translate(-15%,5%)}
+  30%{transform:translate(7%,-15%)}40%{transform:translate(-5%,15%)}50%{transform:translate(-15%,10%)}
+  60%{transform:translate(15%,0)}70%{transform:translate(0,10%)}80%{transform:translate(3%,15%)}
+  90%{transform:translate(-10%,10%)}100%{transform:translate(0,0)}
+}
+@keyframes fadeIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes breathe { 0%,100%{opacity:0.4} 50%{opacity:1} }
+@keyframes borderGlow { 0%,100%{border-color:rgba(0,255,136,0.06)} 50%{border-color:rgba(0,255,136,0.18)} }
+@keyframes expandLine { from{transform:scaleX(0)} to{transform:scaleX(1)} }
+@keyframes countUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pulseRing { 0%{transform:scale(1);opacity:0.5} 100%{transform:scale(2.5);opacity:0} }
+
+@media (max-width: 900px) {
+  .dashboard-terminal .dash-body { grid-template-columns: 1fr !important; }
+  .dashboard-terminal .dash-left { position: static !important; }
 }
