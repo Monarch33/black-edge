@@ -1214,6 +1214,14 @@ try:
 except Exception as e:
     logger.warning("⚠️ Credits API router disabled", error=str(e))
 
+# Include Stripe Payments router
+try:
+    from routers.stripe_payments import router as stripe_router
+    app.include_router(stripe_router)
+    logger.info("✅ Stripe Payments router enabled (POST /api/stripe/create-checkout, POST /api/stripe/webhook)")
+except Exception as e:
+    logger.warning("⚠️ Stripe Payments router disabled", error=str(e))
+
 
 # Health check
 @app.get("/health")
