@@ -1,0 +1,20 @@
+{
+  "name": "black-edge-cli",
+  "version": "1.0.0",
+  "description": "Black Edge CLI — Stream prediction market signals to your terminal",
+  "main": "index.js",
+  "bin": {
+    "black-edge": "./index.js"
+  },
+  "keywords": [
+    "polymarket",
+    "prediction-markets",
+    "trading",
+    "signals",
+    "cli"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

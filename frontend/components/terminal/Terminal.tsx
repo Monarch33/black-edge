@@ -1,23 +1,30 @@
-// BLACK EDGE TERMINAL v3 — Awwwards-tier
+// BLACK EDGE TERMINAL v4 — Performance-Optimized, Real Data, Auth + Credit Economy
 //
 // Typography: Syne (display) + DM Sans (body) + JetBrains Mono (data)
 // Palette: #050505 bg, #00FF88 phosphor accent, surgical white opacities
 // Strategies: Oracle + Sniper only
-// Features: Expandable signal rows, edge sparklines, custom cursor,
-//           grain overlay, staggered boot animation
+//
+// Phases applied:
+//   1. React.memo AlephCore, isolated ClockDisplay — zero parent re-renders
+//   2. Vault credential guardrails — force-open + red highlight on empty fields
+//   3. Real WS data only — no mocks, clean empty state
+//   4. Auth modal (Web2 + Web3) in header
+//   5. Account/API slide-out panel with credits, key, usage
 // ═══════════════════════════════════════════════════════════════════════════════
 
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AuthModal } from "./AuthModal";
+import { AccountPanel } from "./AccountPanel";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const WS_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/^http/, "ws");
 
 // ─── SIGNAL TYPE ─────────────────────────────────────────────────────────────
-interface Signal {
+export interface Signal {
   id: number;
   q: string;
   edge: number;
@@ -31,19 +38,16 @@ interface Signal {
   side: string;
 }
 
-const FALLBACK_SIGNALS: Signal[] = [
-  { id: 1, q: "US Presidential Election 2028", edge: 12.4, sig: 87, tp: 74, po: 62, risk: "low", vol: "$2.1M", cat: "POLITICS", res: "Nov 2028", side: "YES" },
-  { id: 2, q: "Fed Rate Cut — March FOMC", edge: 15.2, sig: 94, tp: 60, po: 45, risk: "low", vol: "$3.4M", cat: "MACRO", res: "Mar 19", side: "YES" },
-  { id: 3, q: "BTC Above $150K by June", edge: 8.7, sig: 72, tp: 43, po: 34, risk: "med", vol: "$890K", cat: "CRYPTO", res: "Jun 30", side: "YES" },
-  { id: 4, q: "SpaceX IPO Filing 2026", edge: 6.9, sig: 61, tp: 35, po: 28, risk: "med", vol: "$1.2M", cat: "TECH", res: "Dec 31", side: "YES" },
-  { id: 5, q: "NATO Expansion — New Member", edge: 9.3, sig: 78, tp: 64, po: 55, risk: "low", vol: "$567K", cat: "GEO", res: "Dec 31", side: "YES" },
-  { id: 6, q: "Apple AI Chip Q2 Announcement", edge: 5.4, sig: 55, tp: 47, po: 42, risk: "low", vol: "$780K", cat: "TECH", res: "Jun 30", side: "YES" },
-  { id: 7, q: "ETH Flippening by 2027", edge: -3.1, sig: 28, tp: 15, po: 18, risk: "high", vol: "$445K", cat: "CRYPTO", res: "Dec 2027", side: "NO" },
-  { id: 8, q: "Nvidia Earnings Beat Q1", edge: 7.1, sig: 68, tp: 82, po: 75, risk: "low", vol: "$1.8M", cat: "EARNINGS", res: "May 28", side: "YES" },
-];
-
-// ─── ALEPH CORE (Canvas) ─────────────────────────────────────────────────────
-function AlephCore({ isArmed, isThinking, size = 160 }: { isArmed: boolean; isThinking: boolean; size?: number }) {
+// ─── ALEPH CORE (Canvas) — Phase 1: React.memo, no parent re-renders ────────
+const AlephCore = memo(function AlephCore({
+  isArmed,
+  isThinking,
+  size = 160,
+}: {
+  isArmed: boolean;
+  isThinking: boolean;
+  size?: number;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   const frame = useRef(0);
 
@@ -61,9 +65,9 @@ function AlephCore({ isArmed, isThinking, size = 160 }: { isArmed: boolean; isTh
       frame.current++;
       const t = frame.current * 0.012;
       ctx.clearRect(0, 0, size, size);
-      const cx = size / 2, cy = size / 2;
+      const cx = size / 2,
+        cy = size / 2;
 
-      // Ambient field
       if (isArmed) {
         const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, size * 0.45);
         g.addColorStop(0, `rgba(0,255,136,${0.08 + Math.sin(t * 1.2) * 0.06})`);
@@ -72,7 +76,6 @@ function AlephCore({ isArmed, isThinking, size = 160 }: { isArmed: boolean; isTh
         ctx.fillRect(0, 0, size, size);
       }
 
-      // Orbital rings
       const rc = isArmed ? 5 : 2;
       for (let r = 0; r < rc; r++) {
         const rad = 18 + r * 12;
@@ -93,7 +96,6 @@ function AlephCore({ isArmed, isThinking, size = 160 }: { isArmed: boolean; isTh
         ctx.stroke();
       }
 
-      // Core sphere
       const cg = ctx.createRadialGradient(cx - 1, cy - 1, 0, cx, cy, isArmed ? 14 : 8);
       cg.addColorStop(0, isArmed ? "rgba(0,255,136,0.85)" : "rgba(255,255,255,0.08)");
       cg.addColorStop(0.5, isArmed ? "rgba(0,255,136,0.2)" : "rgba(255,255,255,0.02)");
@@ -103,7 +105,6 @@ function AlephCore({ isArmed, isThinking, size = 160 }: { isArmed: boolean; isTh
       ctx.arc(cx, cy, isArmed ? 14 : 8, 0, Math.PI * 2);
       ctx.fill();
 
-      // Particle field
       if (isArmed) {
         const pc = isThinking ? 14 : 6;
         for (let i = 0; i < pc; i++) {
@@ -116,7 +117,6 @@ function AlephCore({ isArmed, isThinking, size = 160 }: { isArmed: boolean; isTh
         }
       }
 
-      // Scan rays
       if (isThinking) {
         for (let i = 0; i < 2; i++) {
           const a = t * 0.4 + i * Math.PI;
@@ -139,7 +139,25 @@ function AlephCore({ isArmed, isThinking, size = 160 }: { isArmed: boolean; isTh
   }, [isArmed, isThinking, size]);
 
   return <canvas ref={ref} style={{ width: size, height: size }} />;
-}
+});
+
+// ─── ISOLATED CLOCK — Phase 1: own component, own re-render boundary ────────
+const ClockDisplay = memo(function ClockDisplay() {
+  const [time, setTime] = useState("");
+
+  useEffect(() => {
+    const tick = () => setTime(new Date().toLocaleTimeString("en-US", { hour12: false }));
+    tick();
+    const i = setInterval(tick, 1000);
+    return () => clearInterval(i);
+  }, []);
+
+  return (
+    <span className="font-mono text-[10px] text-white/[0.08] tabular-nums tracking-wide">
+      {time}
+    </span>
+  );
+});
 
 // ─── INFO TOOLTIP ────────────────────────────────────────────────────────────
 function Tip({ text }: { text: string }) {
@@ -172,7 +190,7 @@ function Tip({ text }: { text: string }) {
 
 // ─── EDGE SPARKLINE ──────────────────────────────────────────────────────────
 function EdgeSparkline({ value, max = 20 }: { value: number; max?: number }) {
-  const pct = Math.min(Math.abs(value) / max * 100, 100);
+  const pct = Math.min((Math.abs(value) / max) * 100, 100);
   const positive = value > 0;
   return (
     <div className="flex items-center gap-2 w-[90px]">
@@ -185,7 +203,8 @@ function EdgeSparkline({ value, max = 20 }: { value: number; max?: number }) {
         />
       </div>
       <span className={`font-mono text-[13px] font-semibold tracking-tight min-w-[48px] text-right ${positive ? "text-[#00FF88]" : "text-red-400"}`}>
-        {positive ? "+" : ""}{value}%
+        {positive ? "+" : ""}
+        {value}%
       </span>
     </div>
   );
@@ -201,8 +220,13 @@ export function TerminalView() {
   const [thinking, setThinking] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
   const [strategy, setStrategy] = useState<"oracle" | "sniper">("oracle");
-  const [time, setTime] = useState("");
   const [selectedSignal, setSelectedSignal] = useState<number | null>(null);
+
+  // ── Phase 4: Auth state ──
+  const [authOpen, setAuthOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userLabel, setUserLabel] = useState("");
 
   // ── Vault credential state ──
   const [proxyKey, setProxyKey] = useState("");
@@ -210,8 +234,12 @@ export function TerminalView() {
   const [passphrase, setPassphrase] = useState("");
   const [privateKey, setPrivateKey] = useState("");
 
-  // ── Live data state ──
-  const [signals, setSignals] = useState<Signal[]>(FALLBACK_SIGNALS);
+  // ── Phase 2: Vault error state ──
+  const [vaultError, setVaultError] = useState(false);
+  const [vaultErrorFields, setVaultErrorFields] = useState<Set<string>>(new Set());
+
+  // ── Live data state — Phase 3: no mocks, start empty ──
+  const [signals, setSignals] = useState<Signal[]>([]);
   const [balance, setBalance] = useState<number>(0);
   const [totalTrades, setTotalTrades] = useState(0);
   const [winRate, setWinRate] = useState<string>("—");
@@ -224,14 +252,6 @@ export function TerminalView() {
   const logWsRef = useRef<WebSocket | null>(null);
   const signalIdCounter = useRef(100);
 
-  // ── Clock ──
-  useEffect(() => {
-    const tick = () => setTime(new Date().toLocaleTimeString("en-US", { hour12: false }));
-    tick();
-    const i = setInterval(tick, 1000);
-    return () => clearInterval(i);
-  }, []);
-
   // ── Fetch engine status & balance ──
   const fetchStatus = useCallback(async () => {
     try {
@@ -242,11 +262,10 @@ export function TerminalView() {
         if (typeof data.total_trades_count === "number") setTotalTrades(data.total_trades_count);
       }
     } catch {
-      // Engine may be offline — keep current values
+      // Engine may be offline
     }
   }, []);
 
-  // Fetch USDC balance from trade endpoint
   const fetchBalance = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/v2/trade/balance`);
@@ -259,7 +278,6 @@ export function TerminalView() {
     }
   }, []);
 
-  // Fetch system stats
   const fetchSystemStats = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/v2/system/stats`);
@@ -292,12 +310,11 @@ export function TerminalView() {
   // ── WebSocket: V2 multiplexed stream for live signals ──
   useEffect(() => {
     if (!armed) {
-      // Close signal WS when disarmed
       if (signalWsRef.current) {
         signalWsRef.current.close(1000);
         signalWsRef.current = null;
       }
-      setSignals(FALLBACK_SIGNALS);
+      setSignals([]);
       return;
     }
 
@@ -336,11 +353,10 @@ export function TerminalView() {
         }
 
         if (msg.type === "heartbeat") {
-          // Connection alive — update latency
           setLatency("4ms");
         }
       } catch {
-        // Ignore malformed messages
+        // Ignore malformed
       }
     };
 
@@ -378,7 +394,6 @@ export function TerminalView() {
         const data = JSON.parse(event.data);
         const msg = typeof data.message === "string" ? data.message : "";
 
-        // Trigger thinking state on analysis/scanning messages
         if (
           msg.includes("[SCANNING]") ||
           msg.includes("[ANALYZING]") ||
@@ -391,12 +406,11 @@ export function TerminalView() {
           setTimeout(() => setThinking(false), 3200);
         }
 
-        // Update thinking on explicit isThinking flag
         if (typeof data.isThinking === "boolean") {
           setThinking(data.isThinking);
         }
       } catch {
-        // Ignore parse errors
+        // Ignore
       }
     };
 
@@ -404,12 +418,10 @@ export function TerminalView() {
       logWsRef.current = null;
     };
 
-    // Fallback: pulse thinking periodically while armed to indicate liveness
     const pulseId = setInterval(() => {
       setThinking(true);
       setTimeout(() => setThinking(false), 3200);
     }, 8000);
-    // Initial pulse
     setTimeout(() => {
       setThinking(true);
       setTimeout(() => setThinking(false), 3200);
@@ -422,10 +434,9 @@ export function TerminalView() {
     };
   }, [armed]);
 
-  // ── Arm Aleph handler ──
+  // ── Phase 2: Arm Aleph handler with credential validation ──
   const handleArm = useCallback(async () => {
     if (armed) {
-      // Disarm: toggle off
       setArmed(false);
       try {
         await fetch(`${API_URL}/api/engine/toggle`, {
@@ -438,46 +449,73 @@ export function TerminalView() {
       return;
     }
 
-    // Arm: send credentials + activate
-    setVaultOpen(false);
+    // Validate vault credentials
+    const missing = new Set<string>();
+    if (!proxyKey.trim()) missing.add("proxyKey");
+    if (!secret.trim()) missing.add("secret");
+    if (!passphrase.trim()) missing.add("passphrase");
+    if (!privateKey.trim()) missing.add("privateKey");
 
-    // 1. Store credentials if provided
-    if (proxyKey && secret) {
-      try {
-        await fetch(`${API_URL}/api/engine/setup`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            polymarket_api_key: proxyKey,
-            polymarket_proxy_secret: secret,
-            polymarket_passphrase: passphrase,
-          }),
-        });
-      } catch {
-        // Continue — keys may already be stored
-      }
+    if (missing.size > 0) {
+      setVaultOpen(true);
+      setVaultError(true);
+      setVaultErrorFields(missing);
+      setTimeout(() => setVaultError(false), 4000);
+      return;
     }
 
-    // 2. Activate the engine
+    setVaultError(false);
+    setVaultErrorFields(new Set());
+    setVaultOpen(false);
+
+    // Store credentials
+    try {
+      await fetch(`${API_URL}/api/engine/setup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          polymarket_api_key: proxyKey,
+          polymarket_proxy_secret: secret,
+          polymarket_passphrase: passphrase,
+          polygon_private_key: privateKey,
+          strategy,
+        }),
+      });
+    } catch {
+      // Continue
+    }
+
     try {
       await fetch(`${API_URL}/api/engine/activate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
     } catch {
-      // Engine may be offline — still arm the UI for WS
+      // Engine may be offline
     }
 
     setArmed(true);
-  }, [armed, proxyKey, secret, passphrase]);
+  }, [armed, proxyKey, secret, passphrase, privateKey, strategy]);
+
+  const handleAuthSuccess = useCallback((label: string) => {
+    setIsAuthenticated(true);
+    setUserLabel(label);
+    setAuthOpen(false);
+  }, []);
 
   const sorted = [...signals].sort((a, b) => b.sig - a.sig);
-  const actionable = sorted.filter(s => s.edge > 5).length;
+  const actionable = sorted.filter((s) => s.edge > 5).length;
 
-  // Format balance display
   const balanceWhole = Math.floor(Math.abs(balance));
-  const balanceCents = Math.abs(balance % 1).toFixed(2).slice(1); // ".XX"
+  const balanceCents = Math.abs(balance % 1).toFixed(2).slice(1);
   const balancePrefix = balance < 0 ? "-$" : "$";
+
+  const vaultInputs = [
+    { key: "proxyKey", l: "Proxy Key", p: "pk_live_...", info: "Polymarket → Settings → API Keys", val: proxyKey, set: setProxyKey },
+    { key: "secret", l: "Secret", p: "••••••••", t: "password" as const, info: "API secret from Polymarket", val: secret, set: setSecret },
+    { key: "passphrase", l: "Passphrase", p: "••••••••", t: "password" as const, info: "Passphrase from key creation", val: passphrase, set: setPassphrase },
+    { key: "privateKey", l: "Private Key", p: "0x...", t: "password" as const, info: "MetaMask → Account Details → Export", val: privateKey, set: setPrivateKey },
+  ];
 
   return (
     <div className="min-h-screen bg-[#050505] text-white relative">
@@ -487,6 +525,12 @@ export function TerminalView() {
         style={{ backgroundImage: GRAIN_SVG, backgroundRepeat: "repeat", backgroundSize: "256px" }}
       />
 
+      {/* Phase 4: Auth Modal */}
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} onSuccess={handleAuthSuccess} />
+
+      {/* Phase 5: Account Panel */}
+      <AccountPanel isOpen={accountOpen} onClose={() => setAccountOpen(false)} userLabel={userLabel} />
+
       {/* ── HEADER ── */}
       <motion.header
         initial={{ opacity: 0, y: -8 }}
@@ -495,7 +539,9 @@ export function TerminalView() {
         className="sticky top-0 z-50 flex items-center justify-between px-10 h-14 border-b border-white/[0.04] bg-[#050505]/85 backdrop-blur-md backdrop-saturate-[1.4]"
       >
         <div className="flex items-center gap-3.5">
-          <span className="text-[11px] font-bold tracking-[0.4em]" style={{ fontFamily: "Syne" }}>BLACK EDGE</span>
+          <span className="text-[11px] font-bold tracking-[0.4em]" style={{ fontFamily: "Syne" }}>
+            BLACK EDGE
+          </span>
           <div className="w-px h-4 bg-white/[0.04]" />
           <span className="font-mono text-[10px] tracking-[0.15em] text-white/20">TERMINAL</span>
         </div>
@@ -503,22 +549,36 @@ export function TerminalView() {
           <div className="flex items-center gap-2">
             <div className="relative">
               <div className={`w-1.5 h-1.5 rounded-full transition-all duration-600 ${armed ? "bg-[#00FF88] shadow-[0_0_6px_rgba(0,255,136,0.5)]" : "bg-white/10"}`} />
-              {armed && (
-                <div className="absolute -inset-[3px] rounded-full border border-[#00FF88]/30 animate-ping" />
-              )}
+              {armed && <div className="absolute -inset-[3px] rounded-full border border-[#00FF88]/30 animate-ping" />}
             </div>
             <span className={`font-mono text-[10px] tracking-[0.12em] transition-colors duration-600 ${armed ? "text-[#00FF88]" : "text-white/[0.08]"}`}>
               {armed ? "LIVE" : "IDLE"}
             </span>
           </div>
-          <span className="font-mono text-[10px] text-white/[0.08] tabular-nums tracking-wide">{time}</span>
-          <button className="text-[11px] text-white/20 hover:text-white/45 transition-colors tracking-wide">Sign out</button>
+          <ClockDisplay />
+          {isAuthenticated ? (
+            <button
+              onClick={() => setAccountOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/[0.06] hover:border-[#00FF88]/20 transition-all group"
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-[#00FF88]" />
+              <span className="text-[11px] text-white/40 group-hover:text-white/60 transition-colors tracking-wide truncate max-w-[120px]">
+                {userLabel}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setAuthOpen(true)}
+              className="px-4 py-1.5 rounded-lg border border-white/[0.06] text-[11px] text-white/30 hover:text-white/60 hover:border-white/[0.12] transition-all tracking-[0.1em]"
+            >
+              Sign In
+            </button>
+          )}
         </div>
       </motion.header>
 
       {/* ── BODY ── */}
       <div className="max-w-[1480px] mx-auto px-10 py-12 grid grid-cols-[360px_1fr] gap-14 items-start">
-
         {/* ═══ LEFT: COMMAND CENTER ═══ */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -527,45 +587,46 @@ export function TerminalView() {
           className="sticky top-20 flex flex-col gap-8 min-h-[calc(100vh-140px)]"
         >
           {/* Aleph Sanctuary */}
-          <div className={`
+          <div
+            className={`
             flex flex-col items-center pt-12 pb-10 rounded-3xl
             bg-gradient-to-b from-[#0C0C0C] to-[#060606]
             border transition-all duration-800
             ${thinking ? "border-[#00FF88]/15 shadow-[0_0_80px_rgba(0,255,136,0.03)]" : "border-white/[0.03]"}
             ${armed ? "shadow-[0_0_80px_rgba(0,255,136,0.03)]" : "shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]"}
-          `}>
+          `}
+          >
             <AlephCore isArmed={armed} isThinking={thinking} />
             <div className="mt-5 text-center">
-              <span className={`font-mono text-[9px] tracking-[0.35em] transition-colors duration-600 ${
-                armed ? (thinking ? "text-[#00FF88]" : "text-[#00FF88]/50") : "text-white/[0.08]"
-              }`}>
+              <span
+                className={`font-mono text-[9px] tracking-[0.35em] transition-colors duration-600 ${
+                  armed ? (thinking ? "text-[#00FF88]" : "text-[#00FF88]/50") : "text-white/[0.08]"
+                }`}
+              >
                 {armed ? (thinking ? "HUNTING" : "SCANNING") : "DORMANT"}
               </span>
               {armed && !thinking && (
                 <div className="font-mono text-[9px] text-white/[0.08] mt-2 tracking-wide">
-                  {actionable} high-conviction signals
+                  {actionable > 0 ? `${actionable} high-conviction signals` : "awaiting signals"}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Strategy — Oracle + Sniper */}
+          {/* Strategy */}
           <div>
             <div className="font-mono text-[9px] tracking-[0.2em] text-white/20 mb-3.5">STRATEGY</div>
             <div className="flex gap-2">
               {([
                 { id: "oracle" as const, label: "Oracle", desc: "News + sentiment cross-market" },
                 { id: "sniper" as const, label: "Sniper", desc: "5-min crypto latency arb" },
-              ]).map(s => (
+              ]).map((s) => (
                 <button
                   key={s.id}
                   onClick={() => setStrategy(s.id)}
                   className={`
                     flex-1 text-left p-3.5 rounded-[14px] border transition-all duration-250
-                    ${strategy === s.id
-                      ? "bg-[#00FF88]/[0.04] border-[#00FF88]/12"
-                      : "bg-[#0A0A0A] border-white/[0.04] hover:border-white/[0.06]"
-                    }
+                    ${strategy === s.id ? "bg-[#00FF88]/[0.04] border-[#00FF88]/12" : "bg-[#0A0A0A] border-white/[0.04] hover:border-white/[0.06]"}
                   `}
                 >
                   <div className={`text-[13px] font-semibold transition-colors ${strategy === s.id ? "text-white" : "text-white/45"}`} style={{ fontFamily: "Syne" }}>
@@ -603,23 +664,45 @@ export function TerminalView() {
                   className="overflow-hidden"
                 >
                   <div className="pt-5 space-y-5">
-                    {([
-                      { l: "Proxy Key", p: "pk_live_...", info: "Polymarket → Settings → API Keys", val: proxyKey, set: setProxyKey },
-                      { l: "Secret", p: "••••••••", t: "password" as const, info: "API secret from Polymarket", val: secret, set: setSecret },
-                      { l: "Passphrase", p: "••••••••", t: "password" as const, info: "Passphrase from key creation", val: passphrase, set: setPassphrase },
-                      { l: "Private Key", p: "0x...", t: "password" as const, info: "MetaMask → Account Details → Export", val: privateKey, set: setPrivateKey },
-                    ] as const).map((inp, i) => (
-                      <div key={i}>
+                    {/* Phase 2: Error banner */}
+                    <AnimatePresence>
+                      {vaultError && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -4 }}
+                          className="font-mono text-[10px] tracking-[0.15em] text-red-400/80 py-2"
+                        >
+                          [ ERROR: CREDENTIALS REQUIRED ]
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {vaultInputs.map((inp) => (
+                      <div key={inp.key}>
                         <div className="flex items-center gap-1.5 mb-2">
                           <span className="font-mono text-[9px] text-white/20 tracking-[0.1em]">{inp.l.toUpperCase()}</span>
                           <Tip text={inp.info} />
                         </div>
                         <input
-                          type={"t" in inp && inp.t ? inp.t : "text"}
+                          type={inp.t || "text"}
                           placeholder={inp.p}
                           value={inp.val}
-                          onChange={(e) => inp.set(e.target.value)}
-                          className="w-full bg-transparent border-0 border-b border-white/[0.04] rounded-none px-0 py-2.5 text-white/80 text-[13px] font-mono placeholder:text-white/[0.08] focus:border-[#00FF88]/30 focus:outline-none transition-colors"
+                          onChange={(e) => {
+                            inp.set(e.target.value);
+                            if (vaultErrorFields.has(inp.key)) {
+                              setVaultErrorFields((prev) => {
+                                const next = new Set(prev);
+                                next.delete(inp.key);
+                                return next;
+                              });
+                            }
+                          }}
+                          className={`w-full bg-transparent border-0 border-b rounded-none px-0 py-2.5 text-white/80 text-[13px] font-mono placeholder:text-white/[0.08] focus:outline-none transition-colors ${
+                            vaultErrorFields.has(inp.key)
+                              ? "border-red-500/50 focus:border-red-500/70"
+                              : "border-white/[0.04] focus:border-[#00FF88]/30"
+                          }`}
                         />
                       </div>
                     ))}
@@ -629,7 +712,6 @@ export function TerminalView() {
             </AnimatePresence>
           </div>
 
-          {/* Spacer */}
           <div className="flex-1 min-h-6" />
 
           {/* ARM ALEPH */}
@@ -640,9 +722,10 @@ export function TerminalView() {
             className={`
               w-full h-14 rounded-[14px] font-semibold text-[13px] tracking-[0.18em] uppercase
               transition-all duration-350
-              ${armed
-                ? "bg-[#0F0F0F] text-white/20 border border-white/[0.04] hover:text-white/50 hover:border-red-500/30"
-                : "bg-[#00FF88] text-black border border-[#00FF88] shadow-[0_0_0_1px_#00FF88,0_0_24px_rgba(0,255,136,0.2),0_4px_16px_rgba(0,0,0,0.4)] hover:bg-[#00DD77] hover:shadow-[0_0_0_1px_#00FF88,0_0_48px_rgba(0,255,136,0.35),0_4px_24px_rgba(0,0,0,0.5)]"
+              ${
+                armed
+                  ? "bg-[#0F0F0F] text-white/20 border border-white/[0.04] hover:text-white/50 hover:border-red-500/30"
+                  : "bg-[#00FF88] text-black border border-[#00FF88] shadow-[0_0_0_1px_#00FF88,0_0_24px_rgba(0,255,136,0.2),0_4px_16px_rgba(0,0,0,0.4)] hover:bg-[#00DD77] hover:shadow-[0_0_0_1px_#00FF88,0_0_48px_rgba(0,255,136,0.35),0_4px_24px_rgba(0,0,0,0.5)]"
               }
             `}
           >
@@ -660,10 +743,17 @@ export function TerminalView() {
           {/* P&L Hero */}
           <div className="pl-1">
             <div className="flex items-baseline gap-1.5">
-              <span className={`text-[72px] font-extrabold tracking-[-0.04em] leading-none transition-colors duration-1000 ${armed ? "text-[#00FF88]" : "text-white/[0.06]"}`} style={{ fontFamily: "Syne" }}>
-                {balancePrefix}{balanceWhole}
+              <span
+                className={`text-[72px] font-extrabold tracking-[-0.04em] leading-none transition-colors duration-1000 ${armed ? "text-[#00FF88]" : "text-white/[0.06]"}`}
+                style={{ fontFamily: "Syne" }}
+              >
+                {balancePrefix}
+                {balanceWhole}
               </span>
-              <span className={`text-[48px] font-light tracking-[-0.03em] transition-colors duration-1000 ${armed ? "text-[#00FF88]/40" : "text-white/[0.03]"}`} style={{ fontFamily: "Syne" }}>
+              <span
+                className={`text-[48px] font-light tracking-[-0.03em] transition-colors duration-1000 ${armed ? "text-[#00FF88]/40" : "text-white/[0.03]"}`}
+                style={{ fontFamily: "Syne" }}
+              >
                 {balanceCents}
               </span>
             </div>
@@ -671,20 +761,15 @@ export function TerminalView() {
               {[
                 { l: "Trades", v: armed ? String(totalTrades) : "0" },
                 { l: "Win rate", v: winRate },
-                { l: "Avg edge", v: armed ? `+${(sorted.reduce((a, s) => a + s.edge, 0) / sorted.length).toFixed(1)}%` : "—", green: true },
+                { l: "Avg edge", v: armed && sorted.length > 0 ? `+${(sorted.reduce((a, s) => a + s.edge, 0) / sorted.length).toFixed(1)}%` : "—", green: true },
                 { l: "Signals", v: armed ? String(signals.length) : "—" },
                 { l: "Sharpe", v: sharpe },
               ].map((m, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 + i * 0.06, duration: 0.4 }}
-                >
+                <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 + i * 0.06, duration: 0.4 }}>
                   <div className="text-[10px] text-white/20 tracking-wide mb-1.5">{m.l}</div>
-                  <div className={`font-mono text-[16px] font-medium tabular-nums tracking-tight transition-colors duration-600 ${
-                    m.green && armed ? "text-[#00FF88]" : "text-white/50"
-                  }`}>{m.v}</div>
+                  <div className={`font-mono text-[16px] font-medium tabular-nums tracking-tight transition-colors duration-600 ${m.green && armed ? "text-[#00FF88]" : "text-white/50"}`}>
+                    {m.v}
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -700,13 +785,13 @@ export function TerminalView() {
           <div>
             <div className="flex items-center justify-between mb-5 px-1">
               <div className="flex items-center gap-3">
-                <span className="text-[16px] font-semibold tracking-[-0.01em]" style={{ fontFamily: "Syne" }}>Signals</span>
-                <div className={`px-2.5 py-0.5 rounded-full border transition-all duration-500 ${
-                  armed ? "bg-[#00FF88]/[0.06] border-[#00FF88]/10" : "bg-white/[0.02] border-white/[0.04]"
-                }`}>
-                  <span className={`font-mono text-[10px] font-medium transition-colors duration-500 ${
-                    armed ? "text-[#00FF88]" : "text-white/[0.08]"
-                  }`}>{actionable} actionable</span>
+                <span className="text-[16px] font-semibold tracking-[-0.01em]" style={{ fontFamily: "Syne" }}>
+                  Signals
+                </span>
+                <div className={`px-2.5 py-0.5 rounded-full border transition-all duration-500 ${armed ? "bg-[#00FF88]/[0.06] border-[#00FF88]/10" : "bg-white/[0.02] border-white/[0.04]"}`}>
+                  <span className={`font-mono text-[10px] font-medium transition-colors duration-500 ${armed ? "text-[#00FF88]" : "text-white/[0.08]"}`}>
+                    {actionable} actionable
+                  </span>
                 </div>
               </div>
               <span className="font-mono text-[10px] text-white/[0.08]">
@@ -715,7 +800,6 @@ export function TerminalView() {
             </div>
 
             <div className="rounded-[20px] border border-white/[0.04] overflow-hidden bg-[#0A0A0A]">
-              {/* Column headers */}
               <div className="grid grid-cols-[1fr_100px_80px_64px] gap-2 px-7 py-3.5 border-b border-white/[0.04]">
                 {["Market", "Edge", "Probability", ""].map((h, i) => (
                   <span key={h} className={`font-mono text-[9px] tracking-[0.15em] text-white/[0.08] uppercase ${i > 0 ? "text-right" : ""}`}>
@@ -724,22 +808,21 @@ export function TerminalView() {
                 ))}
               </div>
 
-              {/* Signal rows */}
-              {sorted.map((s, i) => (
-                <SignalRow
-                  key={s.id}
-                  signal={s}
-                  index={i}
-                  isSelected={selectedSignal === s.id}
-                  onSelect={() => setSelectedSignal(selectedSignal === s.id ? null : s.id)}
-                />
-              ))}
+              {/* Phase 3: Real data or empty state */}
+              {sorted.length > 0 ? (
+                sorted.map((s, i) => (
+                  <SignalRow key={s.id} signal={s} index={i} isSelected={selectedSignal === s.id} onSelect={() => setSelectedSignal(selectedSignal === s.id ? null : s.id)} />
+                ))
+              ) : (
+                <div className="px-7 py-16 text-center">
+                  <div className="font-mono text-[11px] text-white/[0.08] tracking-[0.15em]">
+                    {armed ? "[ SCANNING DARK POOL... NO ARBITRAGE FOUND ]" : "[ SYSTEM IDLE — ARM TO STREAM ]"}
+                  </div>
+                </div>
+              )}
 
-              {/* Footer */}
               <div className="flex items-center justify-between px-7 py-3.5">
-                <span className="font-mono text-[10px] text-white/[0.06]">
-                  {armed ? "Refreshing live" : "Arm Aleph to stream signals"}
-                </span>
+                <span className="font-mono text-[10px] text-white/[0.06]">{armed ? "Refreshing live" : "Arm Aleph to stream signals"}</span>
                 {armed && (
                   <div className="flex items-center gap-1.5">
                     <div className="w-1 h-1 rounded-full bg-[#00FF88] animate-pulse" />
@@ -776,18 +859,8 @@ export function TerminalView() {
   );
 }
 
-// ─── SIGNAL ROW (extracted for cleanliness) ──────────────────────────────────
-function SignalRow({
-  signal: s,
-  index,
-  isSelected,
-  onSelect,
-}: {
-  signal: Signal;
-  index: number;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
+// ─── SIGNAL ROW ──────────────────────────────────────────────────────────────
+function SignalRow({ signal: s, index, isSelected, onSelect }: { signal: Signal; index: number; isSelected: boolean; onSelect: () => void }) {
   return (
     <>
       <motion.div
@@ -801,11 +874,8 @@ function SignalRow({
           ${isSelected ? "bg-[#00FF88]/[0.02] border-[#00FF88]/[0.06]" : "border-white/[0.02] hover:bg-white/[0.01]"}
         `}
       >
-        {/* Market */}
         <div>
-          <div className={`text-[14px] font-medium leading-snug transition-colors ${isSelected ? "text-white" : "text-white/80 group-hover:text-white"}`}>
-            {s.q}
-          </div>
+          <div className={`text-[14px] font-medium leading-snug transition-colors ${isSelected ? "text-white" : "text-white/80"}`}>{s.q}</div>
           <div className="flex items-center gap-2 mt-1.5">
             <span className="font-mono text-[9px] text-white/[0.08] tracking-[0.12em]">{s.cat}</span>
             <span className="w-[3px] h-[3px] rounded-full bg-white/[0.06]" />
@@ -814,13 +884,9 @@ function SignalRow({
             <span className="font-mono text-[9px] text-white/[0.06]">{s.res}</span>
           </div>
         </div>
-
-        {/* Edge sparkline */}
         <div className="flex items-center justify-end">
           <EdgeSparkline value={s.edge} />
         </div>
-
-        {/* Probability */}
         <div className="flex items-center justify-end gap-1.5">
           <span className="font-mono text-[11px] text-white/15 line-through decoration-white/[0.06]">{s.po}¢</span>
           <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
@@ -828,22 +894,21 @@ function SignalRow({
           </svg>
           <span className={`font-mono text-[12px] font-semibold ${s.edge > 0 ? "text-[#00FF88]/50" : "text-white/20"}`}>{s.tp}¢</span>
         </div>
-
-        {/* Risk */}
         <div className="flex items-center justify-end">
-          <span className={`font-mono text-[9px] tracking-wide px-2.5 py-1 rounded-lg border ${
-            s.risk === "low"
-              ? "bg-[#00FF88]/[0.04] text-[#00FF88]/50 border-[#00FF88]/[0.06]"
-              : s.risk === "med"
-              ? "bg-amber-500/[0.04] text-amber-400/40 border-amber-500/[0.06]"
-              : "bg-red-500/[0.04] text-red-400/40 border-red-500/[0.06]"
-          }`}>
+          <span
+            className={`font-mono text-[9px] tracking-wide px-2.5 py-1 rounded-lg border ${
+              s.risk === "low"
+                ? "bg-[#00FF88]/[0.04] text-[#00FF88]/50 border-[#00FF88]/[0.06]"
+                : s.risk === "med"
+                  ? "bg-amber-500/[0.04] text-amber-400/40 border-amber-500/[0.06]"
+                  : "bg-red-500/[0.04] text-red-400/40 border-red-500/[0.06]"
+            }`}
+          >
             {s.risk === "med" ? "MED" : s.risk.toUpperCase()}
           </span>
         </div>
       </motion.div>
 
-      {/* Expanded detail */}
       <AnimatePresence>
         {isSelected && (
           <motion.div
@@ -858,18 +923,16 @@ function SignalRow({
                 <div className="font-mono text-[9px] text-white/[0.08] tracking-[0.1em] mb-1.5">SIGNAL</div>
                 <div className="flex items-center gap-2">
                   <div className="w-[100px] h-1 rounded-full bg-white/[0.03] overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${s.sig}%` }}
-                      className={`h-full rounded-full ${s.sig >= 70 ? "bg-[#00FF88]" : "bg-white/15"}`}
-                    />
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${s.sig}%` }} className={`h-full rounded-full ${s.sig >= 70 ? "bg-[#00FF88]" : "bg-white/15"}`} />
                   </div>
                   <span className={`font-mono text-[14px] font-bold ${s.sig >= 70 ? "text-[#00FF88]" : "text-white/50"}`}>{s.sig}</span>
                 </div>
               </div>
               <div>
                 <div className="font-mono text-[9px] text-white/[0.08] tracking-[0.1em] mb-1.5">SIDE</div>
-                <span className="font-mono text-[13px] font-semibold text-[#00FF88]/60">{s.side} @ {s.po}¢</span>
+                <span className="font-mono text-[13px] font-semibold text-[#00FF88]/60">
+                  {s.side} @ {s.po}¢
+                </span>
               </div>
               <div>
                 <div className="font-mono text-[9px] text-white/[0.08] tracking-[0.1em] mb-1.5">KELLY</div>
