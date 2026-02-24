@@ -283,7 +283,7 @@ export default function Home() {
           setTimeout(() => el.classList.remove("flash"), 250)
         }
       })
-    }, 2200)
+    }, 5000)
 
     let countdown = 30
     setInterval(() => {
@@ -351,23 +351,45 @@ export default function Home() {
         },
         { passive: true }
       )
-    }
 
-    setInterval(() => {
-      const targets = [...document.querySelectorAll<HTMLElement>(".agent-name, .nav-logo, .hiw-title")]
-      const t = targets[Math.floor(Math.random() * targets.length)]
-      if (!t) return
-      const orig = t.innerHTML
-      let c = 0
-      const gi = setInterval(() => {
-        t.style.transform = `translate(${(Math.random() - 0.5) * 4}px,${(Math.random() - 0.5) * 2}px)`
-        if (++c > 3) {
-          clearInterval(gi)
-          t.style.transform = ""
-          t.innerHTML = orig
-        }
-      }, 40)
-    }, 4500)
+      // CLI tabs
+      const cliTabs = document.querySelectorAll(".cli-tab")
+      cliTabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const os = (tab as HTMLElement).dataset.os
+          cliTabs.forEach((t) => {
+            t.classList.remove("cli-tab-active")
+            ;(t as HTMLElement).style.borderBottomColor = "transparent"
+            ;(t as HTMLElement).style.color = "rgba(255,255,255,0.5)"
+          })
+          tab.classList.add("cli-tab-active")
+          ;(tab as HTMLElement).style.borderBottomColor = "var(--em)"
+          ;(tab as HTMLElement).style.color = "#fff"
+          document.querySelectorAll(".cli-panel").forEach((p) => {
+            ;(p as HTMLElement).style.display = "none"
+            p.classList.remove("cli-panel-active")
+          })
+          const panel = document.querySelector(`.cli-panel[data-os="${os}"]`)
+          if (panel) {
+            ;(panel as HTMLElement).style.display = "block"
+            panel.classList.add("cli-panel-active")
+          }
+        })
+      })
+
+      // Auth button hover effects
+      const authBtns = document.querySelectorAll(".auth-btn")
+      authBtns.forEach((btn) => {
+        btn.addEventListener("mouseenter", () => {
+          ;(btn as HTMLElement).style.background = "rgba(255,255,255,0.08)"
+          ;(btn as HTMLElement).style.borderColor = "var(--em)"
+        })
+        btn.addEventListener("mouseleave", () => {
+          ;(btn as HTMLElement).style.background = "rgba(255,255,255,0.05)"
+          ;(btn as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)"
+        })
+      })
+    }
 
     return () => {
       document.removeEventListener("mousemove", onMouseMove)
@@ -962,6 +984,113 @@ export default function Home() {
                 <button type="button" className="btn-tier" onClick={() => handleGetAccess("whale")}>
                   GET ACCESS — $999
                 </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="hr hr-z" />
+
+        <section id="get-started" style={{background: 'linear-gradient(180deg, #000 0%, #0a0a0a 100%)', padding: '120px 0'}}>
+          <div className="section-inner">
+            <div className="section-tag reveal" style={{color: 'var(--em)'}}>GET STARTED</div>
+            <h2 className="section-title reveal reveal-delay-1">
+              Connect in <em>Seconds</em>
+            </h2>
+            <p className="section-subtitle reveal reveal-delay-15" style={{maxWidth: '600px', margin: '0 auto 60px', color: 'rgba(255,255,255,0.6)'}}>
+              Sign in with your preferred method and start accessing real-time prediction market intelligence powered by our AI Council.
+            </p>
+
+            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', maxWidth: '900px', margin: '0 auto'}}>
+              <button className="auth-btn reveal reveal-delay-2" style={{display: 'flex', alignItems: 'center', gap: '12px', padding: '18px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: '15px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.3s ease'}}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M19.6 10.23c0-.82-.1-1.42-.25-2.05H10v3.72h5.5c-.15.83-.63 1.99-1.78 2.8l2.77 2.15c1.7-1.57 2.68-3.88 2.68-6.62z" fill="#4285F4"/>
+                  <path d="M10 20c2.43 0 4.47-.8 5.96-2.18l-2.77-2.15c-.76.53-1.78.87-3.19.87-2.42 0-4.48-1.64-5.22-3.85L1.9 15.09C3.43 18.1 6.48 20 10 20z" fill="#34A853"/>
+                  <path d="M4.78 11.69c-.38-1.13-.38-2.25 0-3.38L1.9 5.91C.9 7.91.9 11.09 1.9 13.09l2.88-2.4z" fill="#FBBC05"/>
+                  <path d="M10 4.13c1.37 0 2.59.47 3.55 1.38l2.62-2.62C14.47.89 12.43 0 10 0 6.48 0 3.43 1.9 1.9 4.91l2.88 2.4C5.52 5.77 7.58 4.13 10 4.13z" fill="#EA4335"/>
+                </svg>
+                Continue with Google
+              </button>
+
+              <button className="auth-btn reveal reveal-delay-25" style={{display: 'flex', alignItems: 'center', gap: '12px', padding: '18px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: '15px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.3s ease'}}>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M15.4 7.7c-.1 0-2.3.1-2.3 2.8 0 3 2.6 4 2.7 4.1 0 0-.2.8-1 1.6-.7.7-1.4 1.4-2.5 1.4s-1.3-.7-2.5-.7c-1.2 0-1.6.7-2.6.7-1 0-1.8-.7-2.6-1.5C3.6 14.9 3 13 3 11.2c0-2.9 1.9-4.4 3.8-4.4 1 0 1.8.7 2.4.7.6 0 1.5-.7 2.6-.7.4 0 1.9.1 2.9 1.4-.1.1-.7.4-.7 1.5zM13 3.7c.5-.6.9-1.5.9-2.4 0-.1 0-.3 0-.3-.9 0-2 .6-2.6 1.3-.5.6-.9 1.4-.9 2.3 0 .1 0 .3 0 .3h.2c.8 0 1.8-.5 2.4-1.2z"/>
+                </svg>
+                Continue with Apple
+              </button>
+
+              <div className="reveal reveal-delay-3" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18px 24px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px'}}>
+                <ConnectButton />
+              </div>
+            </div>
+
+            <p className="reveal reveal-delay-35" style={{textAlign: 'center', marginTop: '30px', fontSize: '13px', color: 'rgba(255,255,255,0.4)'}}>
+              By signing in, you agree to our <Link href="/terms" style={{color: 'var(--em)', textDecoration: 'none'}}>Terms of Service</Link> and <Link href="/privacy" style={{color: 'var(--em)', textDecoration: 'none'}}>Privacy Policy</Link>
+            </p>
+          </div>
+        </section>
+
+        <div className="hr hr-z" />
+
+        <section id="cli" style={{background: '#000', padding: '120px 0'}}>
+          <div className="section-inner">
+            <div className="section-tag reveal" style={{color: 'var(--em)'}}>TERMINAL ACCESS</div>
+            <h2 className="section-title reveal reveal-delay-1">
+              Run the <em>CLI</em>
+            </h2>
+            <p className="section-subtitle reveal reveal-delay-15" style={{maxWidth: '600px', margin: '0 auto 60px', color: 'rgba(255,255,255,0.6)'}}>
+              Stream live signals directly to your terminal. One command to install, one command to start.
+            </p>
+
+            <div style={{maxWidth: '800px', margin: '0 auto'}}>
+              <div className="reveal reveal-delay-2" style={{marginBottom: '40px'}}>
+                <div style={{display: 'flex', gap: '12px', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
+                  <button className="cli-tab cli-tab-active" data-os="mac" style={{padding: '12px 20px', background: 'transparent', border: 'none', borderBottom: '2px solid var(--em)', color: '#fff', fontSize: '14px', fontWeight: 500, cursor: 'pointer'}}>macOS</button>
+                  <button className="cli-tab" data-os="linux" style={{padding: '12px 20px', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', color: 'rgba(255,255,255,0.5)', fontSize: '14px', fontWeight: 500, cursor: 'pointer'}}>Linux</button>
+                  <button className="cli-tab" data-os="windows" style={{padding: '12px 20px', background: 'transparent', border: 'none', borderBottom: '2px solid transparent', color: 'rgba(255,255,255,0.5)', fontSize: '14px', fontWeight: 500, cursor: 'pointer'}}>Windows</button>
+                </div>
+
+                <div className="cli-panel cli-panel-active" data-os="mac">
+                  <div style={{background: 'rgba(0,255,65,0.02)', border: '1px solid rgba(0,255,65,0.2)', borderRadius: '8px', padding: '20px', fontFamily: 'monospace', fontSize: '14px'}}>
+                    <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Install via npm</div>
+                    <div style={{color: 'var(--em)', marginBottom: '20px'}}>npm install -g black-edge</div>
+                    <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Start streaming signals</div>
+                    <div style={{color: 'var(--em)'}}>black-edge start</div>
+                  </div>
+                </div>
+
+                <div className="cli-panel" data-os="linux" style={{display: 'none'}}>
+                  <div style={{background: 'rgba(0,255,65,0.02)', border: '1px solid rgba(0,255,65,0.2)', borderRadius: '8px', padding: '20px', fontFamily: 'monospace', fontSize: '14px'}}>
+                    <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Install via npm</div>
+                    <div style={{color: 'var(--em)', marginBottom: '20px'}}>sudo npm install -g black-edge</div>
+                    <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Start streaming signals</div>
+                    <div style={{color: 'var(--em)'}}>black-edge start</div>
+                  </div>
+                </div>
+
+                <div className="cli-panel" data-os="windows" style={{display: 'none'}}>
+                  <div style={{background: 'rgba(0,255,65,0.02)', border: '1px solid rgba(0,255,65,0.2)', borderRadius: '8px', padding: '20px', fontFamily: 'monospace', fontSize: '14px'}}>
+                    <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Install via npm (requires Node.js)</div>
+                    <div style={{color: 'var(--em)', marginBottom: '20px'}}>npm install -g black-edge</div>
+                    <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Start streaming signals</div>
+                    <div style={{color: 'var(--em)'}}>black-edge start</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="reveal reveal-delay-3" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', padding: '30px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px'}}>
+                <div style={{textAlign: 'center'}}>
+                  <div style={{fontSize: '28px', fontWeight: 700, color: 'var(--em)', marginBottom: '8px'}}>5</div>
+                  <div style={{fontSize: '13px', color: 'rgba(255,255,255,0.6)'}}>AI Agents</div>
+                </div>
+                <div style={{textAlign: 'center'}}>
+                  <div style={{fontSize: '28px', fontWeight: 700, color: 'var(--em)', marginBottom: '8px'}}>&lt;1s</div>
+                  <div style={{fontSize: '13px', color: 'rgba(255,255,255,0.6)'}}>Latency</div>
+                </div>
+                <div style={{textAlign: 'center'}}>
+                  <div style={{fontSize: '28px', fontWeight: 700, color: 'var(--em)', marginBottom: '8px'}}>24/7</div>
+                  <div style={{fontSize: '13px', color: 'rgba(255,255,255,0.6)'}}>Uptime</div>
+                </div>
               </div>
             </div>
           </div>

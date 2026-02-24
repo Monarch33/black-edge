@@ -44,3 +44,4 @@ htmlcov/
 *.pem
 *.key
 API_KEYS_LOCAL.txt
+.vercel
