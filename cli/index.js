@@ -21,8 +21,8 @@ const axios = require('axios');
 
 const CONFIG_DIR = path.join(os.homedir(), '.blackedge');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
-const DEFAULT_API_URL = process.env.BLACK_EDGE_API || 'https://api.blackedge.io';
-const DEFAULT_WS_URL = process.env.BLACK_EDGE_WS || 'wss://api.blackedge.io/ws/v2/stream';
+const DEFAULT_API_URL = process.env.BLACK_EDGE_API || 'https://black-edge-backend-production-e616.up.railway.app';
+const DEFAULT_WS_URL = process.env.BLACK_EDGE_WS || 'wss://black-edge-backend-production-e616.up.railway.app/ws/v2/stream';
 
 // =============================================================================
 // ASCII Logo
