@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import Link from "next/link"
 import { AccessModal } from "@/components/access-modal"
+import { AuthModal } from "@/components/auth-modal"
+import { AccountPanel } from "@/components/account-panel"
 
 const MARKETS = [
   { name: "Federal Reserve Rate Cut — Q3 2025", cat: "economy", prob: 67, delta: 3.2, vol: "$4.2M", kelly: "+8.1%", badge: "live" },
@@ -48,6 +50,9 @@ export default function Home() {
   const [accessModalTier, setAccessModalTier] = useState<"runner" | "whale">("runner")
   const [accessTerminalLoading, setAccessTerminalLoading] = useState(false)
   const [pageFadeOut, setPageFadeOut] = useState(false)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login")
+  const [accountPanelOpen, setAccountPanelOpen] = useState(false)
 
   const adminWallet = (typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS ?? "") : "") || ""
 
@@ -434,39 +439,111 @@ export default function Home() {
               <div className="live-dot" />
               LIVE
             </div>
-            <button
-              type="button"
-              className="btn-primary btn-get-access"
-              onClick={() => handleGetAccess()}
-            >
-              GET ACCESS
-            </button>
-            <ConnectButton.Custom>
-              {({ openConnectModal, account }) =>
-                isConnecting ? (
-                  <button type="button" className="btn-connect btn-connect-pulse" disabled>
-                    <span className="btn-pulse-dot" />
-                    CONNECTING...
-                  </button>
-                ) : account ? (
-                  <button
-                    type="button"
-                    className="btn-cta"
-                    onClick={handleOpenAccessTerminal}
-                    disabled={accessTerminalLoading}
-                  >
-                    {accessTerminalLoading ? (
-                      <span className="btn-pulse-dot mr-2" />
-                    ) : null}
-                    {accessTerminalLoading ? "CHECKING..." : "OPEN ACCESS TERMINAL"}
-                  </button>
-                ) : (
-                  <button type="button" className="btn-connect btn-connect-glass" onClick={openConnectModal}>
-                    CONNECT WALLET
-                  </button>
-                )
-              }
-            </ConnectButton.Custom>
+
+            {isConnected && address ? (
+              // Logged in state
+              <>
+                <button
+                  type="button"
+                  className="btn-cta"
+                  onClick={handleOpenAccessTerminal}
+                  disabled={accessTerminalLoading}
+                  style={{
+                    padding: '10px 20px',
+                    background: 'var(--em)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#000',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {accessTerminalLoading ? "LOADING..." : "OPEN TERMINAL"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountPanelOpen(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 16px',
+                    background: 'rgba(0,255,65,0.1)',
+                    border: '1px solid rgba(0,255,65,0.3)',
+                    borderRadius: '8px',
+                    color: 'var(--em)',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>👤</span>
+                  {address.slice(0, 6)}...
+                </button>
+              </>
+            ) : (
+              // Not logged in state
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("login")
+                    setAuthModalOpen(true)
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    background: 'transparent',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
+                  }}
+                >
+                  LOG IN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("signup")
+                    setAuthModalOpen(true)
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    background: 'var(--em)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#000',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)'
+                    e.currentTarget.style.boxShadow = '0 0 20px rgba(0,255,65,0.4)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)'
+                    e.currentTarget.style.boxShadow = 'none'
+                  }}
+                >
+                  SIGN UP
+                </button>
+              </>
+            )}
           </div>
         </nav>
 
@@ -991,47 +1068,6 @@ export default function Home() {
 
         <div className="hr hr-z" />
 
-        <section id="get-started" style={{background: 'linear-gradient(180deg, #000 0%, #0a0a0a 100%)', padding: '120px 0'}}>
-          <div className="section-inner">
-            <div className="section-tag reveal" style={{color: 'var(--em)'}}>GET STARTED</div>
-            <h2 className="section-title reveal reveal-delay-1">
-              Connect in <em>Seconds</em>
-            </h2>
-            <p className="section-subtitle reveal reveal-delay-15" style={{maxWidth: '600px', margin: '0 auto 60px', color: 'rgba(255,255,255,0.6)'}}>
-              Sign in with your preferred method and start accessing real-time prediction market intelligence powered by our AI Council.
-            </p>
-
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', maxWidth: '900px', margin: '0 auto'}}>
-              <button className="auth-btn reveal reveal-delay-2" style={{display: 'flex', alignItems: 'center', gap: '12px', padding: '18px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: '15px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.3s ease'}}>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M19.6 10.23c0-.82-.1-1.42-.25-2.05H10v3.72h5.5c-.15.83-.63 1.99-1.78 2.8l2.77 2.15c1.7-1.57 2.68-3.88 2.68-6.62z" fill="#4285F4"/>
-                  <path d="M10 20c2.43 0 4.47-.8 5.96-2.18l-2.77-2.15c-.76.53-1.78.87-3.19.87-2.42 0-4.48-1.64-5.22-3.85L1.9 15.09C3.43 18.1 6.48 20 10 20z" fill="#34A853"/>
-                  <path d="M4.78 11.69c-.38-1.13-.38-2.25 0-3.38L1.9 5.91C.9 7.91.9 11.09 1.9 13.09l2.88-2.4z" fill="#FBBC05"/>
-                  <path d="M10 4.13c1.37 0 2.59.47 3.55 1.38l2.62-2.62C14.47.89 12.43 0 10 0 6.48 0 3.43 1.9 1.9 4.91l2.88 2.4C5.52 5.77 7.58 4.13 10 4.13z" fill="#EA4335"/>
-                </svg>
-                Continue with Google
-              </button>
-
-              <button className="auth-btn reveal reveal-delay-25" style={{display: 'flex', alignItems: 'center', gap: '12px', padding: '18px 24px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff', fontSize: '15px', fontWeight: 500, cursor: 'pointer', transition: 'all 0.3s ease'}}>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M15.4 7.7c-.1 0-2.3.1-2.3 2.8 0 3 2.6 4 2.7 4.1 0 0-.2.8-1 1.6-.7.7-1.4 1.4-2.5 1.4s-1.3-.7-2.5-.7c-1.2 0-1.6.7-2.6.7-1 0-1.8-.7-2.6-1.5C3.6 14.9 3 13 3 11.2c0-2.9 1.9-4.4 3.8-4.4 1 0 1.8.7 2.4.7.6 0 1.5-.7 2.6-.7.4 0 1.9.1 2.9 1.4-.1.1-.7.4-.7 1.5zM13 3.7c.5-.6.9-1.5.9-2.4 0-.1 0-.3 0-.3-.9 0-2 .6-2.6 1.3-.5.6-.9 1.4-.9 2.3 0 .1 0 .3 0 .3h.2c.8 0 1.8-.5 2.4-1.2z"/>
-                </svg>
-                Continue with Apple
-              </button>
-
-              <div className="reveal reveal-delay-3" style={{display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '18px 24px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px'}}>
-                <ConnectButton />
-              </div>
-            </div>
-
-            <p className="reveal reveal-delay-35" style={{textAlign: 'center', marginTop: '30px', fontSize: '13px', color: 'rgba(255,255,255,0.4)'}}>
-              By signing in, you agree to our <Link href="/terms" style={{color: 'var(--em)', textDecoration: 'none'}}>Terms of Service</Link> and <Link href="/privacy" style={{color: 'var(--em)', textDecoration: 'none'}}>Privacy Policy</Link>
-            </p>
-          </div>
-        </section>
-
-        <div className="hr hr-z" />
-
         <section id="cli" style={{background: '#000', padding: '120px 0'}}>
           <div className="section-inner">
             <div className="section-tag reveal" style={{color: 'var(--em)'}}>TERMINAL ACCESS</div>
@@ -1053,27 +1089,153 @@ export default function Home() {
                 <div className="cli-panel cli-panel-active" data-os="mac">
                   <div style={{background: 'rgba(0,255,65,0.02)', border: '1px solid rgba(0,255,65,0.2)', borderRadius: '8px', padding: '20px', fontFamily: 'monospace', fontSize: '14px'}}>
                     <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Install via npm</div>
-                    <div style={{color: 'var(--em)', marginBottom: '20px'}}>npm install -g black-edge</div>
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px'}}>
+                      <code style={{color: 'var(--em)', flex: 1}}>npm install -g black-edge</code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText('npm install -g black-edge')
+                          toast.success('Copied!')
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'rgba(0,255,65,0.1)',
+                          border: '1px solid rgba(0,255,65,0.3)',
+                          borderRadius: '6px',
+                          color: 'var(--em)',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          marginLeft: '12px'
+                        }}
+                      >
+                        COPY
+                      </button>
+                    </div>
                     <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Start streaming signals</div>
-                    <div style={{color: 'var(--em)'}}>black-edge start</div>
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                      <code style={{color: 'var(--em)', flex: 1}}>black-edge start</code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText('black-edge start')
+                          toast.success('Copied!')
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'rgba(0,255,65,0.1)',
+                          border: '1px solid rgba(0,255,65,0.3)',
+                          borderRadius: '6px',
+                          color: 'var(--em)',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          marginLeft: '12px'
+                        }}
+                      >
+                        COPY
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 <div className="cli-panel" data-os="linux" style={{display: 'none'}}>
                   <div style={{background: 'rgba(0,255,65,0.02)', border: '1px solid rgba(0,255,65,0.2)', borderRadius: '8px', padding: '20px', fontFamily: 'monospace', fontSize: '14px'}}>
                     <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Install via npm</div>
-                    <div style={{color: 'var(--em)', marginBottom: '20px'}}>sudo npm install -g black-edge</div>
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px'}}>
+                      <code style={{color: 'var(--em)', flex: 1}}>sudo npm install -g black-edge</code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText('sudo npm install -g black-edge')
+                          toast.success('Copied!')
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'rgba(0,255,65,0.1)',
+                          border: '1px solid rgba(0,255,65,0.3)',
+                          borderRadius: '6px',
+                          color: 'var(--em)',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          marginLeft: '12px'
+                        }}
+                      >
+                        COPY
+                      </button>
+                    </div>
                     <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Start streaming signals</div>
-                    <div style={{color: 'var(--em)'}}>black-edge start</div>
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                      <code style={{color: 'var(--em)', flex: 1}}>black-edge start</code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText('black-edge start')
+                          toast.success('Copied!')
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'rgba(0,255,65,0.1)',
+                          border: '1px solid rgba(0,255,65,0.3)',
+                          borderRadius: '6px',
+                          color: 'var(--em)',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          marginLeft: '12px'
+                        }}
+                      >
+                        COPY
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 <div className="cli-panel" data-os="windows" style={{display: 'none'}}>
                   <div style={{background: 'rgba(0,255,65,0.02)', border: '1px solid rgba(0,255,65,0.2)', borderRadius: '8px', padding: '20px', fontFamily: 'monospace', fontSize: '14px'}}>
                     <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Install via npm (requires Node.js)</div>
-                    <div style={{color: 'var(--em)', marginBottom: '20px'}}>npm install -g black-edge</div>
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px'}}>
+                      <code style={{color: 'var(--em)', flex: 1}}>npm install -g black-edge</code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText('npm install -g black-edge')
+                          toast.success('Copied!')
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'rgba(0,255,65,0.1)',
+                          border: '1px solid rgba(0,255,65,0.3)',
+                          borderRadius: '6px',
+                          color: 'var(--em)',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          marginLeft: '12px'
+                        }}
+                      >
+                        COPY
+                      </button>
+                    </div>
                     <div style={{color: 'rgba(255,255,255,0.5)', marginBottom: '12px'}}>// Start streaming signals</div>
-                    <div style={{color: 'var(--em)'}}>black-edge start</div>
+                    <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                      <code style={{color: 'var(--em)', flex: 1}}>black-edge start</code>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText('black-edge start')
+                          toast.success('Copied!')
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'rgba(0,255,65,0.1)',
+                          border: '1px solid rgba(0,255,65,0.3)',
+                          borderRadius: '6px',
+                          color: 'var(--em)',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          marginLeft: '12px'
+                        }}
+                      >
+                        COPY
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1148,6 +1310,8 @@ export default function Home() {
         </footer>
 
         <AccessModal isOpen={accessModalOpen} onClose={() => setAccessModalOpen(false)} defaultTier={accessModalTier} />
+        <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} mode={authMode} />
+        <AccountPanel isOpen={accountPanelOpen} onClose={() => setAccountPanelOpen(false)} userAddress={address} />
       </div>
     </>
   )
