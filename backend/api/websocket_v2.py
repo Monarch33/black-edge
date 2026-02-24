@@ -60,7 +60,7 @@ class ConnectionManagerV2:
             raise ValueError("User database not initialized")
 
         # Validate API key
-        user = user_db.get_user_by_api_key(api_key)
+        user = await user_db.get_user_by_api_key(api_key)
         if not user:
             await websocket.close(code=4001, reason="Invalid API key")
             raise ValueError("Invalid API key")
@@ -169,7 +169,7 @@ class ConnectionManagerV2:
 
             # Deduct credit
             if deduct_credits:
-                success = user_db.deduct_credits(
+                success = await user_db.deduct_credits(
                     user_id=user.id,
                     amount=1,
                     signal_id=signal.get("id"),

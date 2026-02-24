@@ -1105,9 +1105,9 @@ async def lifespan(app: FastAPI):
     # Startup
     await state.startup()
 
-    # Seed demo users for credit system
-    logger.info("Seeding demo users...")
-    seed_demo_users()
+    # Initialize database and seed demo users
+    logger.info("Initializing PostgreSQL database...")
+    await seed_demo_users()
 
     # Start engine log broadcast loop (for dashboard WebSocket)
     _engine_log_task = asyncio.create_task(_engine_log_broadcast_loop())

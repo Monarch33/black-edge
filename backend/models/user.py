@@ -1,7 +1,7 @@
 """
-User and API Credit Models
-===========================
-Handles user authentication, API key generation, and credit management.
+User and API Credit Models with PostgreSQL
+==========================================
+Handles user authentication, API key generation, and credit management using SQLAlchemy async.
 """
 
 import secrets
@@ -9,57 +9,99 @@ import hashlib
 from datetime import datetime, timedelta
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, Text, select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from database import Base, async_session_maker
+
+
+# =============================================================================
+# SQLAlchemy ORM Models (Database Tables)
+# =============================================================================
+
+class UserModel(Base):
+    """User table in PostgreSQL."""
+    __tablename__ = "users"
+
+    id = Column(String(64), primary_key=True)
+    email = Column(String(255), unique=True, nullable=True, index=True)
+    wallet_address = Column(String(255), unique=True, nullable=True, index=True)
+    google_id = Column(String(255), unique=True, nullable=True, index=True)
+    apple_id = Column(String(255), unique=True, nullable=True, index=True)
+
+    # API Key (hashed for security)
+    api_key_hash = Column(String(64), unique=True, nullable=False, index=True)
+
+    # Credit balance
+    credits = Column(Integer, default=0, nullable=False)
+    max_credits = Column(Integer, default=50000, nullable=False)
+
+    # Subscription tier
+    tier = Column(String(20), default="free", nullable=False)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_login = Column(DateTime, nullable=True)
+
+    # Usage stats
+    signals_generated = Column(Integer, default=0, nullable=False)
+    total_signals_lifetime = Column(Integer, default=0, nullable=False)
+
+
+class TransactionModel(Base):
+    """Credit transaction log in PostgreSQL."""
+    __tablename__ = "transactions"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String(64), nullable=False, index=True)
+    amount = Column(Integer, nullable=False)  # Positive for purchase, negative for usage
+    type = Column(String(20), nullable=False)  # "purchase", "signal", "refund"
+    description = Column(Text, nullable=False)
+    balance_after = Column(Integer, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    # Optional metadata
+    signal_id = Column(String(64), nullable=True)
+    market_slug = Column(String(255), nullable=True)
+
+
+# =============================================================================
+# Pydantic Models (API Responses)
+# =============================================================================
 
 class User(BaseModel):
-    """User account model."""
+    """User account model for API responses."""
     id: str
     email: Optional[EmailStr] = None
     wallet_address: Optional[str] = None
     google_id: Optional[str] = None
     apple_id: Optional[str] = None
-
-    # API Key (generated once, never expires)
-    api_key: str
-    api_key_hash: str  # SHA-256 hash for secure storage
-
-    # Credit balance
     credits: int = 0
     max_credits: int = 50000
-
-    # Subscription tier
-    tier: str = "free"  # free, runner, whale
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    tier: str = "free"
+    created_at: datetime
     last_login: Optional[datetime] = None
-
-    # Usage stats
     signals_generated: int = 0
     total_signals_lifetime: int = 0
 
-
-class APIKey(BaseModel):
-    """API Key validation model."""
-    key: str
-    user_id: str
-    is_valid: bool = True
-    last_used: Optional[datetime] = None
+    class Config:
+        from_attributes = True
 
 
 class CreditTransaction(BaseModel):
     """Credit transaction log."""
     id: str
     user_id: str
-    amount: int  # Positive for purchase, negative for usage
-    type: str  # "purchase", "signal", "refund"
+    amount: int
+    type: str
     description: str
     balance_after: int
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-    # Optional metadata
+    timestamp: datetime
     signal_id: Optional[str] = None
     market_slug: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 
 class UserCredits(BaseModel):
@@ -94,26 +136,21 @@ def verify_api_key(provided_key: str, stored_hash: str) -> bool:
 
 
 # =============================================================================
-# In-Memory User Database (Replace with real DB in production)
+# Async Database Operations
 # =============================================================================
 
 class UserDatabase:
-    """Simple in-memory user database for demo purposes."""
+    """PostgreSQL user database with async operations."""
 
-    def __init__(self):
-        self.users: dict[str, User] = {}
-        self.api_keys: dict[str, str] = {}  # api_key -> user_id
-        self.transactions: list[CreditTransaction] = []
-
-    def create_user(
+    async def create_user(
         self,
         email: Optional[str] = None,
         wallet_address: Optional[str] = None,
         google_id: Optional[str] = None,
         apple_id: Optional[str] = None,
         tier: str = "free"
-    ) -> User:
-        """Create a new user with an API key."""
+    ) -> tuple[User, str]:
+        """Create a new user with an API key. Returns (User, api_key)."""
         user_id = secrets.token_urlsafe(16)
         api_key = generate_api_key()
         api_key_hash = hash_api_key(api_key)
@@ -125,71 +162,102 @@ class UserDatabase:
             "whale": 100000
         }.get(tier, 100)
 
-        user = User(
-            id=user_id,
-            email=email,
-            wallet_address=wallet_address,
-            google_id=google_id,
-            apple_id=apple_id,
-            api_key=api_key,
-            api_key_hash=api_key_hash,
-            credits=initial_credits,
-            tier=tier
-        )
+        async with async_session_maker() as session:
+            # Create user
+            db_user = UserModel(
+                id=user_id,
+                email=email,
+                wallet_address=wallet_address,
+                google_id=google_id,
+                apple_id=apple_id,
+                api_key_hash=api_key_hash,
+                credits=initial_credits,
+                tier=tier
+            )
+            session.add(db_user)
 
-        self.users[user_id] = user
-        self.api_keys[api_key] = user_id
+            # Log initial credit grant
+            transaction = TransactionModel(
+                id=secrets.token_urlsafe(12),
+                user_id=user_id,
+                amount=initial_credits,
+                type="purchase",
+                description=f"Initial {tier} tier credits",
+                balance_after=initial_credits
+            )
+            session.add(transaction)
 
-        # Log initial credit grant
-        self.add_transaction(
-            user_id=user_id,
-            amount=initial_credits,
-            type="purchase",
-            description=f"Initial {tier} tier credits"
-        )
+            await session.commit()
+            await session.refresh(db_user)
 
-        return user
+            return User.model_validate(db_user), api_key
 
-    def get_user_by_id(self, user_id: str) -> Optional[User]:
+    async def get_user_by_id(self, user_id: str) -> Optional[User]:
         """Get user by ID."""
-        return self.users.get(user_id)
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(UserModel).where(UserModel.id == user_id)
+            )
+            db_user = result.scalar_one_or_none()
+            return User.model_validate(db_user) if db_user else None
 
-    def get_user_by_api_key(self, api_key: str) -> Optional[User]:
+    async def get_user_by_api_key(self, api_key: str) -> Optional[User]:
         """Get user by API key."""
-        user_id = self.api_keys.get(api_key)
-        if user_id:
-            user = self.users.get(user_id)
-            if user:
+        api_key_hash = hash_api_key(api_key)
+
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(UserModel).where(UserModel.api_key_hash == api_key_hash)
+            )
+            db_user = result.scalar_one_or_none()
+
+            if db_user:
                 # Update last login
-                user.last_login = datetime.utcnow()
-            return user
-        return None
+                db_user.last_login = datetime.utcnow()
+                await session.commit()
+                return User.model_validate(db_user)
 
-    def get_user_by_wallet(self, wallet_address: str) -> Optional[User]:
+            return None
+
+    async def get_user_by_wallet(self, wallet_address: str) -> Optional[User]:
         """Get user by wallet address."""
-        for user in self.users.values():
-            if user.wallet_address and user.wallet_address.lower() == wallet_address.lower():
-                return user
-        return None
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(UserModel).where(
+                    func.lower(UserModel.wallet_address) == wallet_address.lower()
+                )
+            )
+            db_user = result.scalar_one_or_none()
+            return User.model_validate(db_user) if db_user else None
 
-    def add_credits(self, user_id: str, amount: int, description: str = "Credit purchase") -> bool:
+    async def add_credits(self, user_id: str, amount: int, description: str = "Credit purchase") -> bool:
         """Add credits to a user's account."""
-        user = self.users.get(user_id)
-        if not user:
-            return False
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(UserModel).where(UserModel.id == user_id)
+            )
+            db_user = result.scalar_one_or_none()
 
-        user.credits = min(user.credits + amount, user.max_credits)
+            if not db_user:
+                return False
 
-        self.add_transaction(
-            user_id=user_id,
-            amount=amount,
-            type="purchase",
-            description=description
-        )
+            db_user.credits = min(db_user.credits + amount, db_user.max_credits)
 
-        return True
+            # Log transaction
+            transaction = TransactionModel(
+                id=secrets.token_urlsafe(12),
+                user_id=user_id,
+                amount=amount,
+                type="purchase",
+                description=description,
+                balance_after=db_user.credits
+            )
+            session.add(transaction)
 
-    def deduct_credits(
+            await session.commit()
+            return True
+
+    async def deduct_credits(
         self,
         user_id: str,
         amount: int = 1,
@@ -197,58 +265,38 @@ class UserDatabase:
         market_slug: Optional[str] = None
     ) -> bool:
         """Deduct credits from a user's account for signal generation."""
-        user = self.users.get(user_id)
-        if not user:
-            return False
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(UserModel).where(UserModel.id == user_id)
+            )
+            db_user = result.scalar_one_or_none()
 
-        if user.credits < amount:
-            return False
+            if not db_user or db_user.credits < amount:
+                return False
 
-        user.credits -= amount
-        user.signals_generated += 1
-        user.total_signals_lifetime += 1
+            db_user.credits -= amount
+            db_user.signals_generated += 1
+            db_user.total_signals_lifetime += 1
 
-        self.add_transaction(
-            user_id=user_id,
-            amount=-amount,
-            type="signal",
-            description=f"Signal generated: {market_slug or 'unknown'}",
-            signal_id=signal_id,
-            market_slug=market_slug
-        )
+            # Log transaction
+            transaction = TransactionModel(
+                id=secrets.token_urlsafe(12),
+                user_id=user_id,
+                amount=-amount,
+                type="signal",
+                description=f"Signal generated: {market_slug or 'unknown'}",
+                balance_after=db_user.credits,
+                signal_id=signal_id,
+                market_slug=market_slug
+            )
+            session.add(transaction)
 
-        return True
+            await session.commit()
+            return True
 
-    def add_transaction(
-        self,
-        user_id: str,
-        amount: int,
-        type: str,
-        description: str,
-        signal_id: Optional[str] = None,
-        market_slug: Optional[str] = None
-    ) -> None:
-        """Log a credit transaction."""
-        user = self.users.get(user_id)
-        if not user:
-            return
-
-        transaction = CreditTransaction(
-            id=secrets.token_urlsafe(12),
-            user_id=user_id,
-            amount=amount,
-            type=type,
-            description=description,
-            balance_after=user.credits,
-            signal_id=signal_id,
-            market_slug=market_slug
-        )
-
-        self.transactions.append(transaction)
-
-    def get_user_credits(self, user_id: str) -> Optional[UserCredits]:
+    async def get_user_credits(self, user_id: str) -> Optional[UserCredits]:
         """Get user credit balance and stats."""
-        user = self.users.get(user_id)
+        user = await self.get_user_by_id(user_id)
         if not user:
             return None
 
@@ -262,6 +310,25 @@ class UserDatabase:
             total_signals_lifetime=user.total_signals_lifetime
         )
 
+    async def get_all_users(self) -> list[User]:
+        """Get all users (admin endpoint)."""
+        async with async_session_maker() as session:
+            result = await session.execute(select(UserModel))
+            db_users = result.scalars().all()
+            return [User.model_validate(u) for u in db_users]
+
+    async def get_transactions(self, user_id: str, limit: int = 50) -> list[CreditTransaction]:
+        """Get user transaction history."""
+        async with async_session_maker() as session:
+            result = await session.execute(
+                select(TransactionModel)
+                .where(TransactionModel.user_id == user_id)
+                .order_by(TransactionModel.timestamp.desc())
+                .limit(limit)
+            )
+            transactions = result.scalars().all()
+            return [CreditTransaction.model_validate(t) for t in transactions]
+
 
 # Global database instance
 user_db = UserDatabase()
@@ -271,33 +338,44 @@ user_db = UserDatabase()
 # Seed Demo Users
 # =============================================================================
 
-def seed_demo_users():
+async def seed_demo_users():
     """Create demo users for testing."""
+    from database import init_db
+
+    # Initialize database tables
+    await init_db()
+
+    # Check if users already exist
+    existing_users = await user_db.get_all_users()
+    if existing_users:
+        print(f"✅ Database already has {len(existing_users)} users")
+        return
 
     # Free tier user
-    free_user = user_db.create_user(
+    free_user, free_key = await user_db.create_user(
         email="demo@blackedge.com",
         tier="free"
     )
 
     # Runner tier user (with wallet)
-    runner_user = user_db.create_user(
+    runner_user, runner_key = await user_db.create_user(
         wallet_address="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
         tier="runner"
     )
 
     # Whale tier user
-    whale_user = user_db.create_user(
+    whale_user, whale_key = await user_db.create_user(
         email="whale@blackedge.com",
         wallet_address="0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
         tier="whale"
     )
 
     print("✅ Demo users created:")
-    print(f"  FREE:   {free_user.api_key} ({free_user.credits} credits)")
-    print(f"  RUNNER: {runner_user.api_key} ({runner_user.credits} credits)")
-    print(f"  WHALE:  {whale_user.api_key} ({whale_user.credits} credits)")
+    print(f"  FREE:   {free_key[:20]}... ({free_user.credits} credits)")
+    print(f"  RUNNER: {runner_key[:20]}... ({runner_user.credits} credits)")
+    print(f"  WHALE:  {whale_key[:20]}... ({whale_user.credits} credits)")
 
 
 if __name__ == "__main__":
-    seed_demo_users()
+    import asyncio
+    asyncio.run(seed_demo_users())

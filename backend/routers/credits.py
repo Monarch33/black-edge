@@ -1,7 +1,7 @@
 """
 Credits API Router
 ==================
-Endpoints for managing user credits and API keys.
+Endpoints for managing user credits and API keys with PostgreSQL async support.
 """
 
 from fastapi import APIRouter, HTTPException, Header, Depends
@@ -72,8 +72,8 @@ async def get_current_user(
             detail="Missing API key. Include 'Authorization: Bearer <key>' or 'X-API-Key: <key>' header."
         )
 
-    # Validate API key
-    user = user_db.get_user_by_api_key(api_key)
+    # Validate API key (async)
+    user = await user_db.get_user_by_api_key(api_key)
     if not user:
         logger.warning("Invalid API key attempt", api_key_prefix=api_key[:10])
         raise HTTPException(
@@ -99,7 +99,7 @@ async def get_balance(user: Annotated[User, Depends(get_current_user)]):
     OR
     - X-API-Key: be_live_xxx
     """
-    credits = user_db.get_user_credits(user.id)
+    credits = await user_db.get_user_credits(user.id)
     if not credits:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -126,7 +126,7 @@ async def purchase_credits(
     if request.amount <= 0 or request.amount > 1000000:
         raise HTTPException(status_code=400, detail="Invalid amount")
 
-    success = user_db.add_credits(
+    success = await user_db.add_credits(
         user_id=user.id,
         amount=request.amount,
         description=f"Credit purchase via {request.payment_method}"
@@ -135,7 +135,7 @@ async def purchase_credits(
     if not success:
         raise HTTPException(status_code=500, detail="Failed to add credits")
 
-    credits = user_db.get_user_credits(user.id)
+    credits = await user_db.get_user_credits(user.id)
 
     logger.info(
         "Credits purchased",
@@ -160,7 +160,7 @@ async def deduct_credits(
     """
     Deduct credits manually (used by WebSocket signal stream).
     """
-    success = user_db.deduct_credits(
+    success = await user_db.deduct_credits(
         user_id=user.id,
         amount=request.amount
     )
@@ -172,7 +172,7 @@ async def deduct_credits(
             detail="Insufficient credits"
         )
 
-    credits = user_db.get_user_credits(user.id)
+    credits = await user_db.get_user_credits(user.id)
 
     logger.info(
         "Credits deducted",
@@ -194,18 +194,12 @@ async def get_transactions(
     limit: int = 50
 ):
     """Get recent credit transactions for authenticated user."""
-    user_transactions = [
-        tx for tx in user_db.transactions
-        if tx.user_id == user.id
-    ]
-
-    # Sort by timestamp descending
-    user_transactions.sort(key=lambda x: x.timestamp, reverse=True)
+    transactions = await user_db.get_transactions(user.id, limit)
 
     return {
         "status": "ok",
-        "count": len(user_transactions[:limit]),
-        "transactions": user_transactions[:limit]
+        "count": len(transactions),
+        "transactions": transactions
     }
 
 
@@ -242,7 +236,7 @@ async def admin_create_user(
     Admin endpoint to create a new user.
     Returns the generated API key.
     """
-    user = user_db.create_user(
+    user, api_key = await user_db.create_user(
         email=email,
         wallet_address=wallet_address,
         tier=tier
@@ -253,7 +247,7 @@ async def admin_create_user(
     return {
         "status": "ok",
         "user_id": user.id,
-        "api_key": user.api_key,  # ONLY return this once!
+        "api_key": api_key,  # ONLY return this once!
         "credits": user.credits,
         "tier": user.tier,
         "message": "⚠️ Save this API key - it won't be shown again!"
@@ -263,6 +257,8 @@ async def admin_create_user(
 @router.get("/admin/users")
 async def admin_list_users():
     """Admin endpoint to list all users."""
+    all_users = await user_db.get_all_users()
+
     users = [
         {
             "id": u.id,
@@ -272,7 +268,7 @@ async def admin_list_users():
             "credits": u.credits,
             "signals": u.total_signals_lifetime
         }
-        for u in user_db.users.values()
+        for u in all_users
     ]
 
     return {
