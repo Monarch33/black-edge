@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional, Any
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Query
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -28,6 +28,10 @@ from api.websocket import websocket_handler, manager as ws_manager, heartbeat_ta
 from engine.polymarket import PolymarketClient
 from engine.analytics import QuantEngine, QuantSignal
 from services.email_service import EmailService
+
+# Credit System imports
+from models.user import user_db, seed_demo_users
+from routers.credits import router as credits_router
 
 # Initialize logger and settings FIRST
 logger = structlog.get_logger()
@@ -1100,6 +1104,11 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     await state.startup()
+
+    # Seed demo users for credit system
+    logger.info("Seeding demo users...")
+    seed_demo_users()
+
     # Start engine log broadcast loop (for dashboard WebSocket)
     _engine_log_task = asyncio.create_task(_engine_log_broadcast_loop())
 
@@ -1197,6 +1206,13 @@ try:
     logger.info("✅ Stripe webhook enabled (POST /api/stripe/webhook)")
 except Exception as e:
     logger.warning("⚠️ Stripe webhook disabled", error=str(e))
+
+# Include Credits API router
+try:
+    app.include_router(credits_router)
+    logger.info("✅ Credits API router enabled (GET /api/credits/balance, POST /api/credits/purchase)")
+except Exception as e:
+    logger.warning("⚠️ Credits API router disabled", error=str(e))
 
 
 # Health check
@@ -1761,22 +1777,32 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     await websocket_handler(websocket)
 
 
-# V2 WebSocket endpoint (multiplexed stream)
-@app.websocket("/api/v2/ws")
-async def websocket_v2_endpoint(websocket: WebSocket) -> None:
+# V2 WebSocket endpoint (with API key authentication and credit management)
+@app.websocket("/ws/v2/stream")
+async def websocket_v2_endpoint_auth(
+    websocket: WebSocket,
+    api_key: str = Query(..., description="Black Edge API Key (be_live_***)"),
+    client_type: str = Query("web", description="Client type: 'web' or 'cli'")
+) -> None:
     """
-    V2 WebSocket endpoint for multiplexed real-time streaming.
+    V2 WebSocket endpoint with API key authentication and credit deduction.
 
-    Streams:
-    - signal_update: New signal every 10 seconds
-    - whale_alert: When whale trades
-    - narrative_shift: When NVI accelerates
-    - risk_warning: When Doomer flags
+    Query Parameters:
+    - api_key: Black Edge API key (be_live_***)
+    - client_type: "web" (browser terminal) or "cli" (local terminal)
 
-    Format: {"type": "signal_update", "data": {...}}
+    Connection Examples:
+    - Web:  ws://localhost:8000/ws/v2/stream?api_key=be_live_xxx&client_type=web
+    - CLI:  ws://localhost:8000/ws/v2/stream?api_key=be_live_xxx&client_type=cli
+
+    Features:
+    - API key validation before connection
+    - Automatic 1 credit deduction per signal
+    - INSUFFICIENT_CREDITS error when credits = 0
+    - Heartbeat with credit balance updates
     """
     from api.websocket_v2 import websocket_handler_v2
-    await websocket_handler_v2(websocket)
+    await websocket_handler_v2(websocket, api_key, client_type)
 
 
 # =============================================================================
