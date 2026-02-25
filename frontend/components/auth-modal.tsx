@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { signIn } from "next-auth/react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { toast } from "sonner"
 
@@ -16,14 +17,17 @@ export function AuthModal({ isOpen, onClose, mode = "login" }: AuthModalProps) {
 
   if (!isOpen) return null
 
-  const handleGoogleAuth = () => {
-    toast.info("Google OAuth integration coming soon")
-    // TODO: Implement Google OAuth
+  const handleGoogleAuth = async () => {
+    try {
+      await signIn("google", { callbackUrl: "/dashboard" })
+    } catch (error) {
+      toast.error("Failed to sign in with Google")
+      console.error(error)
+    }
   }
 
   const handleAppleAuth = () => {
-    toast.info("Apple OAuth integration coming soon")
-    // TODO: Implement Apple OAuth
+    toast.info("Apple OAuth coming soon - use Google or Wallet for now")
   }
 
   const handleEmailAuth = (e: React.FormEvent) => {
