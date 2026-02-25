@@ -9,8 +9,9 @@
 // =============================================================================
 
 export enum UserTier {
-  OBSERVER = "observer",
-  RUNNER = "runner",
+  FREE = "free",
+  STARTER = "starter",
+  PRO = "pro",
   WHALE = "whale",
 }
 

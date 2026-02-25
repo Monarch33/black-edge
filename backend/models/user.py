@@ -158,7 +158,8 @@ class UserDatabase:
         # Set initial credits based on tier
         initial_credits = {
             "free": 100,
-            "runner": 10000,
+            "starter": 100,  # Same as free, for purchases
+            "pro": 10000,
             "whale": 100000
         }.get(tier, 100)
 
@@ -357,10 +358,10 @@ async def seed_demo_users():
         tier="free"
     )
 
-    # Runner tier user (with wallet)
-    runner_user, runner_key = await user_db.create_user(
+    # Pro tier user (with wallet)
+    pro_user, pro_key = await user_db.create_user(
         wallet_address="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
-        tier="runner"
+        tier="pro"
     )
 
     # Whale tier user
@@ -371,9 +372,9 @@ async def seed_demo_users():
     )
 
     print("✅ Demo users created:")
-    print(f"  FREE:   {free_key[:20]}... ({free_user.credits} credits)")
-    print(f"  RUNNER: {runner_key[:20]}... ({runner_user.credits} credits)")
-    print(f"  WHALE:  {whale_key[:20]}... ({whale_user.credits} credits)")
+    print(f"  FREE:  {free_key[:20]}... ({free_user.credits} credits)")
+    print(f"  PRO:   {pro_key[:20]}... ({pro_user.credits} credits)")
+    print(f"  WHALE: {whale_key[:20]}... ({whale_user.credits} credits)")
 
 
 if __name__ == "__main__":
