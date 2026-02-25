@@ -19,7 +19,8 @@ export function AuthModal({ isOpen, onClose, mode = "login" }: AuthModalProps) {
 
   const handleGoogleAuth = async () => {
     try {
-      await signIn("google", { callbackUrl: "/dashboard" })
+      await signIn("google", { callbackUrl: "/" })
+      onClose()
     } catch (error) {
       toast.error("Failed to sign in with Google")
       console.error(error)
