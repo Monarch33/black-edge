@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation"
+import { TerminalView } from "@/components/terminal-view"
 
 export default function TerminalPage() {
-  redirect("/#terminal-section")
+  return <TerminalView />
 }

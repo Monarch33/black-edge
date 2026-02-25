@@ -132,6 +132,9 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
 
+        {/* Google Fonts for Terminal */}
+        <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
         {/* Additional SEO */}
         <meta name="application-name" content="Black Edge" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
