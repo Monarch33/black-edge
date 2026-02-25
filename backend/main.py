@@ -22,6 +22,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import structlog
 import uvicorn
+import os
+
+# Initialize Sentry for error tracking
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
+
+if os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN"),
+        integrations=[
+            FastApiIntegration(),
+            StarletteIntegration(),
+        ],
+        traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
+        profiles_sample_rate=0.1,  # 10% for profiling
+        environment=os.getenv("ENVIRONMENT", "production"),
+        send_default_pii=True,
+    )
 
 from config import get_settings
 from api.websocket import websocket_handler, manager as ws_manager, heartbeat_task
