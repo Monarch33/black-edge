@@ -58,7 +58,7 @@ async def _broadcast_log(user_ids: list[int], message: str) -> None:
 # =============================================================================
 
 
-async def _fetch_markets(limit: int = 50) -> list[MarketSummary]:
+async def _fetch_markets(limit: int = 1000) -> list[MarketSummary]:
     """Fetch top markets from Polymarket Gamma API."""
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
@@ -296,7 +296,7 @@ async def global_scanner_loop() -> None:
             await _broadcast_log(running_users, "[SCAN] Analyzing Polymarket volume...")
 
             # Step 1: Fetch markets
-            markets = await _fetch_markets(limit=50)
+            markets = await _fetch_markets(limit=1000)
             if not markets:
                 logger.warning("[SCAN] No markets fetched — retrying in 60s")
                 await asyncio.sleep(60)

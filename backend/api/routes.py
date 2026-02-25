@@ -36,6 +36,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime
 from typing import Optional, Dict
+import time
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -979,8 +980,8 @@ async def trigger_auto_resolution() -> dict:
 
 @router.get("/markets")
 async def get_markets(
-    limit: int = Query(30, ge=1, le=100, description="Max markets to return"),
-    min_volume: float = Query(10000, ge=0, description="Minimum 24h volume in USD"),
+    limit: int = Query(1000, ge=1, le=10000, description="Max markets to return"),
+    min_volume: float = Query(0, ge=0, description="Minimum 24h volume in USD"),
 ) -> dict:
     """
     Get active Polymarket markets with live data.
