@@ -1,0 +1,72 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "blackedge"
+version = "0.1.0"
+description = "Autonomous prediction market trading bot with AI-powered edge detection"
+authors = ["Black Edge Team"]
+license = "Proprietary"
+readme = "README.md"
+packages = [{include = "blackedge"}]
+
+[tool.poetry.scripts]
+blackedge = "blackedge.cli:app"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# Async HTTP & WebSockets
+httpx = "^0.27"
+websockets = "^13.1"
+
+# Data validation
+pydantic = "^2.10"
+pydantic-settings = "^2.7"
+
+# Database (local SQLite)
+sqlmodel = "^0.0.22"
+aiosqlite = "^0.20"
+
+# CLI & TUI
+typer = {version = "^0.15", extras = ["all"]}
+rich = "^13.9"
+textual = "^1.0"
+
+# AI / LLM
+openai = "^1.59"
+anthropic = "^0.42"
+
+# Resilience & retry
+tenacity = "^9.0"
+
+# Utilities
+python-dotenv = "^1.0"
+orjson = "^3.10"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.14"
+pytest = "^8.3"
+pytest-asyncio = "^0.25"
+ruff = "^0.9"
+pyinstaller = "^6.11"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

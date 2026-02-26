@@ -1,0 +1,25 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Black Edge Logo - Minimalist Design -->
+  <rect width="512" height="512" fill="transparent"/>
+
+  <!-- Outer Border -->
+  <rect x="50" y="50" width="412" height="412" stroke="#EF4444" stroke-width="4" fill="none" opacity="0.5"/>
+
+  <!-- Inner Glow -->
+  <rect x="75" y="75" width="362" height="362" stroke="#06B6D4" stroke-width="2" fill="none" opacity="0.3"/>
+
+  <!-- Main "BE" Text -->
+  <text x="256" y="300" font-family="monospace" font-size="120" font-weight="bold" fill="#EF4444" text-anchor="middle">
+    BE
+  </text>
+
+  <!-- Edge Line -->
+  <line x1="100" y1="350" x2="412" y2="350" stroke="#EF4444" stroke-width="2" opacity="0.8"/>
+
+  <!-- Corner Accents -->
+  <line x1="50" y1="50" x2="100" y2="50" stroke="#EF4444" stroke-width="4"/>
+  <line x1="50" y1="50" x2="50" y2="100" stroke="#EF4444" stroke-width="4"/>
+
+  <line x1="412" y1="462" x2="462" y2="462" stroke="#EF4444" stroke-width="4"/>
+  <line x1="462" y1="412" x2="462" y2="462" stroke="#EF4444" stroke-width="4"/>
+</svg>

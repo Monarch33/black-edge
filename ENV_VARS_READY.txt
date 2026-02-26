@@ -1,0 +1,93 @@
+═══════════════════════════════════════════════════════════════
+🔐 BACKEND ENVIRONMENT VARIABLES (Render)
+═══════════════════════════════════════════════════════════════
+
+Copy and paste these into Render → Settings → Environment Variables:
+
+RESEND_API_KEY=re_XXXX_YOUR_RESEND_KEY_HERE
+CRYPTOPANIC_TOKEN=YOUR_CRYPTOPANIC_TOKEN_HERE
+STRIPE_SECRET_KEY=sk_live_YOUR_STRIPE_SECRET_KEY_HERE
+POLYGON_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_ALCHEMY_KEY_HERE
+POLYMARKET_PRIVATE_KEY=YOUR_POLYMARKET_PRIVATE_KEY_HERE
+POLYMARKET_DRY_RUN=true
+ENVIRONMENT=production
+DEBUG=false
+
+
+═══════════════════════════════════════════════════════════════
+🎨 FRONTEND ENVIRONMENT VARIABLES (Vercel)
+═══════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANT: Replace YOUR_RENDER_URL with your actual backend URL from Render
+⚠️  IMPORTANT: Replace price_XXXXX with your Stripe price IDs
+
+Copy and paste these into Vercel → Settings → Environment Variables:
+
+NEXT_PUBLIC_API_URL=https://YOUR_RENDER_URL.onrender.com
+NEXT_PUBLIC_WS_URL=wss://YOUR_RENDER_URL.onrender.com/ws/stream
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_YOUR_STRIPE_PUBLISHABLE_KEY_HERE
+STRIPE_SECRET_KEY=sk_live_YOUR_STRIPE_SECRET_KEY_HERE
+NEXT_PUBLIC_STRIPE_PRICE_ID_RUNNER=price_XXXXXXXXXXXXX
+NEXT_PUBLIC_STRIPE_PRICE_ID_WHALE=price_XXXXXXXXXXXXX
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=demo
+
+
+═══════════════════════════════════════════════════════════════
+📝 TODO BEFORE DEPLOYMENT
+═══════════════════════════════════════════════════════════════
+
+Backend (Render):
+  [ ] Add your Polymarket private key to POLYMARKET_PRIVATE_KEY
+
+Frontend (Vercel):
+  [ ] Create Stripe subscription prices and add IDs
+  [ ] Replace YOUR_RENDER_URL with actual backend URL after deploying to Render
+
+
+═══════════════════════════════════════════════════════════════
+🔐 MISSING API KEYS TO FIND
+═══════════════════════════════════════════════════════════════
+
+1. POLYMARKET_PRIVATE_KEY
+   - This is your Ethereum wallet private key
+   - Used to sign transactions on Polymarket
+   - ⚠️  NEVER share this or commit to GitHub
+   - You can find it in your wallet (MetaMask, Rabby, etc.)
+
+2. Stripe Price IDs
+   - Go to: https://dashboard.stripe.com/products
+   - Create "Runner" plan ($49.99/month) → Copy price ID
+   - Create "Whale" plan ($199.99/month) → Copy price ID
+   - Price IDs start with "price_"
+
+
+═══════════════════════════════════════════════════════════════
+✅ API KEYS ALREADY PROVIDED
+═══════════════════════════════════════════════════════════════
+
+✓ Alchemy API (Polygon RPC)
+✓ Resend (Email service)
+✓ Stripe Live Keys (Publishable + Secret)
+✓ CryptoPanic (News API)
+
+
+═══════════════════════════════════════════════════════════════
+🚀 DEPLOYMENT ORDER
+═══════════════════════════════════════════════════════════════
+
+1. Deploy BACKEND to Render first
+   - Get backend URL: https://xxx.onrender.com
+
+2. Deploy FRONTEND to Vercel
+   - Use backend URL in NEXT_PUBLIC_API_URL
+   - Use wss://xxx.onrender.com/ws/stream for WebSocket
+
+3. Test everything works!
+
+
+═══════════════════════════════════════════════════════════════
+📞 SUPPORT
+═══════════════════════════════════════════════════════════════
+
+Full deployment guide: See PRODUCTION_DEPLOYMENT.md
+GitHub repo: Your windsurf-project repository

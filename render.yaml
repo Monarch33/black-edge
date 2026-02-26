@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: black-edge-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /health
+    region: oregon
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: 8000
+      - key: POLYGON_RPC_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
