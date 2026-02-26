@@ -40,7 +40,12 @@
       "Bash(git rm:*)",
       "Bash(npx tsc:*)",
       "Bash(npm run lint:*)",
-      "Bash(.venv/bin/python3:*)"
+      "Bash(.venv/bin/python3:*)",
+      "Bash(git checkout:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(vercel link:*)",
+      "Bash(vercel env add:*)",
+      "Bash(vercel env:*)"
     ]
   }
 }

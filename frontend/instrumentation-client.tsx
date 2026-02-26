@@ -1,8 +1,13 @@
-// instrumentation-client.ts - Client-side initialization
+// instrumentation-client.tsx - Client-side initialization
 // This replaces the deprecated sentry.client.config.ts
 // https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation-client
 
+'use client';
+
 import * as Sentry from "@sentry/nextjs";
+
+// Export the navigation hook for router instrumentation
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
