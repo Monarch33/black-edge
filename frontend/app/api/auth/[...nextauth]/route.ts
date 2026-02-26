@@ -1,15 +1,22 @@
-import NextAuth, { NextAuthOptions } from "next-auth"
+import NextAuth, { NextAuthOptions, Provider } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
 
-const authOptions: NextAuthOptions = {
-  providers: [
+const providers: Provider[] = []
+
+// Only register Google provider if credentials are configured
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
-    }),
-    // Credentials provider for wallet authentication
-    CredentialsProvider({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    })
+  )
+}
+
+providers.push(
+  // Credentials provider for wallet authentication
+  CredentialsProvider({
       name: "Wallet",
       credentials: {
         address: { label: "Wallet Address", type: "text" },
@@ -26,8 +33,11 @@ const authOptions: NextAuthOptions = {
           email: null,
         }
       },
-    }),
-  ],
+    })
+)
+
+const authOptions: NextAuthOptions = {
+  providers,
   callbacks: {
     async signIn({ user, account }) {
       // Create Black Edge user and API key when signing in

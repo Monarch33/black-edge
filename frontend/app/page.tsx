@@ -94,6 +94,8 @@ export default function Home() {
   useEffect(() => {
     let activeFilter = "all"
     const marketsData = [...MARKETS]
+    const intervals: ReturnType<typeof setInterval>[] = []
+    let cursorRafId: number
 
     // Cursor
     const ring = document.getElementById("cursor-ring")
@@ -122,7 +124,7 @@ export default function Home() {
         lbl.style.left = rx + "px"
         lbl.style.top = ry + "px"
       }
-      requestAnimationFrame(animCursor)
+      cursorRafId = requestAnimationFrame(animCursor)
     }
     animCursor()
 
@@ -176,7 +178,7 @@ export default function Home() {
       const el = document.getElementById("t-time")
       if (el) el.textContent = t
     }
-    setInterval(clock, 1000)
+    intervals.push(setInterval(clock, 1000))
 
     function buildMarkets() {
       const grid = document.getElementById("markets-grid")
@@ -258,7 +260,7 @@ export default function Home() {
     buildTerminal()
     buildTicker()
 
-    setInterval(() => {
+    intervals.push(setInterval(() => {
       marketsData.forEach((m) => {
         m.prob = Math.max(4, Math.min(96, m.prob + (Math.random() - 0.48) * 0.9))
         m.delta = +(m.delta + (Math.random() - 0.5) * 0.25).toFixed(1)
@@ -288,15 +290,15 @@ export default function Home() {
           setTimeout(() => el.classList.remove("flash"), 250)
         }
       })
-    }, 5000)
+    }, 5000))
 
     let countdown = 30
-    setInterval(() => {
+    intervals.push(setInterval(() => {
       countdown--
       if (countdown <= 0) countdown = 30
       const el = document.getElementById("refresh-timer")
       if (el) el.textContent = `0:${String(countdown).padStart(2, "0")}`
-    }, 1000)
+    }, 1000))
 
     const wc = document.getElementById("wcloud")
     if (wc) {
@@ -398,6 +400,9 @@ export default function Home() {
 
     return () => {
       document.removeEventListener("mousemove", onMouseMove)
+      cancelAnimationFrame(cursorRafId)
+      clearInterval(PI)
+      intervals.forEach(clearInterval)
     }
   }, [])
 
