@@ -1,8 +1,8 @@
-import NextAuth, { NextAuthOptions, Provider } from "next-auth"
+import NextAuth, { NextAuthOptions } from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
 
-const providers: Provider[] = []
+const providers: NextAuthOptions["providers"] = []
 
 // Only register Google provider if credentials are configured
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {

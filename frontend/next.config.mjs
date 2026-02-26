@@ -30,9 +30,9 @@ export default withSentryConfig(nextConfig, {
   // Upload a larger set of source maps for prettier stack traces (increases build time)
   widenClientFileUpload: true,
 
-  // Delete source maps after uploading to Sentry (replaces deprecated hideSourceMaps)
+  // Upload source maps then delete them from the deployment
   sourcemapUploadOptions: {
-    filesToDeleteAfterUpload: ['.next/static/**/*.map'],
+    filesToDeleteAfterUpload: ['.next/static/**/*.map', '.next/server/**/*.map'],
   },
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
@@ -40,6 +40,8 @@ export default withSentryConfig(nextConfig, {
     excludeDebugStatements: true,
   },
 
-  // Enables automatic instrumentation of Vercel Cron Monitors
-  automaticVercelMonitors: true,
+  // Webpack-specific Sentry options
+  webpack: {
+    automaticVercelMonitors: true,
+  },
 });
