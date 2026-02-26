@@ -8,6 +8,7 @@ import {
 } from "@rainbow-me/rainbowkit"
 import { WagmiProvider } from "wagmi"
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query"
+import { SessionProvider } from "next-auth/react"
 import { mainnet, polygon, arbitrum, optimism, base } from "wagmi/chains"
 import "@rainbow-me/rainbowkit/styles.css"
 
@@ -22,19 +23,21 @@ const queryClient = new QueryClient()
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider
-          theme={darkTheme({
-            accentColor: "#10b981",
-            accentColorForeground: "#000",
-            borderRadius: "none",
-          })}
-          modalSize="compact"
-        >
-          {children}
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <SessionProvider>
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <RainbowKitProvider
+            theme={darkTheme({
+              accentColor: "#10b981",
+              accentColorForeground: "#000",
+              borderRadius: "none",
+            })}
+            modalSize="compact"
+          >
+            {children}
+          </RainbowKitProvider>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </SessionProvider>
   )
 }

@@ -2,26 +2,42 @@
 // This file is automatically loaded by Next.js
 // https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
 
+import * as Sentry from '@sentry/nextjs';
+
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     // Server initialization
-    const Sentry = await import('@sentry/nextjs');
-
-    Sentry.init({
-      dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-      tracesSampleRate: 0.1,
-      debug: false,
-    });
+    await import('./sentry.server.config');
   }
 
   if (process.env.NEXT_RUNTIME === 'edge') {
     // Edge runtime initialization
-    const Sentry = await import('@sentry/nextjs');
-
-    Sentry.init({
-      dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-      tracesSampleRate: 0.1,
-      debug: false,
-    });
+    await import('./sentry.edge.config');
   }
+}
+
+// Add the onRequestError hook for Next.js error handling
+export async function onRequestError(
+  err: Error,
+  request: Request,
+  context: {
+    routerKind: 'Pages Router' | 'App Router';
+    routePath: string;
+    routeType: 'render' | 'route' | 'action' | 'middleware';
+  }
+) {
+  Sentry.captureException(err, {
+    tags: {
+      routerKind: context.routerKind,
+      routePath: context.routePath,
+      routeType: context.routeType,
+    },
+    contexts: {
+      request: {
+        url: request.url,
+        method: request.method,
+        headers: Object.fromEntries(request.headers.entries()),
+      },
+    },
+  });
 }
