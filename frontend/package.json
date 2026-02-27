@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "video:preview": "npx remotion studio remotion/index.ts",
+    "video:render": "npx remotion render remotion/index.ts BlackEdgeAd out/blackedge-ad.mp4"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -40,6 +42,8 @@
     "@rainbow-me/rainbowkit": "^2.2.10",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.5.0",
+    "@remotion/cli": "^4.0.429",
+    "@remotion/renderer": "^4.0.429",
     "@sentry/nextjs": "^10.40.0",
     "@stripe/stripe-js": "^5.5.0",
     "@tanstack/react-query": "^5.90.20",
@@ -65,6 +69,7 @@
     "react-hook-form": "^7.60.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.4",
+    "remotion": "^4.0.429",
     "sonner": "^1.7.4",
     "stripe": "^20.3.1",
     "tailwind-merge": "^3.3.1",
