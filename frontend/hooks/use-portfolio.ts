@@ -204,7 +204,7 @@ export function usePortfolio() {
     setError(null)
 
     try {
-      console.log("[PORTFOLIO] Fetching positions for:", address)
+      // Fetching positions
 
       // Query The Graph subgraph
       const response = await fetch(POLYMARKET_SUBGRAPH_URL, {
@@ -230,7 +230,7 @@ export function usePortfolio() {
 
       const subgraphPositions: SubgraphPosition[] = data.data?.userPositions || []
 
-      console.log("[PORTFOLIO] Found positions:", subgraphPositions.length)
+      // Positions loaded
 
       if (subgraphPositions.length === 0) {
         setPositions([])

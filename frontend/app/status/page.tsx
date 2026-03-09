@@ -40,8 +40,9 @@ export default function SystemStatus() {
     // Check Backend Health
     try {
       const start = Date.now()
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
       const response = await fetch(
-        'https://black-edge-backend-production-e616.up.railway.app/health',
+        `${backendUrl}/health`,
         { cache: 'no-store' }
       )
       const latency = Date.now() - start
@@ -71,8 +72,9 @@ export default function SystemStatus() {
 
     // Check Polymarket Data
     try {
+      const backendUrl2 = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
       const response = await fetch(
-        'https://black-edge-backend-production-e616.up.railway.app/api/opportunities',
+        `${backendUrl2}/api/v2/markets`,
         { cache: 'no-store' }
       )
 

@@ -42,7 +42,7 @@ export function isStripeConfigured(): boolean {
  */
 export const TIER_PRICES = {
   runner: {
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_RUNNER || "",
+    priceId: process.env.NEXT_PUBLIC_STRIPE_RUNNER_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_RUNNER || "",
     amount: 29,
     name: "Runner",
     features: [
@@ -54,7 +54,7 @@ export const TIER_PRICES = {
     ],
   },
   whale: {
-    priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_WHALE || "",
+    priceId: process.env.NEXT_PUBLIC_STRIPE_WHALE_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_WHALE || "",
     amount: 999,
     name: "The Edge",
     features: [

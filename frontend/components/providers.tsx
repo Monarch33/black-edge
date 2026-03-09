@@ -13,8 +13,8 @@ import "@rainbow-me/rainbowkit/styles.css"
 
 const config = getDefaultConfig({
   appName: "BLACK EDGE",
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "demo",
-  chains: [mainnet, polygon, arbitrum, optimism, base],
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "placeholder",
+  chains: [polygon, mainnet, arbitrum, optimism, base],
   ssr: true,
 })
 
@@ -28,7 +28,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           theme={darkTheme({
             accentColor: "#10b981",
             accentColorForeground: "#000",
-            borderRadius: "none",
+            borderRadius: "medium",
           })}
           modalSize="compact"
         >

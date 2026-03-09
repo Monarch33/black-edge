@@ -92,19 +92,19 @@ export function useBlackEdge(
       const ws = new WebSocket(url);
 
       ws.onopen = () => {
-        console.log("[BlackEdge] Connected");
+        // Connected
         setStatus(firebaseToken ? ConnectionStatus.AUTHENTICATED : ConnectionStatus.CONNECTED);
       };
 
       ws.onclose = (event) => {
-        console.log("[BlackEdge] Disconnected", event.code, event.reason);
+        // Disconnected
         setStatus(ConnectionStatus.DISCONNECTED);
         wsRef.current = null;
 
         // Auto-reconnect
         if (config.autoReconnect && event.code !== 1000) {
           reconnectTimeoutRef.current = setTimeout(() => {
-            console.log("[BlackEdge] Reconnecting...");
+            // Reconnecting
             connect();
           }, config.reconnectInterval);
         }
@@ -181,7 +181,7 @@ export function useBlackEdge(
           break;
 
         default:
-          console.warn("[BlackEdge] Unknown message type", message.type);
+          // Unhandled message type
       }
     },
     []
