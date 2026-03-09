@@ -15,13 +15,6 @@ export function getStripe(): Promise<Stripe | null> {
   if (!stripePromise) {
     const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "";
 
-    // DEBUG: Log Stripe configuration
-    console.log("🔑 Stripe Configuration Debug:");
-    console.log("  - Environment:", process.env.NODE_ENV);
-    console.log("  - Key Prefix:", stripeKey ? stripeKey.substring(0, 7) : "NONE");
-    console.log("  - Key Length:", stripeKey.length);
-    console.log("  - Mode:", stripeKey.startsWith("pk_live_") ? "LIVE" : stripeKey.startsWith("pk_test_") ? "TEST" : "DISABLED");
-
     if (!stripeKey) {
       console.warn("⚠️ STRIPE: No publishable key configured - payments disabled");
       return Promise.resolve(null);
@@ -75,13 +68,6 @@ export const TIER_PRICES = {
   },
 };
 
-// Log configuration on module load
-if (typeof window !== "undefined") {
-  console.log("💰 Stripe Price IDs configured:");
-  console.log("  - Runner ($29):", TIER_PRICES.runner.priceId || "❌ MISSING");
-  console.log("  - The Edge ($999):", TIER_PRICES.whale.priceId || "❌ MISSING");
-}
-
 export type StripeTier = "runner" | "whale"
 
 /**
@@ -92,11 +78,6 @@ export async function createCheckoutSession(
   userId: string,
   options?: { successUrl?: string; cancelUrl?: string }
 ): Promise<{ sessionId: string; url: string } | null> {
-  console.log("💳 Creating Stripe checkout session:");
-  console.log("  - Tier:", tier);
-  console.log("  - Price ID:", TIER_PRICES[tier].priceId);
-  console.log("  - User ID:", userId);
-
   try {
     const origin = typeof window !== "undefined" ? window.location.origin : ""
     const response = await fetch("/api/stripe/checkout", {
@@ -112,18 +93,12 @@ export async function createCheckoutSession(
       }),
     })
 
-    console.log("  - Response status:", response.status);
-
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error("❌ Checkout session failed:", errorData);
       throw new Error("Failed to create checkout session");
     }
 
     const data = await response.json();
-    const { sessionId, url } = data;
-    console.log("✅ Checkout session created:", sessionId);
-    return { sessionId, url };
+    return { sessionId: data.sessionId, url: data.url };
   } catch (error) {
     console.error("❌ Checkout session error:", error);
     return null;

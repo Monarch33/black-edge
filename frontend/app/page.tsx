@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { ConnectButton } from "@rainbow-me/rainbowkit"
 import { useAccount, useDisconnect } from "wagmi"
 import { useRouter } from "next/navigation"
@@ -48,6 +48,8 @@ export default function Home() {
   const [accessModalTier, setAccessModalTier] = useState<"runner" | "whale">("runner")
   const [accessTerminalLoading, setAccessTerminalLoading] = useState(false)
   const [pageFadeOut, setPageFadeOut] = useState(false)
+  const [cliOs, setCliOs] = useState<"mac" | "windows" | "linux">("mac")
+  const [authEmail, setAuthEmail] = useState("")
 
   const adminWallet = (typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_ADMIN_WALLET_ADDRESS ?? "") : "") || ""
 
@@ -104,8 +106,9 @@ export default function Home() {
         dot.style.top = my + "px"
       }
     }
-    document.addEventListener("mousemove", onMouseMove)
+    document.addEventListener("mousemove", onMouseMove, { passive: true })
 
+    let cursorRaf = 0
     function animCursor() {
       rx += (mx - rx) * 0.12
       ry += (my - ry) * 0.12
@@ -117,9 +120,9 @@ export default function Home() {
         lbl.style.left = rx + "px"
         lbl.style.top = ry + "px"
       }
-      requestAnimationFrame(animCursor)
+      cursorRaf = requestAnimationFrame(animCursor)
     }
-    animCursor()
+    cursorRaf = requestAnimationFrame(animCursor)
 
     const hoverEls = document.querySelectorAll("a, button, .mcard, .agent, .pcard, .hiw-card, .tr-stat, .ksig")
     hoverEls.forEach((el) => {
@@ -283,7 +286,7 @@ export default function Home() {
           setTimeout(() => el.classList.remove("flash"), 250)
         }
       })
-    }, 2200)
+    }, 5000)
 
     let countdown = 30
     setInterval(() => {
@@ -353,24 +356,9 @@ export default function Home() {
       )
     }
 
-    setInterval(() => {
-      const targets = [...document.querySelectorAll<HTMLElement>(".agent-name, .nav-logo, .hiw-title")]
-      const t = targets[Math.floor(Math.random() * targets.length)]
-      if (!t) return
-      const orig = t.innerHTML
-      let c = 0
-      const gi = setInterval(() => {
-        t.style.transform = `translate(${(Math.random() - 0.5) * 4}px,${(Math.random() - 0.5) * 2}px)`
-        if (++c > 3) {
-          clearInterval(gi)
-          t.style.transform = ""
-          t.innerHTML = orig
-        }
-      }, 40)
-    }, 4500)
-
     return () => {
       document.removeEventListener("mousemove", onMouseMove)
+      cancelAnimationFrame(cursorRaf)
     }
   }, [])
 
@@ -962,6 +950,167 @@ export default function Home() {
                 <button type="button" className="btn-tier" onClick={() => handleGetAccess("whale")}>
                   GET ACCESS — $999
                 </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="hr hr-z" />
+
+        {/* ── GET STARTED / AUTH SECTION ── */}
+        <section id="get-started">
+          <div className="section-inner">
+            <div className="section-tag reveal">GET STARTED</div>
+            <h2 className="section-title reveal reveal-delay-1">
+              Create your
+              <br />
+              <em>Account</em>
+            </h2>
+            <div className="auth-grid">
+              <div className="auth-left reveal reveal-delay-2">
+                <p className="auth-lead">
+                  Sign up in <strong>30 seconds</strong> and start receiving AI-powered market signals.
+                  Connect with your preferred method — <em>no wallet required to get started</em>.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+                  <div className="cmeta-row">
+                    <div className="cmeta-num" style={{ fontSize: 20, color: "var(--em)" }}>✓</div>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,.4)" }}>Free tier — no credit card required</span>
+                  </div>
+                  <div className="cmeta-row">
+                    <div className="cmeta-num" style={{ fontSize: 20, color: "var(--em)" }}>✓</div>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,.4)" }}>Access top 5 market signals instantly</span>
+                  </div>
+                  <div className="cmeta-row">
+                    <div className="cmeta-num" style={{ fontSize: 20, color: "var(--em)" }}>✓</div>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,.4)" }}>Upgrade to Runner or Edge anytime</span>
+                  </div>
+                </div>
+              </div>
+              <div className="auth-panel reveal reveal-delay-3">
+                <div className="auth-panel-title">Create Account</div>
+                <div className="auth-panel-sub">CHOOSE YOUR SIGN-IN METHOD</div>
+
+                <button type="button" className="btn-auth btn-auth-google" onClick={() => toast.info("Google signup coming soon")}>
+                  <svg width="18" height="18" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  CONTINUE WITH GOOGLE
+                </button>
+
+                <button type="button" className="btn-auth btn-auth-apple" onClick={() => toast.info("Apple signup coming soon")}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                  </svg>
+                  CONTINUE WITH APPLE
+                </button>
+
+                <ConnectButton.Custom>
+                  {({ openConnectModal, account }) =>
+                    account ? (
+                      <button type="button" className="btn-auth btn-auth-wallet" style={{ borderColor: "rgba(16,185,129,.3)", color: "var(--em)" }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="18" cy="15" r="1"/></svg>
+                        {account.displayName}
+                      </button>
+                    ) : (
+                      <button type="button" className="btn-auth btn-auth-wallet" onClick={openConnectModal}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--em)" strokeWidth="2"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/><circle cx="18" cy="15" r="1"/></svg>
+                        CONNECT WALLET (WEB3)
+                      </button>
+                    )
+                  }
+                </ConnectButton.Custom>
+
+                <div className="auth-divider">OR</div>
+
+                <div className="auth-email-row">
+                  <input
+                    type="email"
+                    className="auth-email-input"
+                    placeholder="you@email.com"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn-auth-email"
+                    onClick={() => {
+                      if (authEmail) toast.success("Magic link sent to " + authEmail)
+                      else toast.error("Enter your email")
+                    }}
+                  >
+                    SIGN UP
+                  </button>
+                </div>
+                <div style={{ fontSize: 8, letterSpacing: ".12em", color: "rgba(255,255,255,.15)", textAlign: "center", marginTop: 4 }}>
+                  By signing up you agree to our Terms of Service and Privacy Policy
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="hr hr-z" />
+
+        {/* ── CLI INSTALL SECTION ── */}
+        <section id="cli-install">
+          <div className="section-inner">
+            <div className="section-tag reveal">COMMAND LINE</div>
+            <h2 className="section-title reveal reveal-delay-1">
+              Install the
+              <br />
+              <em>CLI</em>
+            </h2>
+            <p className="reveal reveal-delay-15" style={{ fontSize: 11, color: "rgba(255,255,255,.35)", lineHeight: 1.8, maxWidth: 500, marginTop: 16 }}>
+              Stream signals directly in your terminal. Arm the engine, monitor positions, and trade — all from the command line.
+            </p>
+            <div className="cli-section reveal reveal-delay-2">
+              <div className="cli-tabs">
+                <button type="button" className={`cli-tab ${cliOs === "mac" ? "active" : ""}`} onClick={() => setCliOs("mac")}>macOS</button>
+                <button type="button" className={`cli-tab ${cliOs === "windows" ? "active" : ""}`} onClick={() => setCliOs("windows")}>WINDOWS</button>
+                <button type="button" className={`cli-tab ${cliOs === "linux" ? "active" : ""}`} onClick={() => setCliOs("linux")}>LINUX</button>
+              </div>
+              <div className="cli-panel" style={{ position: "relative" }}>
+                {cliOs === "mac" && (
+                  <div className="cli-cmd">
+                    <div className="cli-comment"># Install via Homebrew</div>
+                    <div className="cli-line"><span className="cli-prompt">$</span><span className="cli-text">brew tap black-edge/tap</span></div>
+                    <div className="cli-line"><span className="cli-prompt">$</span><span className="cli-text">brew install black-edge</span></div>
+                    <br />
+                    <div className="cli-comment"># Or via npm</div>
+                    <div className="cli-line"><span className="cli-prompt">$</span><span className="cli-text">npm install -g black-edge-cli</span></div>
+                    <br />
+                    <div className="cli-comment"># Start the terminal</div>
+                    <div className="cli-line"><span className="cli-prompt">$</span><span className="cli-text">black-edge start</span></div>
+                  </div>
+                )}
+                {cliOs === "windows" && (
+                  <div className="cli-cmd">
+                    <div className="cli-comment"># Install via npm (requires Node.js)</div>
+                    <div className="cli-line"><span className="cli-prompt">C:\&gt;</span><span className="cli-text">npm install -g black-edge-cli</span></div>
+                    <br />
+                    <div className="cli-comment"># Or via winget</div>
+                    <div className="cli-line"><span className="cli-prompt">C:\&gt;</span><span className="cli-text">winget install BlackEdge.CLI</span></div>
+                    <br />
+                    <div className="cli-comment"># Start the terminal</div>
+                    <div className="cli-line"><span className="cli-prompt">C:\&gt;</span><span className="cli-text">black-edge start</span></div>
+                  </div>
+                )}
+                {cliOs === "linux" && (
+                  <div className="cli-cmd">
+                    <div className="cli-comment"># Quick install script</div>
+                    <div className="cli-line"><span className="cli-prompt">$</span><span className="cli-text">curl -fsSL https://get.blackedge.ai/install.sh | sh</span></div>
+                    <br />
+                    <div className="cli-comment"># Or via npm</div>
+                    <div className="cli-line"><span className="cli-prompt">$</span><span className="cli-text">npm install -g black-edge-cli</span></div>
+                    <br />
+                    <div className="cli-comment"># Start the terminal</div>
+                    <div className="cli-line"><span className="cli-prompt">$</span><span className="cli-text">black-edge start</span></div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

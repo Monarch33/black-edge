@@ -32,16 +32,16 @@ async def _provision_user(customer_email: str, wallet_address: str | None) -> No
         if not user:
             user = User(
                 email=customer_email,
-                tier=UserTier.RUNNER,
+                tier=UserTier.PRO,
                 is_active=True,
             )
             session.add(user)
             session.flush()
             logger.info("New user provisioned", email=_mask(customer_email))
         else:
-            user.tier = UserTier.RUNNER
+            user.tier = UserTier.PRO
             user.is_active = True
-            logger.info("Existing user upgraded to runner", email=_mask(customer_email))
+            logger.info("Existing user upgraded to pro", email=_mask(customer_email))
 
         # Init BotInstance if missing
         bot = session.query(BotInstance).filter(BotInstance.user_id == user.id).first()

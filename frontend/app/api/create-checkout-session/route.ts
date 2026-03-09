@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       metadata: { source: "black_edge_website" },
     })
 
-    return NextResponse.json({ sessionId: session.id })
+    return NextResponse.json({ sessionId: session.id, url: session.url })
   } catch (error) {
     console.error("Stripe error:", error)
     if (error instanceof Stripe.errors.StripeError) {
