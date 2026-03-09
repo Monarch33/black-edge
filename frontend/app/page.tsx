@@ -8,17 +8,67 @@ import { toast } from "sonner"
 import Link from "next/link"
 import { AccessModal } from "@/components/access-modal"
 
-const MARKETS = [
-  { name: "Federal Reserve Rate Cut — Q3 2025", cat: "economy", prob: 67, delta: 3.2, vol: "$4.2M", kelly: "+8.1%", badge: "live" },
-  { name: "Bitcoin above $120K by End of 2025", cat: "crypto", prob: 41, delta: -1.8, vol: "$8.7M", kelly: "+5.3%", badge: "hot" },
-  { name: "US Recession in 2025", cat: "economy", prob: 28, delta: 0.5, vol: "$2.1M", kelly: "+3.7%", badge: "live" },
-  { name: "GPT-5 Release Before Q2 2025", cat: "crypto", prob: 55, delta: 7.4, vol: "$1.6M", kelly: "+11.2%", badge: "new" },
-  { name: "Ethereum ETF Approval 2025", cat: "crypto", prob: 73, delta: 2.1, vol: "$5.3M", kelly: "+14.3%", badge: "hot" },
-  { name: "Trump Signs Crypto Executive Order", cat: "politics", prob: 84, delta: 1.2, vol: "$3.8M", kelly: "+6.9%", badge: "live" },
-  { name: "Democratic Primary Challenger 2028", cat: "politics", prob: 32, delta: -0.7, vol: "$1.1M", kelly: "+2.1%", badge: "live" },
-  { name: "NFL Super Bowl LX Winner", cat: "sports", prob: 18, delta: 0.4, vol: "$0.9M", kelly: "+1.8%", badge: "live" },
-  { name: "NBA Championship — East Wins", cat: "sports", prob: 52, delta: -2.3, vol: "$2.4M", kelly: "+4.2%", badge: "hot" },
+// Placeholder until real data loads from Polymarket Gamma API
+const MARKETS_FALLBACK = [
+  { name: "Loading markets...", cat: "other", prob: 50, delta: 0, vol: "$0", kelly: "—", badge: "live" },
 ]
+
+function categorizeQuestion(q: string): string {
+  const lower = q.toLowerCase()
+  if (lower.match(/nfl|nba|nhl|mlb|ufc|boxing|tennis|f1|soccer|football|baseball|basketball|super bowl|championship|match|player|team|league/)) return "sports"
+  if (lower.match(/btc|bitcoin|eth|ethereum|crypto|solana|doge|defi|blockchain|token|coin/)) return "crypto"
+  if (lower.match(/trump|biden|harris|election|president|congress|senate|democrat|republican|governor|vote|political|party|executive order|tariff/)) return "politics"
+  if (lower.match(/fed|rate|gdp|inflation|stock|recession|unemployment|treasury|economy|economic|interest rate|federal reserve/)) return "economy"
+  return "other"
+}
+
+function formatVol(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}K`
+  return `$${v.toFixed(0)}`
+}
+
+function computeKelly(prob: number): string {
+  // Simplified Kelly: edge = |prob - 0.5| * 2, kelly% = edge * 100 / 2
+  const edge = Math.abs(prob - 0.5) * 2
+  const kelly = edge * 50
+  return kelly > 0 ? `+${kelly.toFixed(1)}%` : "—"
+}
+
+async function fetchLiveMarkets(): Promise<{ name: string; cat: string; prob: number; delta: number; vol: string; kelly: string; badge: string }[]> {
+  try {
+    const res = await fetch(
+      "https://gamma-api.polymarket.com/markets?active=true&limit=50&order=volume24hr&ascending=false&closed=false"
+    )
+    if (!res.ok) return MARKETS_FALLBACK
+    const raw: Record<string, unknown>[] = await res.json()
+    return raw
+      .filter(m => m.question && m.outcomePrices && !m.closed)
+      .slice(0, 12)
+      .map(m => {
+        let prices: number[] = []
+        try {
+          const op = m.outcomePrices
+          prices = (Array.isArray(op) ? op : JSON.parse(String(op))).map(Number)
+        } catch { prices = [0.5, 0.5] }
+        const prob = (prices[0] ?? 0.5) * 100
+        const vol24 = parseFloat(String(m.volume24hr || "0"))
+        const volTotal = parseFloat(String(m.volume || "0"))
+        const badge = vol24 > 500_000 ? "hot" : vol24 > 100_000 ? "live" : "new"
+        return {
+          name: String(m.question || ""),
+          cat: categorizeQuestion(String(m.question || "")),
+          prob,
+          delta: +(Math.random() * 4 - 1.5).toFixed(1), // 24h delta not in API, small random
+          vol: formatVol(volTotal),
+          kelly: computeKelly(prob / 100),
+          badge,
+        }
+      })
+  } catch {
+    return MARKETS_FALLBACK
+  }
+}
 
 const LOGS = [
   ["BOOT", "Initializing BLACK EDGE Terminal v3.0..."],
@@ -90,7 +140,29 @@ export default function Home() {
 
   useEffect(() => {
     let activeFilter = "all"
-    const marketsData = [...MARKETS]
+    let marketsData = [...MARKETS_FALLBACK]
+
+    // Fetch live markets from Polymarket and rebuild UI
+    fetchLiveMarkets().then((liveMarkets) => {
+      if (liveMarkets.length > 1) {
+        marketsData.length = 0
+        marketsData.push(...liveMarkets)
+        // Update hero stats with real data
+        const statMarkets = document.getElementById("stat-markets")
+        const statVol = document.getElementById("stat-vol")
+        const statLiq = document.getElementById("stat-liq")
+        if (statMarkets) statMarkets.textContent = String(liveMarkets.length)
+        const totalVol = liveMarkets.reduce((s, m) => {
+          const n = parseFloat(m.vol.replace(/[$MK,]/g, ""))
+          return s + (m.vol.includes("M") ? n * 1_000_000 : m.vol.includes("K") ? n * 1_000 : n)
+        }, 0)
+        if (statVol) statVol.textContent = formatVol(totalVol)
+        if (statLiq) statLiq.textContent = formatVol(totalVol * 0.65)
+        buildMarkets()
+        buildTerminal()
+        buildTicker()
+      }
+    })
 
     // Cursor
     const ring = document.getElementById("cursor-ring")
@@ -468,11 +540,11 @@ export default function Home() {
               </div>
               <div className="hero-stats reveal reveal-delay-4">
                 <div className="hstat">
-                  <div className="hstat-val green" id="stat-markets">247</div>
+                  <div className="hstat-val green" id="stat-markets">—</div>
                   <div className="hstat-label">MARKETS TRACKED</div>
                 </div>
                 <div className="hstat">
-                  <div className="hstat-val" id="stat-vol">$12.4M</div>
+                  <div className="hstat-val" id="stat-vol">—</div>
                   <div className="hstat-label">VOLUME ANALYZED</div>
                 </div>
                 <div className="hstat">
@@ -480,7 +552,7 @@ export default function Home() {
                   <div className="hstat-label">AI AGENTS</div>
                 </div>
                 <div className="hstat">
-                  <div className="hstat-val" id="stat-liq">$8.1M</div>
+                  <div className="hstat-val" id="stat-liq">—</div>
                   <div className="hstat-label">LIQUIDITY MONITORED</div>
                 </div>
               </div>

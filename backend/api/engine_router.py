@@ -240,6 +240,13 @@ def toggle_bot(
             status_str = "STOPPED"
             message = "Bot stopped"
         else:
+            # Verify credentials exist before starting
+            creds = session.query(UserCredentials).filter(UserCredentials.user_id == user_id).first()
+            if not creds:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No Polymarket credentials configured. Please set up your API keys first.",
+                )
             bot.status = BotStatus.RUNNING
             bot.last_heartbeat = datetime.now(timezone.utc)
             bot.last_log = "Bot started — scanning Polymarket..."

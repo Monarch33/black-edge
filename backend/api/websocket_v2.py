@@ -34,16 +34,19 @@ class ConnectionManager:
 
     def __init__(self):
         self.active_connections: Set[WebSocket] = set()
+        self._lock = asyncio.Lock()
 
     async def connect(self, websocket: WebSocket):
         """Accept and register a new WebSocket connection."""
         await websocket.accept()
-        self.active_connections.add(websocket)
+        async with self._lock:
+            self.active_connections.add(websocket)
         logger.info("WebSocket connected", connection_count=len(self.active_connections))
 
-    def disconnect(self, websocket: WebSocket):
+    async def disconnect(self, websocket: WebSocket):
         """Remove a WebSocket connection."""
-        self.active_connections.discard(websocket)
+        async with self._lock:
+            self.active_connections.discard(websocket)
         logger.info("WebSocket disconnected", connection_count=len(self.active_connections))
 
     async def send_personal_message(self, message: dict, websocket: WebSocket):
@@ -57,7 +60,10 @@ class ConnectionManager:
         """Broadcast a message to all connected clients."""
         disconnected = set()
 
-        for connection in self.active_connections:
+        async with self._lock:
+            connections = set(self.active_connections)
+
+        for connection in connections:
             try:
                 await connection.send_json(message)
             except Exception as e:
@@ -65,8 +71,9 @@ class ConnectionManager:
                 disconnected.add(connection)
 
         # Clean up disconnected clients
-        for conn in disconnected:
-            self.disconnect(conn)
+        if disconnected:
+            async with self._lock:
+                self.active_connections -= disconnected
 
     @property
     def connection_count(self) -> int:
@@ -127,12 +134,12 @@ async def websocket_handler_v2(websocket: WebSocket):
                 )
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)
         logger.info("Client disconnected normally")
 
     except Exception as e:
         logger.error("WebSocket error", error=str(e))
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)
 
 
 async def broadcast_signal_update(market_id: str, signal_data: dict):

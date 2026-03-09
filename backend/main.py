@@ -1139,13 +1139,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware - Allow Vercel domains and localhost
+# CORS middleware - Allow production domains, Vercel previews, and localhost
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://*.vercel.app",
+        "https://blackedge.io",
+        "https://www.blackedge.io",
         "https://black-edge.vercel.app",
     ],
     allow_credentials=True,
