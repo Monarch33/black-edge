@@ -45,3 +45,5 @@ htmlcov/
 *.key
 API_KEYS_LOCAL.txt
 .vercel
+.vercel/
+repomix-output.xml
