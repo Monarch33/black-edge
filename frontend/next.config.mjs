@@ -1,8 +1,14 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  productionBrowserSourceMaps: false,
+  outputFileTracingRoot: path.join(__dirname, "../"),
   webpack: (config, { isServer }) => {
     // Fix optional deps from MetaMask SDK / WalletConnect (build warnings)
     config.resolve.fallback = {
@@ -15,37 +21,33 @@ const nextConfig = {
 }
 
 export default withSentryConfig(nextConfig, {
-  // For all available options, see:
-  // https://github.com/getsentry/sentry-webpack-plugin#options
-
   org: "black-edge",
   project: "javascript-nextjs",
 
-  // Only print logs for uploading source maps in CI
-  silent: !process.env.CI,
-
-  // For all available options, see:
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+  // Suppress Sentry CLI warnings (source map reference warnings for Vercel infra bundles)
+  silent: true,
 
   // Upload a larger set of source maps for prettier stack traces (increases build time)
   widenClientFileUpload: true,
 
-  // Uncomment to route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-  // This can increase your server load as well as your hosting bill.
-  // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
-  // side errors will fail.
-  // tunnelRoute: "/monitoring",
-
-  // Hides source maps from generated client bundles
+  // Remove sourceMappingURL comments from production bundles after upload
   hideSourceMaps: true,
 
-  // Modern webpack configuration
+  // Upload source maps then delete them from the deployment
+  sourcemaps: {
+    deleteFilesAfterUpload: [
+      '.next/static/**/*.map',
+      '.next/server/**/*.map',
+      '.next/**/*.map',
+    ],
+  },
+
+  // Automatically tree-shake Sentry logger statements to reduce bundle size
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+  },
+
   webpack: {
-    // Automatically tree-shake Sentry logger statements to reduce bundle size
-    treeshake: {
-      removeDebugLogging: true,
-    },
-    // Enables automatic instrumentation of Vercel Cron Monitors
     automaticVercelMonitors: true,
   },
 });

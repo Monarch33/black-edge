@@ -19,10 +19,14 @@ export function AuthModal({ isOpen, onClose, mode = "login" }: AuthModalProps) {
 
   const handleGoogleAuth = async () => {
     try {
-      await signIn("google", { callbackUrl: "/" })
-      onClose()
+      const res = await signIn("google", { callbackUrl: "/", redirect: false })
+      if (res?.error) {
+        toast.error("Google sign-in is not available. Use wallet to connect.")
+      } else if (res?.url) {
+        window.location.href = res.url
+      }
     } catch (error) {
-      toast.error("Failed to sign in with Google")
+      toast.error("Google sign-in failed. Try wallet connection instead.")
       console.error(error)
     }
   }
